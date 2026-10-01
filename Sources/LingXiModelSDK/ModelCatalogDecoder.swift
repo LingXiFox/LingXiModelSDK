@@ -165,19 +165,18 @@ enum ModelCatalogDecoder {
         return text
     }
 
-    private static let dateFormatters: [ISO8601DateFormatter] = {
+    /// Accepts a full timestamp and a bare `YYYY-MM-DD` date; a value the SDK
+    /// cannot read becomes `nil` rather than a wrong date.
+    ///
+    /// Formatters are built per call: `ISO8601DateFormatter` is not `Sendable`,
+    /// so a shared static instance would be mutable state visible to every task.
+    static func timestamp(_ text: String?) -> Date? {
+        guard let text, !text.isEmpty else { return nil }
         let withFraction = ISO8601DateFormatter()
         withFraction.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
         let plain = ISO8601DateFormatter()
         plain.formatOptions = [.withInternetDateTime]
-        return [withFraction, plain]
-    }()
-
-    /// Accepts a full timestamp and a bare `YYYY-MM-DD` date; a value the SDK
-    /// cannot read becomes `nil` rather than a wrong date.
-    static func timestamp(_ text: String?) -> Date? {
-        guard let text, !text.isEmpty else { return nil }
-        for formatter in dateFormatters {
+        for formatter in [withFraction, plain] {
             if let date = formatter.date(from: text) { return date }
         }
         if text.count == 10 {
