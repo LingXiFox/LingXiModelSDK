@@ -58,6 +58,12 @@ enum ModelCatalogDecoder {
         guard !providers.isEmpty else {
             throw ModelCatalogError.invalidCatalog("没有任何可用的 provider 条目")
         }
+        // Both this array and each provider's `models` come out of a JSON *object*, which has no
+        // order, handed to a Swift Dictionary whose iteration order is seeded per process. Without a
+        // stated order applied here, a reader of `catalog.providers` or `provider.models` is reading
+        // process noise, and two runs over the same bytes disagree. `featured` still wins at display
+        // time through `sortedProviders(featured:)`.
+        providers.sort { ModelCatalogOrdering.displayName($0.name, $0.id, $1.name, $1.id) == .orderedAscending }
 
         let revision = LingXiModelCatalog.Revision(
             schemaVersion: schemaVersion,
@@ -94,7 +100,7 @@ enum ModelCatalogDecoder {
             baseURL: nonEmpty(fields["baseURL"]?.stringValue),
             documentationURL: nonEmpty(fields["doc"]?.stringValue),
             environmentVariableNames: fields["env"]?.arrayValue?.compactMap(\.stringValue) ?? [],
-            models: models,
+            models: LingXiModelCatalog.modelsInStableOrder(models),
             fields: fields
         )
     }

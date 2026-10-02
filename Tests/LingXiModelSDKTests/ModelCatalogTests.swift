@@ -258,6 +258,19 @@ struct ModelCatalogOrderingTests {
         #expect(first == second)
         #expect(first.count == 4)
     }
+
+    @Test("the arrays a consumer reads directly are in the stated order, not a dictionary's")
+    func storedOrderIsStatedOrder() throws {
+        // `deterministic` compares two decodes inside one process, which shares a hash seed, so it
+        // cannot see a per-launch order at all. These arrays are read directly by consumers.
+        let loaded = try catalog(v2Document)
+        #expect(loaded.providers.map(\.id) == loaded.sortedProviders().map(\.id),
+                "providers 的顺序仍来自字典遍历")
+        for provider in loaded.providers {
+            #expect(provider.models.map(\.id) == LingXiModelCatalog.modelsInStableOrder(provider.models).map(\.id),
+                    "\(provider.id) 的 models 顺序仍来自字典遍历")
+        }
+    }
 }
 
 struct ModelCatalogQueryTests {
