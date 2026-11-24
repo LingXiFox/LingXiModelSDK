@@ -506,20 +506,59 @@ func parseSnapshot(body []byte, publishedAt string) (*Snapshot, error) {
 	return snap, nil
 }
 
+type providerStatusEntry struct {
+	Status    string   `json:"status"`
+	Protocols []string `json:"protocols"`
+}
+
+var embeddedProviderStatuses = loadEmbeddedProviderStatuses()
+
+func loadEmbeddedProviderStatuses() map[string]providerStatusEntry {
+	out := make(map[string]providerStatusEntry)
+	raw, err := assets.ReadFile("static/provider-status.json")
+	if err != nil {
+		return out
+	}
+	_ = json.Unmarshal(raw, &out)
+	return out
+}
+
+func formatProviderStatusLabel(raw string) string {
+	switch raw {
+	case "full_support":
+		return "Full Support"
+	case "live_verified":
+		return "Live Verified"
+	case "mock_tested":
+		return "Mock Tested"
+	case "compatible":
+		return "Compatible"
+	default:
+		return "Discovered"
+	}
+}
+
 func (s *Snapshot) buildIndex() {
 	s.Providers = make([]ProviderView, 0, len(s.Catalog.Providers))
 	for pid, p := range s.Catalog.Providers {
 		models := parseObject(p["models"])
 		var env []string
 		_ = json.Unmarshal(p["env"], &env)
+		statusLabel := "Discovered"
+		var protocols string
+		if st, ok := embeddedProviderStatuses[pid]; ok {
+			statusLabel = formatProviderStatusLabel(st.Status)
+			protocols = strings.Join(st.Protocols, ", ")
+		}
 		s.Providers = append(s.Providers, ProviderView{
-			ID:       pid,
-			Name:     fallbackString(parseString(p["name"]), pid),
-			Endpoint: fallbackString(parseString(p["baseURL"]), parseString(p["api"])),
-			Doc:      parseString(p["doc"]),
-			Env:      strings.Join(env, ", "),
-			Count:    len(models),
-			Status:   "Discovered",
+			ID:        pid,
+			Name:      fallbackString(parseString(p["name"]), pid),
+			Endpoint:  fallbackString(parseString(p["baseURL"]), parseString(p["api"])),
+			Doc:       parseString(p["doc"]),
+			Env:       strings.Join(env, ", "),
+			Count:     len(models),
+			Status:    statusLabel,
+			Protocols: protocols,
 		})
 	}
 	sortProviders(s.Providers)

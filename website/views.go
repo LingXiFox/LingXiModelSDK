@@ -24,13 +24,14 @@ var catalogFilters = []FilterOption{
 
 // ProviderView holds display metadata for a provider.
 type ProviderView struct {
-	ID       string
-	Name     string
-	Endpoint string
-	Doc      string
-	Env      string
-	Count    int
-	Status   string
+	ID        string
+	Name      string
+	Endpoint  string
+	Doc       string
+	Env       string
+	Count     int
+	Status    string
+	Protocols string
 }
 
 // ModelView holds display metadata for a model, keeping pointer fields so

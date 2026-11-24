@@ -21,6 +21,10 @@ All three entry points must remain independently usable. By default, SDKs run in
 
 ## Verification Commands
 
+- **All Phases (1–6)**:
+  ```sh
+  ./scripts/test-all.sh
+  ```
 - **Go website**:
   ```sh
   cd website && go vet ./... && go test -race ./... && CGO_ENABLED=0 go build -trimpath -ldflags="-s -w" -o lingxi-models .

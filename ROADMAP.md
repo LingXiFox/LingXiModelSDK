@@ -53,7 +53,12 @@ LingXiModelSDK 2.0 evolves the repository from a single-language Swift model cat
   - Endpoints: `/v1/healthz`, `/v1/lmp/complete`, `/v1/lmp/stream`, `/v1/diagnostics/connect`.
   - Security: loopback bind by default, fail-closed mandatory Bearer auth + `-allow-hosts` egress allowlist for remote binds, SSRF protection, 16 MiB bounded requests, per-client token-bucket rate limiting, and zero credential/body logging.
 
-## Phase 6: Conformance, Release Automation & Ecosystem Publishing
+## Phase 6: Conformance, Support Evidence & Release Automation (`conformance/`, `docs/`, `scripts/`) — Implemented
 
-- Track per-provider/protocol/capability evidence across 5 tiers: `Discovered`, `Compatible`, `Mock Tested`, `Live Verified`, `Full Support`.
-- Build cross-language conformance runner, protocol mock servers, optional live API verification suites, and automated per-ecosystem package publishing.
+- Added evidence-backed support matrix (`conformance/evidence/support-matrix.json`, `scripts/generate-support-report.py`, `docs/support-matrix.md`) and embedded `website/static/provider-status.json` into the website `/providers` page.
+- Added standalone protocol mock server (`conformance/mock-server/server.py`) and opt-in live verification script (`scripts/live-verify.sh`).
+- Added full monorepo verification runner (`scripts/test-all.sh`), release checklist (`docs/publishing.md`), and manual `workflow_dispatch` release binary workflow (`.github/workflows/release-artifacts.yml`).
+
+### Remaining Optional / Gated Items
+- Tier-2 Catalog languages (C#, Kotlin, C++, Dart) and Tier-2 protocols (Bedrock, Vertex AI, Azure, Ollama, Cohere).
+- Approved production server cutover (`models.lingxifox.cn`) and external package registry publishing.

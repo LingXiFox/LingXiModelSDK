@@ -1,0 +1,32 @@
+name: Release Artifacts
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  binaries:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        arch: [amd64, arm64]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: website/go.mod
+          cache: false
+      - name: Build website binary
+        working-directory: website
+        run: CGO_ENABLED=0 GOOS=linux GOARCH=${{ matrix.arch }} go build -trimpath -ldflags="-s -w" -o lingxi-models-linux-${{ matrix.arch }} .
+      - name: Build gateway binary
+        working-directory: gateway
+        run: CGO_ENABLED=0 GOOS=linux GOARCH=${{ matrix.arch }} go build -trimpath -ldflags="-s -w" -o lingxi-gateway-linux-${{ matrix.arch }} .
+      - uses: actions/upload-artifact@v4
+        with:
+          name: lingxi-binaries-linux-${{ matrix.arch }}
+          path: |
+            website/lingxi-models-linux-${{ matrix.arch }}
+            gateway/lingxi-gateway-linux-${{ matrix.arch }}

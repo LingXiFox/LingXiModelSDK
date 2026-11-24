@@ -113,6 +113,14 @@ func TestHTTPEndpointsAndConditionalRequests(t *testing.T) {
 			t.Fatalf("footer missing %q", needle)
 		}
 	}
+
+	// Embedded provider status lookup reflects evidence matrix.
+	if st, ok := embeddedProviderStatuses["openai"]; !ok || st.Status != "mock_tested" {
+		t.Fatalf("expected openai status=mock_tested, got %+v", st)
+	}
+	if st, ok := embeddedProviderStatuses["groq"]; !ok || st.Status != "compatible" {
+		t.Fatalf("expected groq status=compatible, got %+v", st)
+	}
 }
 
 func TestHTTPUnavailableAndAdminSync(t *testing.T) {

@@ -1,0 +1,82 @@
+{
+  "anthropic": {
+    "protocols": [
+      "anthropic_messages"
+    ],
+    "status": "mock_tested"
+  },
+  "deepseek": {
+    "protocols": [
+      "openai_chat_completions"
+    ],
+    "status": "mock_tested"
+  },
+  "fireworks-ai": {
+    "protocols": [
+      "openai_chat_completions"
+    ],
+    "status": "compatible"
+  },
+  "google": {
+    "protocols": [
+      "google_gemini"
+    ],
+    "status": "mock_tested"
+  },
+  "groq": {
+    "protocols": [
+      "openai_chat_completions"
+    ],
+    "status": "compatible"
+  },
+  "mistral": {
+    "protocols": [
+      "openai_chat_completions"
+    ],
+    "status": "compatible"
+  },
+  "moonshotai": {
+    "protocols": [
+      "openai_chat_completions"
+    ],
+    "status": "compatible"
+  },
+  "openai": {
+    "protocols": [
+      "openai_responses",
+      "openai_chat_completions"
+    ],
+    "status": "mock_tested"
+  },
+  "openrouter": {
+    "protocols": [
+      "openai_chat_completions"
+    ],
+    "status": "compatible"
+  },
+  "siliconflow": {
+    "protocols": [
+      "openai_chat_completions"
+    ],
+    "status": "compatible"
+  },
+  "togetherai": {
+    "protocols": [
+      "openai_chat_completions"
+    ],
+    "status": "compatible"
+  },
+  "xai": {
+    "protocols": [
+      "openai_chat_completions",
+      "openai_responses"
+    ],
+    "status": "compatible"
+  },
+  "zhipuai": {
+    "protocols": [
+      "openai_chat_completions"
+    ],
+    "status": "compatible"
+  }
+}

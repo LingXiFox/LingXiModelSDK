@@ -24,12 +24,12 @@
       <button type="submit">搜索</button>
     </form>
 
-    <p class="result-count">显示 {{.Start}}–{{.End}} / {{.Total}} 家提供商 · 当前状态均为 Discovered（仅目录收录，未推导运行时协议）</p>
+    <p class="result-count">显示 {{.Start}}–{{.End}} / {{.Total}} 家提供商 · 仅记录经过实际验证或声明式配置的状态，绝不根据 npm 包名推导协议支持</p>
 
     <div class="panel table-wrap">
       <table>
         <thead>
-          <tr><th>提供商</th><th>Provider ID</th><th>模型数</th><th>目录端点</th><th>验证状态</th></tr>
+          <tr><th>提供商</th><th>Provider ID</th><th>模型数</th><th>目录端点</th><th>支持协议</th><th>验证状态</th></tr>
         </thead>
         <tbody>
           {{range .Providers}}
@@ -38,10 +38,11 @@
             <td><code>{{.ID}}</code></td>
             <td>{{.Count}}</td>
             <td>{{if .Endpoint}}<code>{{.Endpoint}}</code>{{else}}<span class="muted">来源未发布</span>{{end}}</td>
-            <td><span class="status-badge">{{.Status}}</span></td>
+            <td>{{if .Protocols}}<code>{{.Protocols}}</code>{{else}}<span class="muted">—</span>{{end}}</td>
+            <td><span class="status-badge{{if eq .Status "Mock Tested"}} status-live{{end}}">{{.Status}}</span></td>
           </tr>
           {{else}}
-          <tr><td colspan="5" class="muted">未找到匹配的提供商。</td></tr>
+          <tr><td colspan="6" class="muted">未找到匹配的提供商。</td></tr>
           {{end}}
         </tbody>
       </table>

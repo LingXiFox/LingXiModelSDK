@@ -21,9 +21,11 @@ LingXiModelSDK provides three independent, parallel entry points:
    - Tier-1 Protocols: OpenAI Chat Completions, OpenAI Responses, Anthropic Messages, Google Gemini ([specs/native-provider-v1.md](specs/native-provider-v1.md))
    - Run all native provider suites: `./scripts/test-native-providers.sh`
 3. **Unified Provider** *(Mock-tested: Rust `core/src/lmp` + C ABI, Go `sdk/go/unified`, TS `@lingxifox/model-sdk/unified`)*
-   Opt-in normalized LingXi Model Protocol (LMP) across providers, with explicit unsupported-feature errors and no silent downgrades. An optional self-hosted HTTP Gateway is planned in Phase 5.
+   Opt-in normalized LingXi Model Protocol (LMP) across providers, with explicit unsupported-feature errors and no silent downgrades.
+   - Optional HTTP Gateway: [gateway/](gateway/README.md), [specs/gateway-v1.md](specs/gateway-v1.md)
    - Specification, Schema & Bindings Evaluation: [specs/lmp-v1.md](specs/lmp-v1.md), [schemas/lmp-v1.schema.json](schemas/lmp-v1.schema.json), [docs/bindings-evaluation.md](docs/bindings-evaluation.md)
-   - Run all unified LMP suites: `./scripts/test-unified-lmp.sh`
+   - Support Evidence Matrix: [docs/support-matrix.md](docs/support-matrix.md)
+   - Run full monorepo verification: `./scripts/test-all.sh`
 
 See [ROADMAP.md](ROADMAP.md) and [specs/architecture-v2.md](specs/architecture-v2.md) for full details.
 

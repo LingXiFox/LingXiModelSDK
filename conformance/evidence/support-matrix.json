@@ -1,0 +1,44 @@
+{
+  "schemaVersion": "1.0",
+  "generatedAt": "2026-11-24T13:45:00Z",
+  "tiers": ["discovered", "compatible", "mock_tested", "live_verified", "full_support"],
+  "providers": {
+    "openai": {
+      "status": "mock_tested",
+      "protocols": ["openai_responses", "openai_chat_completions"],
+      "capabilities": ["streaming", "tools", "structured_output", "thinking_effort", "usage", "prompt_cache"],
+      "evidence": [
+        { "suite": "core/tests/native_protocols.rs", "verifiedAt": "2026-11-24" },
+        { "suite": "core/tests/unified_lmp.rs", "verifiedAt": "2026-11-24" },
+        { "suite": "gateway/gateway_test.go", "verifiedAt": "2026-11-24" }
+      ]
+    },
+    "anthropic": {
+      "status": "mock_tested",
+      "protocols": ["anthropic_messages"],
+      "capabilities": ["streaming", "tools", "thinking_budget_tokens", "usage", "prompt_cache"],
+      "evidence": [
+        { "suite": "core/tests/native_protocols.rs", "verifiedAt": "2026-11-24" },
+        { "suite": "core/tests/unified_lmp.rs", "verifiedAt": "2026-11-24" }
+      ]
+    },
+    "google": {
+      "status": "mock_tested",
+      "protocols": ["google_gemini"],
+      "capabilities": ["streaming", "tools", "structured_output", "thinking_config", "usage"],
+      "evidence": [
+        { "suite": "core/tests/native_protocols.rs", "verifiedAt": "2026-11-24" },
+        { "suite": "core/tests/unified_lmp.rs", "verifiedAt": "2026-11-24" }
+      ]
+    },
+    "deepseek": {
+      "status": "mock_tested",
+      "protocols": ["openai_chat_completions"],
+      "capabilities": ["streaming", "tools", "reasoning_content", "usage"],
+      "evidence": [
+        { "suite": "core/tests/native_protocols.rs", "verifiedAt": "2026-11-24" },
+        { "suite": "sdk/go/native/native_test.go", "verifiedAt": "2026-11-24" }
+      ]
+    }
+  }
+}
