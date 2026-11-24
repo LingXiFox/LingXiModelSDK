@@ -3,18 +3,9 @@ use std::os::raw::c_char;
 
 use serde_json::{json, Value};
 
-use crate::lmp::{normalize_response, translate_request, LmpRequest};
-use crate::registry::NativeProtocol;
-
-fn parse_protocol(raw: &str) -> Option<NativeProtocol> {
-    match raw {
-        "openai_chat_completions" => Some(NativeProtocol::OpenaiChatCompletions),
-        "openai_responses" => Some(NativeProtocol::OpenaiResponses),
-        "anthropic_messages" => Some(NativeProtocol::AnthropicMessages),
-        "google_gemini" => Some(NativeProtocol::GoogleGemini),
-        _ => None,
-    }
-}
+use crate::lmp::{normalize_response, normalize_stream_events, translate_request, LmpRequest};
+use crate::registry::{NativeProtocol, ProviderRegistry};
+use crate::sse::SseEvent;
 
 fn c_str_to_string(ptr: *const c_char) -> Option<String> {
     if ptr.is_null() {
@@ -36,8 +27,6 @@ fn to_c_json(value: Value) -> *mut c_char {
     }
 }
 
-/// Translates an LMP JSON request into a provider-native JSON payload.
-/// Caller must free the returned string with `lingxi_string_free`.
 #[no_mangle]
 pub extern "C" fn lingxi_lmp_translate_request(
     protocol_utf8: *const c_char,
@@ -46,7 +35,7 @@ pub extern "C" fn lingxi_lmp_translate_request(
     let Some(proto_str) = c_str_to_string(protocol_utf8) else {
         return to_c_json(json!({"ok": false, "error": "null or invalid protocol"}));
     };
-    let Some(proto) = parse_protocol(&proto_str) else {
+    let Some(proto) = NativeProtocol::parse_str(&proto_str) else {
         return to_c_json(json!({"ok": false, "error": format!("unknown protocol: {proto_str}")}));
     };
     let Some(req_str) = c_str_to_string(lmp_request_json_utf8) else {
@@ -62,8 +51,6 @@ pub extern "C" fn lingxi_lmp_translate_request(
     }
 }
 
-/// Normalizes a provider-native JSON response into an LMP response JSON envelope.
-/// Caller must free the returned string with `lingxi_string_free`.
 #[no_mangle]
 pub extern "C" fn lingxi_lmp_normalize_response(
     protocol_utf8: *const c_char,
@@ -72,7 +59,7 @@ pub extern "C" fn lingxi_lmp_normalize_response(
     let Some(proto_str) = c_str_to_string(protocol_utf8) else {
         return to_c_json(json!({"ok": false, "error": "null or invalid protocol"}));
     };
-    let Some(proto) = parse_protocol(&proto_str) else {
+    let Some(proto) = NativeProtocol::parse_str(&proto_str) else {
         return to_c_json(json!({"ok": false, "error": format!("unknown protocol: {proto_str}")}));
     };
     let Some(resp_str) = c_str_to_string(native_response_json_utf8) else {
@@ -88,7 +75,71 @@ pub extern "C" fn lingxi_lmp_normalize_response(
     }
 }
 
-/// Frees a string returned by `lingxi_lmp_*`. Safe to call with NULL.
+#[no_mangle]
+pub extern "C" fn lingxi_lmp_normalize_stream_events(
+    protocol_utf8: *const c_char,
+    events_json_utf8: *const c_char,
+) -> *mut c_char {
+    let Some(proto_str) = c_str_to_string(protocol_utf8) else {
+        return to_c_json(json!({"ok": false, "error": "null or invalid protocol"}));
+    };
+    let Some(proto) = NativeProtocol::parse_str(&proto_str) else {
+        return to_c_json(json!({"ok": false, "error": format!("unknown protocol: {proto_str}")}));
+    };
+    let Some(ev_str) = c_str_to_string(events_json_utf8) else {
+        return to_c_json(json!({"ok": false, "error": "null or invalid events JSON"}));
+    };
+    let raw_events: Vec<Value> = match serde_json::from_str(&ev_str) {
+        Ok(v) => v,
+        Err(e) => return to_c_json(json!({"ok": false, "error": e.to_string()})),
+    };
+    let events: Vec<SseEvent> = raw_events
+        .into_iter()
+        .map(|v| SseEvent {
+            event: v["event"].as_str().map(ToString::to_string),
+            data: v["data"].as_str().unwrap_or("").to_string(),
+            id: v["id"].as_str().map(ToString::to_string),
+        })
+        .collect();
+    match normalize_stream_events(proto, &events) {
+        Ok(norm) => to_c_json(json!({"ok": true, "events": norm})),
+        Err(e) => to_c_json(json!({"ok": false, "error": e.to_string()})),
+    }
+}
+
+#[no_mangle]
+pub extern "C" fn lingxi_registry_resolve_endpoint(
+    registry_json_utf8: *const c_char,
+    provider_id_utf8: *const c_char,
+    protocol_utf8: *const c_char,
+) -> *mut c_char {
+    let Some(reg_str) = c_str_to_string(registry_json_utf8) else {
+        return to_c_json(json!({"ok": false, "error": "null registry JSON"}));
+    };
+    let Some(pid) = c_str_to_string(provider_id_utf8) else {
+        return to_c_json(json!({"ok": false, "error": "null provider_id"}));
+    };
+    let Some(proto_str) = c_str_to_string(protocol_utf8) else {
+        return to_c_json(json!({"ok": false, "error": "null protocol"}));
+    };
+    let Some(proto) = NativeProtocol::parse_str(&proto_str) else {
+        return to_c_json(json!({"ok": false, "error": format!("unknown protocol: {proto_str}")}));
+    };
+    let reg = match ProviderRegistry::from_json(reg_str.as_bytes()) {
+        Ok(r) => r,
+        Err(e) => return to_c_json(json!({"ok": false, "error": e.to_string()})),
+    };
+    match reg.resolve_endpoint(&pid, proto, None, None, false) {
+        Ok((entry, endpoint)) => to_c_json(json!({
+            "ok": true,
+            "endpoint": endpoint,
+            "provider": entry.id,
+            "authType": entry.auth.auth_type,
+        })),
+        Err(e) => to_c_json(json!({"ok": false, "error": e.to_string()})),
+    }
+}
+
 #[no_mangle]
 pub extern "C" fn lingxi_string_free(ptr: *mut c_char) {
     if !ptr.is_null() {

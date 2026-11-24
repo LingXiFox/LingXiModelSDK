@@ -9,10 +9,13 @@ use crate::sse::SseEvent;
 
 pub fn translate_request(protocol: NativeProtocol, req: &LmpRequest) -> Result<Value, LmpError> {
     let mut payload = match protocol {
-        NativeProtocol::OpenaiChatCompletions => to_openai_chat(req)?,
+        NativeProtocol::OpenaiChatCompletions | NativeProtocol::AzureOpenai => to_openai_chat(req)?,
         NativeProtocol::OpenaiResponses => to_openai_responses(req)?,
         NativeProtocol::AnthropicMessages => to_anthropic_messages(req)?,
-        NativeProtocol::GoogleGemini => to_google_gemini(req)?,
+        NativeProtocol::GoogleGemini | NativeProtocol::GoogleVertexAi => to_google_gemini(req)?,
+        NativeProtocol::AwsBedrock => to_aws_bedrock(req)?,
+        NativeProtocol::Ollama => to_ollama_chat(req)?,
+        NativeProtocol::Cohere => to_cohere_chat(req)?,
     };
     if let Some(obj) = payload.as_object_mut() {
         for (k, v) in &req.provider_extensions {
@@ -24,10 +27,13 @@ pub fn translate_request(protocol: NativeProtocol, req: &LmpRequest) -> Result<V
 
 pub fn normalize_response(protocol: NativeProtocol, raw: &Value) -> Result<LmpResponse, LmpError> {
     match protocol {
-        NativeProtocol::OpenaiChatCompletions => from_openai_chat(raw),
+        NativeProtocol::OpenaiChatCompletions | NativeProtocol::AzureOpenai => from_openai_chat(raw),
         NativeProtocol::OpenaiResponses => from_openai_responses(raw),
         NativeProtocol::AnthropicMessages => from_anthropic_messages(raw),
-        NativeProtocol::GoogleGemini => from_google_gemini(raw),
+        NativeProtocol::GoogleGemini | NativeProtocol::GoogleVertexAi => from_google_gemini(raw),
+        NativeProtocol::AwsBedrock => from_aws_bedrock(raw),
+        NativeProtocol::Ollama => from_ollama_chat(raw),
+        NativeProtocol::Cohere => from_cohere_chat(raw),
     }
 }
 
@@ -43,7 +49,7 @@ pub fn normalize_stream_events(
         let val: Value =
             serde_json::from_str(&ev.data).map_err(|e| LmpError::Decode(e.to_string()))?;
         match protocol {
-            NativeProtocol::OpenaiChatCompletions => {
+            NativeProtocol::OpenaiChatCompletions | NativeProtocol::AzureOpenai => {
                 if let Some(choice) = val["choices"].get(0) {
                     if let Some(delta) = choice["delta"].as_object() {
                         if let Some(rc) = delta.get("reasoning_content").and_then(Value::as_str) {
@@ -139,7 +145,7 @@ pub fn normalize_stream_events(
                     _ => {}
                 }
             }
-            NativeProtocol::GoogleGemini => {
+            NativeProtocol::GoogleGemini | NativeProtocol::GoogleVertexAi => {
                 if let Some(cand) = val["candidates"].get(0) {
                     if let Some(parts) = cand["content"]["parts"].as_array() {
                         for part in parts {
@@ -161,6 +167,118 @@ pub fn normalize_stream_events(
                             finish_reason: Some(fr.to_string()),
                         });
                     }
+                }
+            }
+            NativeProtocol::AwsBedrock => {
+                if let Some(delta) = val["contentBlockDelta"]["delta"].as_object() {
+                    if let Some(txt) = delta.get("text").and_then(Value::as_str) {
+                        out.push(LmpStreamEvent::TextDelta {
+                            delta: txt.to_string(),
+                        });
+                    }
+                    if let Some(rt) = delta.get("reasoningContent").and_then(|v| v["text"].as_str()) {
+                        out.push(LmpStreamEvent::ThinkingDelta {
+                            delta: rt.to_string(),
+                        });
+                    }
+                    if let Some(inp) = delta.get("toolUse").and_then(|v| v["input"].as_str()) {
+                        let idx = val["contentBlockDelta"]["contentBlockIndex"].as_u64().unwrap_or(0) as usize;
+                        out.push(LmpStreamEvent::ToolCallDelta {
+                            index: idx,
+                            id: None,
+                            name: None,
+                            arguments_delta: inp.to_string(),
+                        });
+                    }
+                } else if let Some(start) = val["contentBlockStart"]["start"]["toolUse"].as_object() {
+                    let idx = val["contentBlockStart"]["contentBlockIndex"].as_u64().unwrap_or(0) as usize;
+                    out.push(LmpStreamEvent::ToolCallDelta {
+                        index: idx,
+                        id: start.get("toolUseId").and_then(Value::as_str).map(ToString::to_string),
+                        name: start.get("name").and_then(Value::as_str).map(ToString::to_string),
+                        arguments_delta: String::new(),
+                    });
+                } else if let Some(sr) = val["messageStop"]["stopReason"].as_str() {
+                    out.push(LmpStreamEvent::MessageEnd {
+                        finish_reason: Some(sr.to_string()),
+                    });
+                } else if let Some(u) = val["metadata"].get("usage").filter(|v| v.is_object()) {
+                    out.push(LmpStreamEvent::Usage {
+                        usage: Usage {
+                            input_tokens: u["inputTokens"].as_u64().unwrap_or(0),
+                            output_tokens: u["outputTokens"].as_u64().unwrap_or(0),
+                            total_tokens: u["totalTokens"].as_u64().unwrap_or(0),
+                            cache_read_tokens: u["cacheReadInputTokens"].as_u64(),
+                            cache_write_tokens: u["cacheWriteInputTokens"].as_u64(),
+                            ..Default::default()
+                        },
+                    });
+                }
+            }
+            NativeProtocol::Ollama => {
+                if let Some(th) = val["message"]["thinking"].as_str() {
+                    if !th.is_empty() {
+                        out.push(LmpStreamEvent::ThinkingDelta {
+                            delta: th.to_string(),
+                        });
+                    }
+                }
+                if let Some(txt) = val["message"]["content"].as_str() {
+                    if !txt.is_empty() {
+                        out.push(LmpStreamEvent::TextDelta {
+                            delta: txt.to_string(),
+                        });
+                    }
+                }
+                if val["done"].as_bool() == Some(true) {
+                    let input_tokens = val["prompt_eval_count"].as_u64().unwrap_or(0);
+                    let output_tokens = val["eval_count"].as_u64().unwrap_or(0);
+                    out.push(LmpStreamEvent::Usage {
+                        usage: Usage {
+                            input_tokens,
+                            output_tokens,
+                            total_tokens: input_tokens + output_tokens,
+                            ..Default::default()
+                        },
+                    });
+                    out.push(LmpStreamEvent::MessageEnd {
+                        finish_reason: val["done_reason"].as_str().map(ToString::to_string),
+                    });
+                }
+            }
+            NativeProtocol::Cohere => {
+                let kind = ev.event.as_deref().or_else(|| val["type"].as_str()).unwrap_or("");
+                match kind {
+                    "content-delta" => {
+                        if let Some(txt) = val["delta"]["message"]["content"]["text"].as_str() {
+                            out.push(LmpStreamEvent::TextDelta {
+                                delta: txt.to_string(),
+                            });
+                        }
+                        if let Some(th) = val["delta"]["message"]["content"]["thinking"].as_str() {
+                            out.push(LmpStreamEvent::ThinkingDelta {
+                                delta: th.to_string(),
+                            });
+                        }
+                    }
+                    "message-end" => {
+                        if let Some(u) = val["delta"]["usage"].get("tokens") {
+                            let input_tokens = u["input_tokens"].as_u64().unwrap_or(0);
+                            let output_tokens = u["output_tokens"].as_u64().unwrap_or(0);
+                            out.push(LmpStreamEvent::Usage {
+                                usage: Usage {
+                                    input_tokens,
+                                    output_tokens,
+                                    total_tokens: input_tokens + output_tokens,
+                                    ..Default::default()
+                                },
+                            });
+                        }
+                        out.push(LmpStreamEvent::MessageEnd {
+                            finish_reason: val["delta"]["finish_reason"].as_str().map(ToString::to_string),
+                        });
+                    }
+                    _ => {}
                 }
             }
         }
@@ -758,7 +876,7 @@ fn from_google_gemini(raw: &Value) -> Result<LmpResponse, LmpError> {
                 if p["thought"].as_bool() == Some(true) {
                     content.push(ContentBlock::Thinking {
                         thinking: txt.to_string(),
-                        signature: None,
+                        signature: p["thoughtSignature"].as_str().map(ToString::to_string),
                     });
                 } else {
                     content.push(ContentBlock::Text {
@@ -801,4 +919,312 @@ fn parse_openai_usage(u: &Value) -> Usage {
         cache_read_tokens: u["prompt_tokens_details"]["cached_tokens"].as_u64(),
         cache_write_tokens: None,
     }
+}
+
+fn to_aws_bedrock(req: &LmpRequest) -> Result<Value, LmpError> {
+    let mut system = Vec::new();
+    let mut messages = Vec::new();
+    for msg in &req.messages {
+        if msg.role == Role::System {
+            for b in &msg.content {
+                if let ContentBlock::Text { text } = b {
+                    system.push(json!({"text": text}));
+                }
+            }
+            continue;
+        }
+        let role = match msg.role {
+            Role::Assistant => "assistant",
+            _ => "user",
+        };
+        let mut blocks = Vec::new();
+        for b in &msg.content {
+            match b {
+                ContentBlock::Text { text } => blocks.push(json!({"text": text})),
+                ContentBlock::Thinking { thinking, signature } => {
+                    let mut rc = json!({"text": thinking});
+                    if let Some(sig) = signature {
+                        rc["signature"] = json!(sig);
+                    }
+                    blocks.push(json!({"reasoningContent": {"reasoningText": rc}}));
+                }
+                ContentBlock::ToolCall { id, name, arguments } => {
+                    blocks.push(json!({"toolUse": {"toolUseId": id, "name": name, "input": arguments}}));
+                }
+                ContentBlock::ToolResult { tool_call_id, content, is_error } => {
+                    blocks.push(json!({
+                        "toolResult": {
+                            "toolUseId": tool_call_id,
+                            "content": [{"text": content}],
+                            "status": if *is_error { "error" } else { "success" }
+                        }
+                    }));
+                }
+                ContentBlock::Audio { .. } => {
+                    return Err(LmpError::UnsupportedFeature {
+                        protocol: "aws_bedrock".into(),
+                        feature: "audio_input".into(),
+                    });
+                }
+                _ => {}
+            }
+        }
+        messages.push(json!({"role": role, "content": blocks}));
+    }
+    let mut body = Map::new();
+    body.insert("messages".into(), Value::Array(messages));
+    if !system.is_empty() {
+        body.insert("system".into(), Value::Array(system));
+    }
+    let mut inference = Map::new();
+    if let Some(max) = req.max_tokens {
+        inference.insert("maxTokens".into(), json!(max));
+    }
+    if let Some(temp) = req.temperature {
+        inference.insert("temperature".into(), json!(temp));
+    }
+    if !inference.is_empty() {
+        body.insert("inferenceConfig".into(), Value::Object(inference));
+    }
+    if !req.tools.is_empty() {
+        let tools: Vec<Value> = req
+            .tools
+            .iter()
+            .map(|t| {
+                json!({
+                    "toolSpec": {
+                        "name": t.name,
+                        "description": t.description.as_deref().unwrap_or(""),
+                        "inputSchema": {"json": t.parameters}
+                    }
+                })
+            })
+            .collect();
+        body.insert("toolConfig".into(), json!({"tools": tools}));
+    }
+    if let Some(ref t) = req.thinking {
+        if let Some(budget) = t.budget_tokens {
+            body.insert(
+                "additionalModelRequestFields".into(),
+                json!({"thinking": {"type": "enabled", "budget_tokens": budget}}),
+            );
+        }
+    }
+    Ok(Value::Object(body))
+}
+
+fn from_aws_bedrock(raw: &Value) -> Result<LmpResponse, LmpError> {
+    let mut content = Vec::new();
+    if let Some(blocks) = raw["output"]["message"]["content"].as_array() {
+        for b in blocks {
+            if let Some(txt) = b["text"].as_str() {
+                content.push(ContentBlock::Text { text: txt.to_string() });
+            } else if let Some(rt) = b["reasoningContent"]["reasoningText"].as_object() {
+                content.push(ContentBlock::Thinking {
+                    thinking: rt.get("text").and_then(Value::as_str).unwrap_or("").to_string(),
+                    signature: rt.get("signature").and_then(Value::as_str).map(ToString::to_string),
+                });
+            } else if let Some(tu) = b["toolUse"].as_object() {
+                content.push(ContentBlock::ToolCall {
+                    id: tu.get("toolUseId").and_then(Value::as_str).unwrap_or("").to_string(),
+                    name: tu.get("name").and_then(Value::as_str).unwrap_or("").to_string(),
+                    arguments: tu.get("input").cloned().unwrap_or(Value::Null),
+                });
+            }
+        }
+    }
+    let u = &raw["usage"];
+    Ok(LmpResponse {
+        id: None,
+        model: None,
+        content,
+        finish_reason: raw["stopReason"].as_str().map(ToString::to_string),
+        usage: Usage {
+            input_tokens: u["inputTokens"].as_u64().unwrap_or(0),
+            output_tokens: u["outputTokens"].as_u64().unwrap_or(0),
+            total_tokens: u["totalTokens"].as_u64().unwrap_or(0),
+            reasoning_tokens: None,
+            cache_read_tokens: u["cacheReadInputTokens"].as_u64(),
+            cache_write_tokens: u["cacheWriteInputTokens"].as_u64(),
+        },
+        raw: raw.clone(),
+    })
+}
+
+fn to_ollama_chat(req: &LmpRequest) -> Result<Value, LmpError> {
+    if let Some(ResponseFormat::JsonSchema { .. }) = req.response_format {
+        return Err(LmpError::UnsupportedFeature {
+            protocol: "ollama".into(),
+            feature: "json_schema_strict".into(),
+        });
+    }
+    let mut messages = Vec::new();
+    for msg in &req.messages {
+        let role = match msg.role {
+            Role::System => "system",
+            Role::User => "user",
+            Role::Assistant => "assistant",
+            Role::Tool => "tool",
+        };
+        let mut text = String::new();
+        let mut images = Vec::new();
+        for b in &msg.content {
+            match b {
+                ContentBlock::Text { text: t } => text.push_str(t),
+                ContentBlock::ImageBase64 { data, .. } => images.push(json!(data)),
+                ContentBlock::ToolResult { content, .. } => text.push_str(content),
+                ContentBlock::Audio { .. } => {
+                    return Err(LmpError::UnsupportedFeature {
+                        protocol: "ollama".into(),
+                        feature: "audio_input".into(),
+                    });
+                }
+                _ => {}
+            }
+        }
+        let mut m = json!({"role": role, "content": text});
+        if !images.is_empty() {
+            m["images"] = Value::Array(images);
+        }
+        messages.push(m);
+    }
+    let mut body = Map::new();
+    body.insert("model".into(), json!(req.model));
+    body.insert("messages".into(), Value::Array(messages));
+    body.insert("stream".into(), json!(false));
+    if let Some(ref rf) = req.response_format {
+        if matches!(rf, ResponseFormat::JsonObject) {
+            body.insert("format".into(), json!("json"));
+        }
+    }
+    if req.thinking.is_some() {
+        body.insert("think".into(), json!(true));
+    }
+    let mut opts = Map::new();
+    if let Some(temp) = req.temperature {
+        opts.insert("temperature".into(), json!(temp));
+    }
+    if let Some(max) = req.max_tokens {
+        opts.insert("num_predict".into(), json!(max));
+    }
+    if !opts.is_empty() {
+        body.insert("options".into(), Value::Object(opts));
+    }
+    Ok(Value::Object(body))
+}
+
+fn from_ollama_chat(raw: &Value) -> Result<LmpResponse, LmpError> {
+    let mut content = Vec::new();
+    if let Some(th) = raw["message"]["thinking"].as_str() {
+        if !th.is_empty() {
+            content.push(ContentBlock::Thinking {
+                thinking: th.to_string(),
+                signature: None,
+            });
+        }
+    }
+    if let Some(txt) = raw["message"]["content"].as_str() {
+        if !txt.is_empty() {
+            content.push(ContentBlock::Text { text: txt.to_string() });
+        }
+    }
+    let input_tokens = raw["prompt_eval_count"].as_u64().unwrap_or(0);
+    let output_tokens = raw["eval_count"].as_u64().unwrap_or(0);
+    Ok(LmpResponse {
+        id: None,
+        model: raw["model"].as_str().map(ToString::to_string),
+        content,
+        finish_reason: raw["done_reason"].as_str().map(ToString::to_string),
+        usage: Usage {
+            input_tokens,
+            output_tokens,
+            total_tokens: input_tokens + output_tokens,
+            ..Default::default()
+        },
+        raw: raw.clone(),
+    })
+}
+
+fn to_cohere_chat(req: &LmpRequest) -> Result<Value, LmpError> {
+    let mut messages = Vec::new();
+    for msg in &req.messages {
+        let role = match msg.role {
+            Role::System => "system",
+            Role::User => "user",
+            Role::Assistant => "assistant",
+            Role::Tool => "tool",
+        };
+        let mut text = String::new();
+        for b in &msg.content {
+            match b {
+                ContentBlock::Text { text: t } => text.push_str(t),
+                ContentBlock::ToolResult { content, .. } => text.push_str(content),
+                ContentBlock::Audio { .. } => {
+                    return Err(LmpError::UnsupportedFeature {
+                        protocol: "cohere".into(),
+                        feature: "audio_input".into(),
+                    });
+                }
+                _ => {}
+            }
+        }
+        messages.push(json!({"role": role, "content": text}));
+    }
+    let mut body = Map::new();
+    body.insert("model".into(), json!(req.model));
+    body.insert("messages".into(), Value::Array(messages));
+    if let Some(max) = req.max_tokens {
+        body.insert("max_tokens".into(), json!(max));
+    }
+    if let Some(temp) = req.temperature {
+        body.insert("temperature".into(), json!(temp));
+    }
+    if let Some(ref t) = req.thinking {
+        let mut th = json!({"type": "enabled"});
+        if let Some(budget) = t.budget_tokens {
+            th["token_budget"] = json!(budget);
+        }
+        body.insert("thinking".into(), th);
+    }
+    Ok(Value::Object(body))
+}
+
+fn from_cohere_chat(raw: &Value) -> Result<LmpResponse, LmpError> {
+    let mut content = Vec::new();
+    if let Some(blocks) = raw["message"]["content"].as_array() {
+        for b in blocks {
+            match b["type"].as_str().unwrap_or("") {
+                "thinking" => {
+                    if let Some(th) = b["thinking"].as_str() {
+                        content.push(ContentBlock::Thinking {
+                            thinking: th.to_string(),
+                            signature: None,
+                        });
+                    }
+                }
+                "text" => {
+                    if let Some(txt) = b["text"].as_str() {
+                        content.push(ContentBlock::Text { text: txt.to_string() });
+                    }
+                }
+                _ => {}
+            }
+        }
+    }
+    let tokens = &raw["usage"]["tokens"];
+    let input_tokens = tokens["input_tokens"].as_u64().unwrap_or(0);
+    let output_tokens = tokens["output_tokens"].as_u64().unwrap_or(0);
+    Ok(LmpResponse {
+        id: raw["id"].as_str().map(ToString::to_string),
+        model: None,
+        content,
+        finish_reason: raw["finish_reason"].as_str().map(ToString::to_string),
+        usage: Usage {
+            input_tokens,
+            output_tokens,
+            total_tokens: input_tokens + output_tokens,
+            ..Default::default()
+        },
+        raw: raw.clone(),
+    })
 }

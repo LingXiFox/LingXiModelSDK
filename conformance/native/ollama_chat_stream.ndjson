@@ -1,0 +1,3 @@
+{"model":"llama3.3","message":{"role":"assistant","thinking":"Local "},"done":false}
+{"model":"llama3.3","message":{"role":"assistant","content":"Hello from "},"done":false}
+{"model":"llama3.3","message":{"role":"assistant","content":"Ollama"},"done":true,"done_reason":"stop","prompt_eval_count":15,"eval_count":7}

@@ -1,0 +1,6 @@
+data: {"id":"chatcmpl-azure-1","choices":[{"index":0,"delta":{"role":"assistant","content":"Hello from "}}]}
+
+data: {"id":"chatcmpl-azure-1","choices":[{"index":0,"delta":{"content":"Azure OpenAI"},"finish_reason":"stop"}],"usage":{"prompt_tokens":14,"completion_tokens":6,"total_tokens":20}}
+
+data: [DONE]
+

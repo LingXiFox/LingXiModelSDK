@@ -5,7 +5,10 @@ use serde_json::{Map, Value};
 
 use crate::errors::NativeError;
 use crate::registry::{validate_endpoint_url, AuthConfig, NativeProtocol, ProviderRegistry};
-use crate::sse::{SseEvent, SseParser};
+use crate::sigv4::{current_amz_date, sign_sigv4, SigV4Input};
+use crate::sse::{NdjsonParser, SseEvent, SseParser};
+
+const MAX_RESPONSE_BYTES: usize = 32 * 1024 * 1024;
 
 #[derive(Debug, Clone)]
 pub struct NativeRequestConfig {
@@ -48,9 +51,11 @@ impl Default for NativeClient {
 
 impl NativeClient {
     pub fn new() -> Self {
-        Self {
-            http: reqwest::Client::new(),
-        }
+        let http = reqwest::Client::builder()
+            .redirect(reqwest::redirect::Policy::none())
+            .build()
+            .unwrap_or_else(|_| reqwest::Client::new());
+        Self { http }
     }
 
     pub async fn openai_chat_completions(
@@ -168,6 +173,175 @@ impl NativeClient {
             .await
     }
 
+    pub async fn aws_bedrock_converse(
+        &self,
+        cfg: &NativeRequestConfig,
+        model: &str,
+        payload: &Value,
+    ) -> Result<NativeJsonResponse, NativeError> {
+        let uri = format!("/model/{model}/converse");
+        let url = format!("{}{uri}", cfg.base_url.trim_end_matches('/'));
+        let mut headers = cfg.headers.clone();
+        apply_bedrock_auth(&url, &uri, payload, cfg.api_key.as_deref(), &mut headers)?;
+        self.post_json(&url, &headers, payload, cfg.timeout, cfg.allow_insecure_http)
+            .await
+    }
+
+    pub async fn stream_aws_bedrock_converse(
+        &self,
+        cfg: &NativeRequestConfig,
+        model: &str,
+        payload: &Value,
+    ) -> Result<Vec<SseEvent>, NativeError> {
+        let uri = format!("/model/{model}/converse-stream");
+        let url = format!("{}{uri}", cfg.base_url.trim_end_matches('/'));
+        let mut headers = cfg.headers.clone();
+        apply_bedrock_auth(&url, &uri, payload, cfg.api_key.as_deref(), &mut headers)?;
+        self.post_ndjson(&url, &headers, payload, cfg.timeout, cfg.allow_insecure_http)
+            .await
+    }
+
+    pub async fn google_vertex_generate(
+        &self,
+        cfg: &NativeRequestConfig,
+        model: &str,
+        payload: &Value,
+    ) -> Result<NativeJsonResponse, NativeError> {
+        let base = cfg.base_url.trim_end_matches('/');
+        let url = if base.contains("/models") {
+            format!("{base}/{model}:generateContent")
+        } else {
+            format!("{base}/v1/publishers/google/models/{model}:generateContent")
+        };
+        let mut headers = cfg.headers.clone();
+        apply_bearer(&mut headers, cfg.api_key.as_deref())?;
+        self.post_json(&url, &headers, payload, cfg.timeout, cfg.allow_insecure_http)
+            .await
+    }
+
+    pub async fn stream_google_vertex_generate(
+        &self,
+        cfg: &NativeRequestConfig,
+        model: &str,
+        payload: &Value,
+    ) -> Result<Vec<SseEvent>, NativeError> {
+        let base = cfg.base_url.trim_end_matches('/');
+        let url = if base.contains("/models") {
+            format!("{base}/{model}:streamGenerateContent?alt=sse")
+        } else {
+            format!("{base}/v1/publishers/google/models/{model}:streamGenerateContent?alt=sse")
+        };
+        let mut headers = cfg.headers.clone();
+        apply_bearer(&mut headers, cfg.api_key.as_deref())?;
+        self.post_sse(&url, &headers, payload, cfg.timeout, cfg.allow_insecure_http)
+            .await
+    }
+
+    pub async fn azure_openai_chat_completions(
+        &self,
+        cfg: &NativeRequestConfig,
+        deployment: &str,
+        payload: &Value,
+    ) -> Result<NativeJsonResponse, NativeError> {
+        let api_version = cfg
+            .headers
+            .get("x-azure-api-version")
+            .map(String::as_str)
+            .unwrap_or("2024-10-21");
+        let url = format!(
+            "{}/openai/deployments/{deployment}/chat/completions?api-version={api_version}",
+            cfg.base_url.trim_end_matches('/')
+        );
+        let mut headers = cfg.headers.clone();
+        apply_header_auth(&mut headers, "api-key", cfg.api_key.as_deref())?;
+        self.post_json(&url, &headers, payload, cfg.timeout, cfg.allow_insecure_http)
+            .await
+    }
+
+    pub async fn stream_azure_openai_chat_completions(
+        &self,
+        cfg: &NativeRequestConfig,
+        deployment: &str,
+        payload: &Value,
+    ) -> Result<Vec<SseEvent>, NativeError> {
+        let api_version = cfg
+            .headers
+            .get("x-azure-api-version")
+            .map(String::as_str)
+            .unwrap_or("2024-10-21");
+        let url = format!(
+            "{}/openai/deployments/{deployment}/chat/completions?api-version={api_version}",
+            cfg.base_url.trim_end_matches('/')
+        );
+        let mut headers = cfg.headers.clone();
+        apply_header_auth(&mut headers, "api-key", cfg.api_key.as_deref())?;
+        let body = with_stream_true(payload);
+        self.post_sse(&url, &headers, &body, cfg.timeout, cfg.allow_insecure_http)
+            .await
+    }
+
+    pub async fn ollama_chat(
+        &self,
+        cfg: &NativeRequestConfig,
+        payload: &Value,
+    ) -> Result<NativeJsonResponse, NativeError> {
+        let url = join_path(&cfg.base_url, "/api/chat");
+        let mut body = payload.clone();
+        if let Some(obj) = body.as_object_mut() {
+            obj.entry("stream".to_string()).or_insert(Value::Bool(false));
+        }
+        self.post_json(&url, &cfg.headers, &body, cfg.timeout, cfg.allow_insecure_http)
+            .await
+    }
+
+    pub async fn stream_ollama_chat(
+        &self,
+        cfg: &NativeRequestConfig,
+        payload: &Value,
+    ) -> Result<Vec<SseEvent>, NativeError> {
+        let url = join_path(&cfg.base_url, "/api/chat");
+        let body = with_stream_true(payload);
+        self.post_ndjson(&url, &cfg.headers, &body, cfg.timeout, cfg.allow_insecure_http)
+            .await
+    }
+
+    pub async fn cohere_chat(
+        &self,
+        cfg: &NativeRequestConfig,
+        payload: &Value,
+    ) -> Result<NativeJsonResponse, NativeError> {
+        let url = join_path(&cfg.base_url, "/v2/chat");
+        let mut headers = cfg.headers.clone();
+        apply_bearer(&mut headers, cfg.api_key.as_deref())?;
+        self.post_json(&url, &headers, payload, cfg.timeout, cfg.allow_insecure_http)
+            .await
+    }
+
+    pub async fn stream_cohere_chat(
+        &self,
+        cfg: &NativeRequestConfig,
+        payload: &Value,
+    ) -> Result<Vec<SseEvent>, NativeError> {
+        let url = join_path(&cfg.base_url, "/v2/chat");
+        let mut headers = cfg.headers.clone();
+        apply_bearer(&mut headers, cfg.api_key.as_deref())?;
+        let body = with_stream_true(payload);
+        self.post_sse(&url, &headers, &body, cfg.timeout, cfg.allow_insecure_http)
+            .await
+    }
+
+    pub async fn post_json_endpoint(
+        &self,
+        url: &str,
+        headers: &HashMap<String, String>,
+        payload: &Value,
+        timeout: Duration,
+        allow_insecure_http: bool,
+    ) -> Result<NativeJsonResponse, NativeError> {
+        self.post_json(url, headers, payload, timeout, allow_insecure_http)
+            .await
+    }
+
     /// Dispatches a native request using the declarative ProviderRegistry.
     pub async fn send_registered_json(
         &self,
@@ -211,6 +385,28 @@ impl NativeClient {
                 self.google_gemini_generate(&cfg, model, &merged_payload)
                     .await
             }
+            NativeProtocol::AwsBedrock => {
+                let model = model_id.ok_or_else(|| {
+                    NativeError::Registry("aws_bedrock requires a model_id".into())
+                })?;
+                self.aws_bedrock_converse(&cfg, model, &merged_payload).await
+            }
+            NativeProtocol::GoogleVertexAi => {
+                let model = model_id.ok_or_else(|| {
+                    NativeError::Registry("google_vertex_ai requires a model_id".into())
+                })?;
+                self.google_vertex_generate(&cfg, model, &merged_payload)
+                    .await
+            }
+            NativeProtocol::AzureOpenai => {
+                let deployment = model_id.ok_or_else(|| {
+                    NativeError::Registry("azure_openai requires a model_id/deployment".into())
+                })?;
+                self.azure_openai_chat_completions(&cfg, deployment, &merged_payload)
+                    .await
+            }
+            NativeProtocol::Ollama => self.ollama_chat(&cfg, &merged_payload).await,
+            NativeProtocol::Cohere => self.cohere_chat(&cfg, &merged_payload).await,
         }
     }
 
@@ -246,6 +442,11 @@ impl NativeClient {
             .await
             .map_err(|e| NativeError::Transport(e.to_string()))?
             .to_vec();
+        if raw_bytes.len() > MAX_RESPONSE_BYTES {
+            return Err(NativeError::Transport(format!(
+                "response exceeded {MAX_RESPONSE_BYTES} byte limit"
+            )));
+        }
         if !(200..=299).contains(&status) {
             return Err(NativeError::HttpStatus {
                 status,
@@ -300,11 +501,73 @@ impl NativeClient {
         }
         let mut parser = SseParser::new();
         let mut events = Vec::new();
+        let mut total_bytes = 0usize;
         while let Some(chunk) = resp
             .chunk()
             .await
             .map_err(|e| NativeError::Transport(e.to_string()))?
         {
+            total_bytes += chunk.len();
+            if total_bytes > MAX_RESPONSE_BYTES {
+                return Err(NativeError::Transport(format!(
+                    "stream exceeded {MAX_RESPONSE_BYTES} byte limit"
+                )));
+            }
+            events.extend(parser.push(&chunk[..]));
+        }
+        events.extend(parser.finish());
+        Ok(events)
+    }
+
+    async fn post_ndjson(
+        &self,
+        url: &str,
+        headers: &HashMap<String, String>,
+        payload: &Value,
+        timeout: Duration,
+        allow_insecure_http: bool,
+    ) -> Result<Vec<SseEvent>, NativeError> {
+        validate_endpoint_url(url, allow_insecure_http)?;
+        let body_bytes = serde_json::to_vec(payload)
+            .map_err(|e| NativeError::Transport(format!("failed to encode JSON: {e}")))?;
+        let mut req = self
+            .http
+            .post(url)
+            .timeout(timeout)
+            .header("Content-Type", "application/json")
+            .header("Accept", "application/x-ndjson, application/json")
+            .body(body_bytes);
+        for (k, v) in headers {
+            req = req.header(k, v);
+        }
+        let mut resp = req
+            .send()
+            .await
+            .map_err(|e| NativeError::Transport(e.to_string()))?;
+        let status = resp.status().as_u16();
+        let resp_headers = collect_headers(resp.headers());
+        if !(200..=299).contains(&status) {
+            let raw = resp.bytes().await.unwrap_or_default().to_vec();
+            return Err(NativeError::HttpStatus {
+                status,
+                body: raw,
+                headers: resp_headers,
+            });
+        }
+        let mut parser = NdjsonParser::new();
+        let mut events = Vec::new();
+        let mut total_bytes = 0usize;
+        while let Some(chunk) = resp
+            .chunk()
+            .await
+            .map_err(|e| NativeError::Transport(e.to_string()))?
+        {
+            total_bytes += chunk.len();
+            if total_bytes > MAX_RESPONSE_BYTES {
+                return Err(NativeError::Transport(format!(
+                    "stream exceeded {MAX_RESPONSE_BYTES} byte limit"
+                )));
+            }
             events.extend(parser.push(&chunk[..]));
         }
         events.extend(parser.finish());
@@ -368,6 +631,59 @@ fn apply_header_auth(
     Ok(())
 }
 
+fn apply_bedrock_auth(
+    url: &str,
+    canonical_uri: &str,
+    payload: &Value,
+    api_key: Option<&str>,
+    headers: &mut HashMap<String, String>,
+) -> Result<(), NativeError> {
+    if headers.contains_key("Authorization") || headers.contains_key("authorization") {
+        return Ok(());
+    }
+    let key = api_key.filter(|s| !s.is_empty()).ok_or_else(|| {
+        NativeError::AuthMissing("AWS Bedrock requires 'ACCESS_KEY:SECRET_KEY[:SESSION_TOKEN]'".into())
+    })?;
+    let parts: Vec<&str> = key.split(':').collect();
+    if parts.len() < 2 {
+        // Fallback: bearer token for Bedrock API keys / proxy relays
+        return apply_bearer(headers, Some(key));
+    }
+    let access_key = parts[0];
+    let secret_key = parts[1];
+    let session_token = parts.get(2).copied();
+    let parsed = reqwest::Url::parse(url)
+        .map_err(|e| NativeError::InvalidEndpoint(format!("invalid URL '{url}': {e}")))?;
+    let host = parsed.host_str().unwrap_or("bedrock-runtime.us-east-1.amazonaws.com");
+    let host_hdr = match parsed.port() {
+        Some(p) => format!("{host}:{p}"),
+        None => host.to_string(),
+    };
+    let region = headers
+        .get("x-aws-region")
+        .map(String::as_str)
+        .unwrap_or("us-east-1");
+    let amz_date = current_amz_date();
+    let body_bytes = serde_json::to_vec(payload)
+        .map_err(|e| NativeError::Transport(format!("failed to encode JSON: {e}")))?;
+    for (k, v) in sign_sigv4(&SigV4Input {
+        method: "POST",
+        canonical_uri,
+        canonical_query: "",
+        host: &host_hdr,
+        region,
+        service: "bedrock",
+        amz_date: &amz_date,
+        access_key,
+        secret_key,
+        session_token,
+        payload: &body_bytes,
+    }) {
+        headers.insert(k, v);
+    }
+    Ok(())
+}
+
 fn apply_registry_auth(
     headers: &mut HashMap<String, String>,
     auth: &AuthConfig,
@@ -377,7 +693,14 @@ fn apply_registry_auth(
         "none" => Ok(()),
         "bearer" => apply_bearer(headers, key),
         "x-api-key" => apply_header_auth(headers, "x-api-key", key),
+        "api-key" => apply_header_auth(headers, "api-key", key),
         "x-goog-api-key" => apply_header_auth(headers, "x-goog-api-key", key),
+        "aws_sigv4" => {
+            if key.filter(|s| !s.is_empty()).is_none() {
+                return Err(NativeError::AuthMissing("aws_sigv4 credentials required".into()));
+            }
+            Ok(())
+        }
         "custom_header" => {
             let name = auth.header_name.as_deref().unwrap_or("Authorization");
             let val = key.filter(|s| !s.is_empty()).ok_or_else(|| {

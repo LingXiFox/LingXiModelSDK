@@ -86,3 +86,46 @@ impl SseParser {
         })
     }
 }
+
+/// Incremental NDJSON parser for Ollama and Bedrock event streams.
+#[derive(Debug, Default)]
+pub struct NdjsonParser {
+    buffer: String,
+}
+
+impl NdjsonParser {
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    pub fn push(&mut self, chunk: &[u8]) -> Vec<SseEvent> {
+        self.buffer.push_str(&String::from_utf8_lossy(chunk));
+        let mut out = Vec::new();
+        while let Some(pos) = self.buffer.find('\n') {
+            let line = self.buffer[..pos].trim().to_string();
+            self.buffer.drain(..=pos);
+            if !line.is_empty() {
+                out.push(SseEvent {
+                    event: None,
+                    data: line,
+                    id: None,
+                });
+            }
+        }
+        out
+    }
+
+    pub fn finish(&mut self) -> Vec<SseEvent> {
+        let tail = std::mem::take(&mut self.buffer);
+        let trimmed = tail.trim();
+        if trimmed.is_empty() {
+            Vec::new()
+        } else {
+            vec![SseEvent {
+                event: None,
+                data: trimmed.to_string(),
+                id: None,
+            }]
+        }
+    }
+}

@@ -1,0 +1,15 @@
+{
+  "id": "cohere-msg-1",
+  "finish_reason": "COMPLETE",
+  "message": {
+    "role": "assistant",
+    "content": [
+      {"type": "thinking", "thinking": "Cohere thought"},
+      {"type": "text", "text": "Hello from Cohere"}
+    ]
+  },
+  "usage": {
+    "billed_units": {"input_tokens": 11, "output_tokens": 5},
+    "tokens": {"input_tokens": 11, "output_tokens": 5}
+  }
+}

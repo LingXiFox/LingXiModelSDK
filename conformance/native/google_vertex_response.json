@@ -1,0 +1,20 @@
+{
+  "candidates": [
+    {
+      "content": {
+        "role": "model",
+        "parts": [
+          {"text": "Thinking via Vertex", "thought": true, "thoughtSignature": "sig-vertex-1"},
+          {"text": "Hello from Vertex AI"}
+        ]
+      },
+      "finishReason": "STOP"
+    }
+  ],
+  "usageMetadata": {
+    "promptTokenCount": 18,
+    "candidatesTokenCount": 9,
+    "totalTokenCount": 27,
+    "cachedContentTokenCount": 6
+  }
+}

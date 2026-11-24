@@ -1,0 +1,20 @@
+{
+  "output": {
+    "message": {
+      "role": "assistant",
+      "content": [
+        {"reasoningContent": {"reasoningText": {"text": "Thinking via Bedrock Converse", "signature": "sig-bedrock-1"}}},
+        {"text": "Hello from AWS Bedrock"},
+        {"toolUse": {"toolUseId": "tooluse_1", "name": "get_weather", "input": {"city": "Tokyo"}}}
+      ]
+    }
+  },
+  "stopReason": "tool_use",
+  "usage": {
+    "inputTokens": 24,
+    "outputTokens": 12,
+    "totalTokens": 36,
+    "cacheReadInputTokens": 8,
+    "cacheWriteInputTokens": 4
+  }
+}

@@ -131,3 +131,49 @@ func TestGatewayEndpointsCompleteStreamAuthRateLimit(t *testing.T) {
 		t.Fatalf("expected 429 on 4th burst request, got %d", w.Code)
 	}
 }
+
+func TestGatewaySSRFPrivateIPBlockAndEmbedRerank(t *testing.T) {
+	if err := CheckEgressAllowed("https://169.254.169.254/latest/meta-data", []string{"169.254.169.254"}, false); err == nil {
+		t.Fatalf("expected metadata IP 169.254.169.254 to be blocked even if in allowlist")
+	}
+	if err := CheckEgressAllowed("https://10.0.0.5/v1", []string{"10.0.0.5"}, false); err == nil {
+		t.Fatalf("expected RFC1918 IP 10.0.0.5 to be blocked")
+	}
+	if got := RedactSecret("sk-ant-1234567890abcdef"); got != "sk-a...ef" {
+		t.Fatalf("unexpected redact result: %q", got)
+	}
+
+	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/embeddings":
+			_, _ = w.Write([]byte(`{"object":"list","data":[{"index":0,"embedding":[0.1,0.2]}]}`))
+		case "/v2/rerank":
+			_, _ = w.Write([]byte(`{"id":"rr","results":[{"index":0,"relevance_score":0.9}]}`))
+		}
+	}))
+	defer upstream.Close()
+
+	gw := NewGateway(GatewayConfig{
+		ListenAddr:          "127.0.0.1:0",
+		AllowLoopbackEgress: true,
+		RateLimitRPS:        50,
+		RateLimitBurst:      50,
+	}, nil)
+	h := gw.Handler()
+
+	embReq := httptest.NewRequest(http.MethodPost, "/v1/lmp/embed", strings.NewReader(`{"protocol":"openai_chat_completions","endpointOverride":"`+upstream.URL+`","request":{"model":"text-embedding-3-small","input":["hi"]}}`))
+	embReq.Header.Set("X-Provider-API-Key", "sk-test")
+	w := httptest.NewRecorder()
+	h.ServeHTTP(w, embReq)
+	if w.Code != http.StatusOK || !strings.Contains(w.Body.String(), "0.2") {
+		t.Fatalf("gateway embed failed: %d %s", w.Code, w.Body.String())
+	}
+
+	rrReq := httptest.NewRequest(http.MethodPost, "/v1/lmp/rerank", strings.NewReader(`{"protocol":"cohere","endpointOverride":"`+upstream.URL+`","request":{"model":"rerank-v3.5","query":"q","documents":["d"]}}`))
+	rrReq.Header.Set("X-Provider-API-Key", "co-test")
+	w = httptest.NewRecorder()
+	h.ServeHTTP(w, rrReq)
+	if w.Code != http.StatusOK || !strings.Contains(w.Body.String(), "0.9") {
+		t.Fatalf("gateway rerank failed: %d %s", w.Code, w.Body.String())
+	}
+}

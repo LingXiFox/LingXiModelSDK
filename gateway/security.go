@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"net"
@@ -10,6 +11,69 @@ import (
 	"sync"
 	"time"
 )
+
+var cgnatRange = func() *net.IPNet {
+	_, n, _ := net.ParseCIDR("100.64.0.0/10")
+	return n
+}()
+
+// IsPrivateOrReservedIP returns true for loopback, RFC1918, link-local/metadata, ULA, CGNAT, and multicast IPs.
+func IsPrivateOrReservedIP(ip net.IP) bool {
+	if ip == nil {
+		return true
+	}
+	return ip.IsLoopback() ||
+		ip.IsPrivate() ||
+		ip.IsLinkLocalUnicast() ||
+		ip.IsLinkLocalMulticast() ||
+		ip.IsMulticast() ||
+		ip.IsUnspecified() ||
+		cgnatRange.Contains(ip)
+}
+
+// NewSafeHTTPClient builds an HTTP client that blocks redirects and validates dialed IPs against SSRF.
+func NewSafeHTTPClient(allowLoopback bool) *http.Client {
+	dialer := &net.Dialer{Timeout: 10 * time.Second, KeepAlive: 30 * time.Second}
+	tr := &http.Transport{
+		MaxIdleConns:        128,
+		MaxIdleConnsPerHost: 32,
+		IdleConnTimeout:     90 * time.Second,
+		DialContext: func(ctx context.Context, network, addr string) (net.Conn, error) {
+			host, port, err := net.SplitHostPort(addr)
+			if err != nil {
+				return nil, err
+			}
+			ips, err := net.DefaultResolver.LookupIP(ctx, "ip", host)
+			if err != nil {
+				return nil, err
+			}
+			for _, ip := range ips {
+				if allowLoopback && ip.IsLoopback() {
+					continue
+				}
+				if IsPrivateOrReservedIP(ip) {
+					return nil, fmt.Errorf("SSRF blocked dial to reserved IP %s (%s)", ip.String(), host)
+				}
+			}
+			return dialer.DialContext(ctx, network, net.JoinHostPort(ips[0].String(), port))
+		},
+	}
+	return &http.Client{
+		Timeout:   60 * time.Second,
+		Transport: tr,
+		CheckRedirect: func(*http.Request, []*http.Request) error {
+			return http.ErrUseLastResponse
+		},
+	}
+}
+
+// RedactSecret masks API keys and bearer tokens before logging or error emission.
+func RedactSecret(s string) string {
+	if len(s) <= 8 {
+		return "***"
+	}
+	return s[:4] + "..." + s[len(s)-2:]
+}
 
 func isLoopbackAddr(addr string) bool {
 	host, _, err := net.SplitHostPort(addr)
@@ -47,6 +111,9 @@ func CheckEgressAllowed(rawURL string, allowHosts []string, allowLoopbackEgress 
 	host := strings.ToLower(u.Hostname())
 	if allowLoopbackEgress && (host == "127.0.0.1" || host == "localhost" || host == "::1") {
 		return nil
+	}
+	if ip := net.ParseIP(host); ip != nil && IsPrivateOrReservedIP(ip) {
+		return fmt.Errorf("egress IP %q blocked (private/reserved/metadata)", host)
 	}
 	if len(allowHosts) == 0 {
 		// When allowHosts is empty on loopback dev mode, only HTTPS registry endpoints are permitted

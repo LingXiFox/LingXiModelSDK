@@ -1,0 +1,8 @@
+{
+  "id": "rerank-1",
+  "results": [
+    {"index": 1, "relevance_score": 0.94},
+    {"index": 0, "relevance_score": 0.42}
+  ],
+  "meta": {"billed_units": {"search_units": 1}}
+}

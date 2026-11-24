@@ -1,0 +1,29 @@
+{
+  "id": "google-vertex",
+  "name": "Google Vertex AI",
+  "protocols": ["google_vertex_ai"],
+  "officialEndpoints": {
+    "google_vertex_ai": "https://us-central1-aiplatform.googleapis.com"
+  },
+  "auth": {
+    "type": "bearer",
+    "env": ["GOOGLE_VERTEX_ACCESS_TOKEN", "GOOGLE_CLOUD_PROJECT", "GOOGLE_CLOUD_LOCATION"]
+  },
+  "defaultHeaders": {},
+  "extraParams": {},
+  "thinking": {
+    "mode": "effort",
+    "levels": ["low", "medium", "high"]
+  },
+  "modelOverrides": {},
+  "verificationStatus": "mock_tested",
+  "verificationEvidence": [
+    {
+      "protocol": "google_vertex_ai",
+      "level": "mock_tested",
+      "suite": "conformance/native",
+      "verifiedAt": "2026-11-24",
+      "notes": "Verified Vertex AI generateContent, SSE streaming, embedContent, and thoughtSignature retention against mock HTTP server."
+    }
+  ]
+}

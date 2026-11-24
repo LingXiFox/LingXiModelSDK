@@ -4,85 +4,98 @@
 <div class="page-wrap">
   <main>
     <section class="intro">
-      <p class="eyebrow">LINGXI MODEL SDK / 2.0 ROADMAP</p>
-      <h1>多语言 SDK 与接入路径</h1>
-      <p>LingXiModelSDK 2.0 提供三条并行且独立的接入路径，默认在调用方进程内直接完成通信与目录解析，不强制依赖任何中转服务。</p>
+      <p class="eyebrow">LINGXI MODEL SDK / 2.0.0-ALPHA.1</p>
+      <h1>十语言 SDK 与三入口接入文档</h1>
+      <p>LingXiModelSDK 2.0 提供三条独立并行的接入路径：<strong>Model Catalog</strong>（零推理依赖）、<strong>Native Provider</strong>（直连原生协议）、<strong>Unified Provider</strong>（LMP 统一协议，不静默降级）。</p>
     </section>
 
     <section class="section-grid">
       <article class="panel">
         <div class="panel-head">
           <h2>1. Model Catalog</h2>
-          <span class="status-badge status-live">6 语言已实现</span>
+          <span class="status-badge status-live">10 语言已实现</span>
         </div>
-        <p>只读模型与提供商元数据查询。消费 <code>/models.json</code>，支持 ETag 条件请求、离线缓存、未知字段保留与确定性排序，无推理依赖、无需 API Key。</p>
+        <p>消费 <code>/models.json</code>（Schema 2.0），支持 ETag 条件请求、离线缓存、三态语义与未知字段保留，零推理运行时依赖。</p>
       </article>
       <article class="panel">
         <div class="panel-head">
           <h2>2. Native Provider</h2>
-          <span class="status-badge">Phase 3 规划中</span>
+          <span class="status-badge status-live">9 协议 · Mock Tested</span>
         </div>
-        <p>使用提供商原生请求体、响应与流式事件直接与上游通信，不强制经过统一抽象层。</p>
+        <p>使用提供商原生请求体、响应、流式事件与 SigV4 签名直接通信，保留全部原生扩展参数。</p>
       </article>
       <article class="panel">
         <div class="panel-head">
-          <h2>3. Unified Provider</h2>
-          <span class="status-badge">Phase 4 规划中</span>
+          <h2>3. Unified Provider (LMP)</h2>
+          <span class="status-badge status-live">9 协议 · Mock Tested</span>
         </div>
-        <p>基于 LingXi Model Protocol (LMP) 的统一语义接口，显式暴露能力差异，禁止静默降级。可选配合独立 HTTP Gateway 使用。</p>
+        <p>统一消息、思考签名、工具调用、Prompt Cache、Embedding 与 Rerank；不支持的能力显式报错。</p>
       </article>
     </section>
 
     <section class="panel doc-block">
-      <h2>Swift SDK（已发布 · 0.1.x）</h2>
-      <p class="muted">仅依赖 Foundation，支持 macOS 13+、iOS 16+、tvOS 16+、watchOS 9+ 及 Swift 6 并发。</p>
-      <h3>Swift Package Manager 安装</h3>
-      <pre id="page-swift-install">.package(
-    url: "https://github.com/LingXiFox/LingXiModelSDK.git",
-    from: "0.1.0"
-)</pre>
-      <button type="button" data-copy-target="page-swift-install">复制安装代码</button>
-
-      <h3>目录查询示例</h3>
-      <pre id="page-swift-usage">import LingXiModelSDK
-
-let catalog = try await LingXiModelCatalog.load()
-if let model = catalog.model(
-    provider: "deepseek",
-    id: "deepseek-v4-flash"
-) {
-    print(model.contextWindow as Any)
-    print(model.pricing.input as Any)
-}
-
-let eligible = catalog.models(matching: ModelFilter(
-    vision: true,
-    minimumContextWindow: 200_000
-))</pre>
-      <button type="button" data-copy-target="page-swift-usage">复制 Swift 示例</button>
-    </section>
-
-    <section class="panel doc-block">
-      <h2>多语言支持矩阵</h2>
+      <h2>语言覆盖与代码位置</h2>
       <div class="table-wrap">
         <table>
           <thead>
-            <tr><th>语言生态</th><th>批次</th><th>Model Catalog</th><th>Native / Unified</th><th>状态</th></tr>
+            <tr>
+              <th>语言</th>
+              <th>包 / 目录</th>
+              <th>Catalog / Registry / Native / Unified</th>
+              <th>验证状态</th>
+            </tr>
           </thead>
           <tbody>
-            <tr><td>Swift</td><td>首批</td><td>已发布 (SPM)</td><td>Phase 3–4 规划</td><td><span class="status-badge status-live">Catalog Tested</span></td></tr>
-            <tr><td>Rust</td><td>首批</td><td>已实现 (sdk/rust)</td><td>Phase 3–4 核心评估</td><td><span class="status-badge status-live">Catalog Tested</span></td></tr>
-            <tr><td>TypeScript / JavaScript</td><td>首批</td><td>已实现 (sdk/typescript)</td><td>Phase 3–4 规划</td><td><span class="status-badge status-live">Catalog Tested</span></td></tr>
-            <tr><td>Python</td><td>首批</td><td>已实现 (sdk/python)</td><td>Phase 3–4 规划</td><td><span class="status-badge status-live">Catalog Tested</span></td></tr>
-            <tr><td>Go</td><td>首批</td><td>已实现 (sdk/go)</td><td>Phase 3–4 规划</td><td><span class="status-badge status-live">Catalog Tested</span></td></tr>
-            <tr><td>Java</td><td>首批</td><td>已实现 (sdk/java)</td><td>Phase 3–4 规划</td><td><span class="status-badge status-live">Catalog Tested</span></td></tr>
-            <tr><td>C# / Kotlin / C++ / Dart</td><td>后续</td><td>Phase 2 扩展</td><td>Phase 3–4 扩展</td><td><span class="status-badge">Planned</span></td></tr>
+            <tr><td>Swift</td><td><code>Package.swift</code></td><td><code>LingXiModelSDK</code> + <code>LingXiProviderRegistry</code> + <code>LingXiNativeProvider</code> + <code>LingXiUnifiedProvider</code></td><td><span class="status-badge status-live">Tested (swift test)</span></td></tr>
+            <tr><td>Rust</td><td><code>core/</code></td><td><code>lingxi-core</code> (rlib / cdylib / staticlib + C ABI)</td><td><span class="status-badge status-live">Tested (cargo test)</span></td></tr>
+            <tr><td>Go</td><td><code>sdk/go/</code></td><td>根包 Catalog + <code>native</code> + <code>unified</code></td><td><span class="status-badge status-live">Tested (go test -race)</span></td></tr>
+            <tr><td>TypeScript / JS</td><td><code>sdk/typescript/</code></td><td><code>.</code> / <code>./registry</code> / <code>./native</code> / <code>./unified</code></td><td><span class="status-badge status-live">Tested (node --test)</span></td></tr>
+            <tr><td>Python</td><td><code>sdk/python/</code></td><td><code>catalog</code> / <code>registry</code> / <code>native</code> / <code>unified</code> (ctypes FFI)</td><td><span class="status-badge status-live">Tested (unittest)</span></td></tr>
+            <tr><td>Java</td><td><code>sdk/java/</code></td><td><code>LingXiModelCatalog</code> / <code>ProviderRegistry</code> / <code>NativeClient</code> / <code>UnifiedClient</code></td><td><span class="status-badge status-live">Tested (javac/java)</span></td></tr>
+            <tr><td>C++20</td><td><code>sdk/cpp/</code></td><td><code>lingxi/catalog.hpp</code> + <code>registry/native/unified.hpp</code> (Rust C ABI)</td><td><span class="status-badge status-live">Tested (clang++)</span></td></tr>
+            <tr><td>C# (.NET 8)</td><td><code>sdk/csharp/</code></td><td><code>Catalog</code> / <code>Registry</code> / <code>Native</code> / <code>Unified</code></td><td><span class="status-badge">CI Verified (.NET 8)</span></td></tr>
+            <tr><td>Kotlin (JVM)</td><td><code>sdk/kotlin/</code></td><td><code>ModelCatalog</code> / <code>ProviderRegistry</code> / <code>NativeClient</code> / <code>UnifiedClient</code></td><td><span class="status-badge">CI Verified (kotlinc)</span></td></tr>
+            <tr><td>Dart 3</td><td><code>sdk/dart/</code></td><td><code>catalog.dart</code> / <code>registry.dart</code> / <code>native.dart</code> / <code>unified.dart</code></td><td><span class="status-badge">CI Verified (dart)</span></td></tr>
           </tbody>
         </table>
       </div>
     </section>
+
+    <section class="panel doc-block">
+      <h2>Swift / Rust / Go / TypeScript / Python 调用示例</h2>
+      <pre id="sdk-examples">// Swift (Catalog + Unified)
+import LingXiModelSDK
+import LingXiUnifiedProvider
+let catalog = try await LingXiModelCatalog.load()
+let client = UnifiedClient()
+let resp = try await client.complete(
+    protocol: .awsBedrock,
+    baseURL: "https://bedrock-runtime.us-east-1.amazonaws.com",
+    apiKey: ProcessInfo.processInfo.environment["AWS_CREDS"],
+    request: LmpRequest(model: "anthropic.claude-3-5-sonnet", messages: [.init(role: "user", content: [.text("hi")])])
+)
+
+// Go (Unified)
+u := unified.NewClient()
+out, err := u.Complete(ctx, native.ProtocolOpenAIResponses, "https://api.openai.com/v1", os.Getenv("OPENAI_API_KEY"), unified.Request{
+    Model: "gpt-4o",
+    Messages: []unified.Message{
+        {Role: "user", Content: []unified.ContentBlock{ {Type: "text", Text: "hello"} }},
+    },
+})
+
+// TypeScript (Node 20+ / Browser)
+import { UnifiedClient } from "@lingxifox/model-sdk/unified";
+const client = new UnifiedClient();
+const res = await client.complete("cohere", "https://api.cohere.com", process.env.COHERE_API_KEY!, {
+  model: "command-a",
+  messages: [{ role: "user", content: [{ type: "text", text: "hi" }] }],
+});</pre>
+      <button type="button" data-copy-target="sdk-examples">复制示例</button>
+    </section>
   </main>
 </div>
 {{template "footer" .}}
+<script src="/static/site.js" defer></script>
 </body>
 </html>

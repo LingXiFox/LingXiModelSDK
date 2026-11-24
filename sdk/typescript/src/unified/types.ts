@@ -25,17 +25,47 @@ export interface LmpMessage {
   readonly content: readonly LmpContentBlock[];
 }
 
+export interface LmpToolDefinition {
+  readonly name: string;
+  readonly description?: string;
+  readonly parameters: Record<string, unknown>;
+}
+
 export interface LmpRequest {
   readonly model: string;
   readonly messages: readonly LmpMessage[];
   readonly maxTokens?: number;
   readonly temperature?: number;
+  readonly tools?: readonly LmpToolDefinition[];
+  readonly toolChoice?: unknown;
   readonly thinking?: { readonly effort?: string; readonly budgetTokens?: number };
   readonly responseFormat?:
     | { readonly type: "text" }
     | { readonly type: "json_object" }
     | { readonly type: "json_schema"; readonly name: string; readonly schema: unknown };
   readonly providerExtensions?: Readonly<Record<string, unknown>>;
+}
+
+export interface LmpEmbeddingRequest {
+  readonly model: string;
+  readonly input: readonly string[];
+}
+
+export interface LmpEmbeddingResponse {
+  readonly embeddings: readonly (readonly number[])[];
+  readonly raw: Record<string, unknown>;
+}
+
+export interface LmpRerankRequest {
+  readonly model: string;
+  readonly query: string;
+  readonly documents: readonly string[];
+  readonly topN?: number;
+}
+
+export interface LmpRerankResponse {
+  readonly results: readonly { readonly index: number; readonly relevanceScore: number }[];
+  readonly raw: Record<string, unknown>;
 }
 
 export interface LmpUsage {

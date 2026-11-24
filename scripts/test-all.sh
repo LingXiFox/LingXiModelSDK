@@ -3,22 +3,32 @@ set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 
-echo "=== Phase 1: Website ==="
+echo "=== 1. Website (Go 1.23+, CGO=0) ==="
 (cd "$ROOT/website" && go vet ./... && go test -race ./...)
 
-echo "=== Phase 2: Multi-Language Catalog SDKs ==="
-"$ROOT/scripts/test-catalog-sdks.sh"
+echo "=== 2. Rust Core (9 protocols + SigV4 + Agent Scenarios + C ABI) ==="
+(cd "$ROOT/core" && cargo build && cargo test)
 
-echo "=== Phase 3: Provider Registry & Native Providers ==="
-"$ROOT/scripts/test-native-providers.sh"
+echo "=== 3. Go SDK (Catalog + Registry + Native + Unified) & Gateway ==="
+(cd "$ROOT/sdk/go" && go vet ./... && go test -race ./...)
+(cd "$ROOT/gateway" && go vet ./... && go test -race ./...)
 
-echo "=== Phase 4: Unified LMP & C ABI ==="
-"$ROOT/scripts/test-unified-lmp.sh"
+echo "=== 4. TypeScript SDK ==="
+(cd "$ROOT/sdk/typescript" && node --test tests/*.test.ts)
 
-echo "=== Phase 5: Optional HTTP Gateway ==="
-(cd "$ROOT/gateway" && go vet ./... && go test -race -v ./...)
+echo "=== 5. Python SDK (Catalog + Registry + Native + Unified + ctypes Rust FFI) ==="
+PYTHONPATH="$ROOT/sdk/python/src" python3 -m unittest discover -s "$ROOT/sdk/python/tests"
 
-echo "=== Phase 6: Support Matrix & Standalone Mock Server Smoke ==="
+echo "=== 6. Swift SDK (Catalog + Registry + Native + Unified) ==="
+(cd "$ROOT" && swift test)
+
+echo "=== 7. Java SDK (4 Modules) ==="
+(cd "$ROOT/sdk/java" && mkdir -p build/classes && javac -d build/classes src/main/java/cn/lingxifox/modelsdk/*.java && java -cp build/classes cn.lingxifox.modelsdk.CatalogTestRunner && java -cp build/classes cn.lingxifox.modelsdk.ProviderTestRunner)
+
+echo "=== 8. C++20 SDK (Catalog + Rust C ABI) ==="
+(cd "$ROOT/sdk/cpp" && clang++ -std=c++20 -Iinclude -I../../core/include tests/test_cpp_sdk.cpp -L../../core/target/debug -Wl,-rpath,"$(pwd)/../../core/target/debug" -llingxi_core -o /tmp/test_cpp_sdk && /tmp/test_cpp_sdk && rm -f /tmp/test_cpp_sdk)
+
+echo "=== 9. Support Matrix & Standalone Mock Server Smoke ==="
 (cd "$ROOT" && python3 scripts/generate-support-report.py --check)
 python3 - <<'PY' "$ROOT/conformance/mock-server/server.py"
 import subprocess, sys, time, urllib.request, json
@@ -50,4 +60,4 @@ finally:
     proc.wait(timeout=5)
 PY
 
-echo "ALL PHASES (1-6) VERIFIED SUCCESSFULLY."
+echo "ALL LOCAL SUITES VERIFIED SUCCESSFULLY (C#, Kotlin, Dart verified via .github/workflows/all-sdks.yml)."

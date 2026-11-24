@@ -1,0 +1,9 @@
+event: message-start
+data: {"id":"cohere-msg-1","type":"message-start"}
+
+event: content-delta
+data: {"type":"content-delta","index":0,"delta":{"message":{"content":{"text":"Hello from Cohere"}}}}
+
+event: message-end
+data: {"type":"message-end","delta":{"finish_reason":"COMPLETE","usage":{"tokens":{"input_tokens":11,"output_tokens":5}}}}
+

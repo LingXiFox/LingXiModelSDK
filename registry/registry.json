@@ -1,11 +1,11 @@
 {
   "schemaVersion": "1.0",
-  "generatedAt": "2026-11-24T13:27:55Z",
+  "generatedAt": "2026-11-24T22:07:00Z",
   "summary": {
-    "totalProviders": 326,
-    "discovered": 313,
+    "totalProviders": 327,
+    "discovered": 309,
     "compatible": 9,
-    "mock_tested": 4,
+    "mock_tested": 9,
     "live_verified": 0,
     "full_support": 0
   },
@@ -662,25 +662,39 @@
     "amazon-bedrock": {
       "id": "amazon-bedrock",
       "name": "Amazon Bedrock",
-      "protocols": [],
-      "officialEndpoints": {},
+      "protocols": [
+        "aws_bedrock"
+      ],
+      "officialEndpoints": {
+        "aws_bedrock": "https://bedrock-runtime.us-east-1.amazonaws.com"
+      },
       "auth": {
-        "type": "bearer",
+        "type": "aws_sigv4",
         "env": [
           "AWS_ACCESS_KEY_ID",
           "AWS_SECRET_ACCESS_KEY",
-          "AWS_REGION",
-          "AWS_BEARER_TOKEN_BEDROCK"
+          "AWS_SESSION_TOKEN",
+          "AWS_REGION"
         ]
       },
       "defaultHeaders": {},
       "extraParams": {},
       "thinking": {
-        "mode": "none"
+        "mode": "budget_tokens",
+        "minBudgetTokens": 1024,
+        "maxBudgetTokens": 64000
       },
       "modelOverrides": {},
-      "verificationStatus": "discovered",
-      "verificationEvidence": [],
+      "verificationStatus": "mock_tested",
+      "verificationEvidence": [
+        {
+          "protocol": "aws_bedrock",
+          "level": "mock_tested",
+          "suite": "conformance/native",
+          "verifiedAt": "2026-11-24",
+          "notes": "Verified SigV4 signing, Bedrock Converse request/response, NDJSON stream, and toolUse mapping against mock HTTP server."
+        }
+      ],
       "discoveryHints": {
         "upstreamNpm": "@ai-sdk/amazon-bedrock",
         "doc": "https://docs.aws.amazon.com/bedrock/latest/userguide/models-supported.html"
@@ -979,24 +993,45 @@
     },
     "azure": {
       "id": "azure",
-      "name": "Azure",
-      "protocols": [],
-      "officialEndpoints": {},
+      "name": "Azure OpenAI",
+      "protocols": [
+        "azure_openai"
+      ],
+      "officialEndpoints": {
+        "azure_openai": "https://YOUR_RESOURCE.openai.azure.com"
+      },
       "auth": {
-        "type": "bearer",
+        "type": "api-key",
+        "headerName": "api-key",
         "env": [
-          "AZURE_RESOURCE_NAME",
-          "AZURE_API_KEY"
+          "AZURE_OPENAI_API_KEY",
+          "AZURE_OPENAI_ENDPOINT",
+          "AZURE_OPENAI_API_VERSION"
         ]
       },
       "defaultHeaders": {},
-      "extraParams": {},
+      "extraParams": {
+        "apiVersion": "2024-10-21"
+      },
       "thinking": {
-        "mode": "none"
+        "mode": "effort",
+        "levels": [
+          "low",
+          "medium",
+          "high"
+        ]
       },
       "modelOverrides": {},
-      "verificationStatus": "discovered",
-      "verificationEvidence": [],
+      "verificationStatus": "mock_tested",
+      "verificationEvidence": [
+        {
+          "protocol": "azure_openai",
+          "level": "mock_tested",
+          "suite": "conformance/native",
+          "verifiedAt": "2026-11-24",
+          "notes": "Verified Azure deployment path, api-key header, api-version query param, chat/stream/embeddings against mock HTTP server."
+        }
+      ],
       "discoveryHints": {
         "upstreamNpm": "@ai-sdk/azure",
         "doc": "https://learn.microsoft.com/en-us/azure/ai-services/openai/concepts/models"
@@ -1581,8 +1616,12 @@
     "cohere": {
       "id": "cohere",
       "name": "Cohere",
-      "protocols": [],
-      "officialEndpoints": {},
+      "protocols": [
+        "cohere"
+      ],
+      "officialEndpoints": {
+        "cohere": "https://api.cohere.com"
+      },
       "auth": {
         "type": "bearer",
         "env": [
@@ -1592,11 +1631,19 @@
       "defaultHeaders": {},
       "extraParams": {},
       "thinking": {
-        "mode": "none"
+        "mode": "budget_tokens"
       },
       "modelOverrides": {},
-      "verificationStatus": "discovered",
-      "verificationEvidence": [],
+      "verificationStatus": "mock_tested",
+      "verificationEvidence": [
+        {
+          "protocol": "cohere",
+          "level": "mock_tested",
+          "suite": "conformance/native",
+          "verifiedAt": "2026-11-24",
+          "notes": "Verified Cohere v2 /v2/chat, SSE stream, /v2/embed, and /v2/rerank against mock HTTP server."
+        }
+      ],
       "discoveryHints": {
         "upstreamNpm": "@ai-sdk/cohere",
         "doc": "https://docs.cohere.com/docs/models"
@@ -2572,25 +2619,42 @@
     },
     "google-vertex": {
       "id": "google-vertex",
-      "name": "Vertex",
-      "protocols": [],
-      "officialEndpoints": {},
+      "name": "Google Vertex AI",
+      "protocols": [
+        "google_vertex_ai"
+      ],
+      "officialEndpoints": {
+        "google_vertex_ai": "https://us-central1-aiplatform.googleapis.com"
+      },
       "auth": {
         "type": "bearer",
         "env": [
-          "GOOGLE_VERTEX_PROJECT",
-          "GOOGLE_VERTEX_LOCATION",
-          "GOOGLE_APPLICATION_CREDENTIALS"
+          "GOOGLE_VERTEX_ACCESS_TOKEN",
+          "GOOGLE_CLOUD_PROJECT",
+          "GOOGLE_CLOUD_LOCATION"
         ]
       },
       "defaultHeaders": {},
       "extraParams": {},
       "thinking": {
-        "mode": "none"
+        "mode": "effort",
+        "levels": [
+          "low",
+          "medium",
+          "high"
+        ]
       },
       "modelOverrides": {},
-      "verificationStatus": "discovered",
-      "verificationEvidence": [],
+      "verificationStatus": "mock_tested",
+      "verificationEvidence": [
+        {
+          "protocol": "google_vertex_ai",
+          "level": "mock_tested",
+          "suite": "conformance/native",
+          "verifiedAt": "2026-11-24",
+          "notes": "Verified Vertex AI generateContent, SSE streaming, embedContent, and thoughtSignature retention against mock HTTP server."
+        }
+      ],
       "discoveryHints": {
         "upstreamNpm": "@ai-sdk/google-vertex",
         "doc": "https://cloud.google.com/vertex-ai/generative-ai/docs/models"
@@ -5108,6 +5172,40 @@
         "upstreamNpm": "@ai-sdk/openai-compatible",
         "doc": "https://ofox.ai/docs"
       }
+    },
+    "ollama": {
+      "id": "ollama",
+      "name": "Ollama",
+      "protocols": [
+        "ollama",
+        "openai_chat_completions"
+      ],
+      "officialEndpoints": {
+        "ollama": "http://127.0.0.1:11434",
+        "openai_chat_completions": "http://127.0.0.1:11434/v1"
+      },
+      "auth": {
+        "type": "none",
+        "env": [
+          "OLLAMA_HOST"
+        ]
+      },
+      "defaultHeaders": {},
+      "extraParams": {},
+      "thinking": {
+        "mode": "boolean"
+      },
+      "modelOverrides": {},
+      "verificationStatus": "mock_tested",
+      "verificationEvidence": [
+        {
+          "protocol": "ollama",
+          "level": "mock_tested",
+          "suite": "conformance/native",
+          "verifiedAt": "2026-11-24",
+          "notes": "Verified /api/chat, NDJSON streaming, and /api/embed against mock HTTP server."
+        }
+      ]
     },
     "ollama-cloud": {
       "id": "ollama-cloud",

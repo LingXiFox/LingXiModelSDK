@@ -12,6 +12,11 @@ pub enum NativeProtocol {
     OpenaiResponses,
     AnthropicMessages,
     GoogleGemini,
+    AwsBedrock,
+    GoogleVertexAi,
+    AzureOpenai,
+    Ollama,
+    Cohere,
 }
 
 impl NativeProtocol {
@@ -21,6 +26,26 @@ impl NativeProtocol {
             Self::OpenaiResponses => "openai_responses",
             Self::AnthropicMessages => "anthropic_messages",
             Self::GoogleGemini => "google_gemini",
+            Self::AwsBedrock => "aws_bedrock",
+            Self::GoogleVertexAi => "google_vertex_ai",
+            Self::AzureOpenai => "azure_openai",
+            Self::Ollama => "ollama",
+            Self::Cohere => "cohere",
+        }
+    }
+
+    pub fn parse_str(raw: &str) -> Option<Self> {
+        match raw {
+            "openai_chat_completions" => Some(Self::OpenaiChatCompletions),
+            "openai_responses" => Some(Self::OpenaiResponses),
+            "anthropic_messages" => Some(Self::AnthropicMessages),
+            "google_gemini" => Some(Self::GoogleGemini),
+            "aws_bedrock" => Some(Self::AwsBedrock),
+            "google_vertex_ai" => Some(Self::GoogleVertexAi),
+            "azure_openai" => Some(Self::AzureOpenai),
+            "ollama" => Some(Self::Ollama),
+            "cohere" => Some(Self::Cohere),
+            _ => None,
         }
     }
 }

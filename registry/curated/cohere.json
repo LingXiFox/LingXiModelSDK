@@ -1,0 +1,28 @@
+{
+  "id": "cohere",
+  "name": "Cohere",
+  "protocols": ["cohere"],
+  "officialEndpoints": {
+    "cohere": "https://api.cohere.com"
+  },
+  "auth": {
+    "type": "bearer",
+    "env": ["COHERE_API_KEY"]
+  },
+  "defaultHeaders": {},
+  "extraParams": {},
+  "thinking": {
+    "mode": "budget_tokens"
+  },
+  "modelOverrides": {},
+  "verificationStatus": "mock_tested",
+  "verificationEvidence": [
+    {
+      "protocol": "cohere",
+      "level": "mock_tested",
+      "suite": "conformance/native",
+      "verifiedAt": "2026-11-24",
+      "notes": "Verified Cohere v2 /v2/chat, SSE stream, /v2/embed, and /v2/rerank against mock HTTP server."
+    }
+  ]
+}

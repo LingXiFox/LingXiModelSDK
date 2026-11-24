@@ -6,6 +6,9 @@ Package.resolved
 sdk/rust/target/
 core/target/
 sdk/java/build/
+sdk/csharp/**/bin/
+sdk/csharp/**/obj/
+sdk/cpp/build/
 gateway/lingxi-gateway
 __pycache__/
 *.pyc

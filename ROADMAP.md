@@ -59,6 +59,13 @@ LingXiModelSDK 2.0 evolves the repository from a single-language Swift model cat
 - Added standalone protocol mock server (`conformance/mock-server/server.py`) and opt-in live verification script (`scripts/live-verify.sh`).
 - Added full monorepo verification runner (`scripts/test-all.sh`), release checklist (`docs/publishing.md`), and manual `workflow_dispatch` release binary workflow (`.github/workflows/release-artifacts.yml`).
 
+## Phase 7: Full Audit, 10-Language SDKs, 9 Protocols & `2.0.0-alpha.1` Readiness — Completed
+
+- **10 Languages × 4 Modules**: Swift, Rust, Go, TypeScript/JS, Python (`ctypes` -> `liblingxi_core`), Java, C++20 (Rust C ABI), C# (.NET 8), Kotlin (JVM), Dart 3 — each providing independent Catalog, Provider Registry, Native Provider, and Unified Provider (LMP) modules.
+- **9 Protocols (`Mock Tested`)**: OpenAI Chat Completions, OpenAI Responses, Anthropic Messages, Google Gemini, AWS Bedrock (SigV4 + Converse/NDJSON), Google Vertex AI (`thoughtSignature`), Azure OpenAI, Ollama, Cohere (incl. `/v2/rerank`).
+- **Gateway & Security Hardening**: Dial-time private/metadata IP SSRF protection, HTTP 3xx redirect blocking across all 10 SDKs, real-time `StreamEach` SSE flushing, `/v1/lmp/embed`, `/v1/lmp/rerank`, and secret redaction.
+- **Website & Evidence**: Upgraded `website/` with `/gateway`, 10-language `/sdk`, 9-protocol `/protocols`, `2.0.0-alpha.1` release notes (`docs/release-2.0.0-alpha.1.md`), feature matrix (`docs/feature-matrix.md`), and host benchmarks + security audit (`docs/performance-security-audit.md`). Formal tagging/publishing and production cutover await explicit approval.
+
 ### Remaining Optional / Gated Items
 - Tier-2 Catalog languages (C#, Kotlin, C++, Dart) and Tier-2 protocols (Bedrock, Vertex AI, Azure, Ollama, Cohere).
 - Approved production server cutover (`models.lingxifox.cn`) and external package registry publishing.

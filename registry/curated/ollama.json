@@ -1,0 +1,29 @@
+{
+  "id": "ollama",
+  "name": "Ollama",
+  "protocols": ["ollama", "openai_chat_completions"],
+  "officialEndpoints": {
+    "ollama": "http://127.0.0.1:11434",
+    "openai_chat_completions": "http://127.0.0.1:11434/v1"
+  },
+  "auth": {
+    "type": "none",
+    "env": ["OLLAMA_HOST"]
+  },
+  "defaultHeaders": {},
+  "extraParams": {},
+  "thinking": {
+    "mode": "boolean"
+  },
+  "modelOverrides": {},
+  "verificationStatus": "mock_tested",
+  "verificationEvidence": [
+    {
+      "protocol": "ollama",
+      "level": "mock_tested",
+      "suite": "conformance/native",
+      "verifiedAt": "2026-11-24",
+      "notes": "Verified /api/chat, NDJSON streaming, and /api/embed against mock HTTP server."
+    }
+  ]
+}

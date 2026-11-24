@@ -1,0 +1,55 @@
+{{template "head" .}}
+<body>
+{{template "header" .}}
+<div class="page-wrap">
+  <main>
+    <section class="intro">
+      <p class="eyebrow">LINGXI MODEL GATEWAY · OPTIONAL SUBSYSTEM</p>
+      <h1>可选统一 HTTP Gateway 部署指南</h1>
+      <p>LingXiModelSDK 默认在调用方进程内直连上游。需要集中鉴权、跨语言代理或统一审计时，可独立部署单二进制 Go Gateway。</p>
+    </section>
+
+    <section class="section-grid">
+      <article class="panel">
+        <h2>默认安全策略（Fail-Closed）</h2>
+        <ul>
+          <li>监听非回环地址时强制要求 <code>-auth-token</code> 与 <code>-allow-hosts</code> 出站白名单。</li>
+          <li>拨号阶段校验解析 IP，阻断 RFC1918 私网、回环及云元数据地址（<code>169.254.169.254</code>）。</li>
+          <li>上游请求禁用 HTTP 3xx 自动重定向，防止鉴权头泄漏。</li>
+          <li>公共模型目录服务（<code>models.lingxifox.cn</code>）绝不接收任何推理正文或用户密钥。</li>
+        </ul>
+      </article>
+      <article class="panel">
+        <h2>HTTP API 端点</h2>
+        <ul>
+          <li><code>GET /v1/healthz</code>：健康检查与注册表数量。</li>
+          <li><code>POST /v1/lmp/complete</code>：统一非流式补全（9 协议）。</li>
+          <li><code>POST /v1/lmp/stream</code>：逐帧实时 SSE 流式透传。</li>
+          <li><code>POST /v1/lmp/embed</code> &amp; <code>POST /v1/lmp/rerank</code>：向量与重排。</li>
+          <li><code>POST /v1/diagnostics/connect</code>：端点解析与安全诊断。</li>
+        </ul>
+      </article>
+    </section>
+
+    <section class="panel doc-block">
+      <h2>构建与启动</h2>
+      <pre id="gw-run">cd gateway
+CGO_ENABLED=0 go build -trimpath -ldflags="-s -w" -o lingxi-gateway .
+
+# 本地回环开发模式
+./lingxi-gateway -listen 127.0.0.1:8090 -registry ../registry/registry.json
+
+# 生产内网/公网监听（强制鉴权 + 出站白名单）
+./lingxi-gateway \
+  -listen 0.0.0.0:8090 \
+  -auth-token "$LINGXI_GATEWAY_TOKEN" \
+  -allow-hosts "api.openai.com,api.anthropic.com,generativelanguage.googleapis.com" \
+  -registry /etc/lingxi/registry.json</pre>
+      <button type="button" data-copy-target="gw-run">复制启动命令</button>
+    </section>
+  </main>
+</div>
+{{template "footer" .}}
+<script src="/static/site.js" defer></script>
+</body>
+</html>

@@ -1,0 +1,5 @@
+name: lingxi_model_sdk
+version: 2.0.0-alpha.1
+description: Zero-dependency Dart SDK for LingXiModelSDK (Catalog, Registry, Native, Unified).
+environment:
+  sdk: ">=3.0.0 <4.0.0"

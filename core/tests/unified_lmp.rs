@@ -221,6 +221,8 @@ async fn test_lmp_explicit_unsupported_errors_and_c_abi() {
     let rerank_err = client
         .rerank(
             NativeProtocol::GoogleGemini,
+            "https://generativelanguage.googleapis.com",
+            None,
             &RerankRequest {
                 model: "m".into(),
                 query: "q".into(),

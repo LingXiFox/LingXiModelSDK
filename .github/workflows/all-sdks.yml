@@ -1,0 +1,98 @@
+name: All 10 SDKs & Agent Conformance
+
+on:
+  push:
+    branches: [rewrite/2.0, main]
+  pull_request:
+    branches: [rewrite/2.0, main]
+
+jobs:
+  rust-python-cpp:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - name: Test Rust Core (9 protocols + Agent scenarios)
+        run: cd core && cargo build && cargo test
+      - name: Test Python SDK (Catalog + Registry + Native + Unified + Rust FFI)
+        run: PYTHONPATH=sdk/python/src python3 -m unittest discover -s sdk/python/tests
+      - name: Test C++ SDK (C++20 + Rust C ABI)
+        run: |
+          cd sdk/cpp
+          clang++ -std=c++20 -Iinclude -I../../core/include tests/test_cpp_sdk.cpp \
+            -L../../core/target/debug -Wl,-rpath,"$(pwd)/../../core/target/debug" \
+            -llingxi_core -o /tmp/test_cpp_sdk
+          /tmp/test_cpp_sdk
+          rm -f /tmp/test_cpp_sdk
+
+  go-gateway-ts:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: "1.23"
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+      - name: Test Go SDK & Gateway
+        run: |
+          cd sdk/go && go vet ./... && go test -race ./...
+          cd ../../gateway && go vet ./... && go test -race ./...
+      - name: Test TypeScript SDK
+        run: cd sdk/typescript && node --test tests/*.test.ts
+
+  java-kotlin:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+      - name: Test Java SDK (4 modules)
+        run: |
+          cd sdk/java
+          mkdir -p build/classes
+          javac -d build/classes src/main/java/cn/lingxifox/modelsdk/*.java
+          java -cp build/classes cn.lingxifox.modelsdk.CatalogTestRunner
+          java -cp build/classes cn.lingxifox.modelsdk.ProviderTestRunner
+      - name: Install and Test Kotlin SDK (4 modules)
+        run: |
+          curl -fsSL https://github.com/JetBrains/kotlin/releases/download/v2.1.0/kotlin-compiler-2.1.0.zip -o /tmp/kotlin.zip
+          unzip -q /tmp/kotlin.zip -d /tmp/kotlin-sdk
+          export PATH="/tmp/kotlin-sdk/kotlinc/bin:$PATH"
+          cd sdk/kotlin
+          kotlinc src/cn/lingxifox/modelsdk/*.kt tests/TestRunner.kt -include-runtime -d /tmp/lingxi-kotlin.jar
+          java -jar /tmp/lingxi-kotlin.jar
+          rm -rf /tmp/kotlin.zip /tmp/kotlin-sdk /tmp/lingxi-kotlin.jar
+
+  csharp-dotnet:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "8.0.x"
+      - name: Test C# SDK (4 modules)
+        run: cd sdk/csharp/Tests && dotnet run --configuration Release
+
+  dart-sdk:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dart-lang/setup-dart@v1
+        with:
+          sdk: stable
+      - name: Test Dart SDK (4 modules)
+        run: cd sdk/dart && dart run test/sdk_test.dart
+
+  swift-sdk:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: swift-actions/setup-swift@v2
+        with:
+          swift-version: "6.0"
+      - name: Test Swift SDK (Catalog + Registry + Native + Unified)
+        run: swift test

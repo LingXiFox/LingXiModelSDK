@@ -10,22 +10,20 @@ MIT License · Monorepo · In-process by default.
 
 LingXiModelSDK provides three independent, parallel entry points:
 
-1. **Model Catalog** *(Conformance-tested: Swift, Rust, TS/JS, Python, Go, Java · Planned Tier 2: C#, Kotlin, C++, Dart)*
+1. **Model Catalog** *(10 languages: Swift, Rust, Go, TS/JS, Python, Java, C++, C#, Kotlin, Dart)*
    Read-only model and provider metadata: identity, context/output limits, capabilities, pricing, and freshness. Requires no API keys or inference runtime.
    - Specification & Schemas: [specs/catalog-v2.md](specs/catalog-v2.md), [schemas/](schemas/catalog-v2.schema.json)
-   - Language SDKs: [Swift](Sources/LingXiModelSDK/), [Go](sdk/go/), [Python](sdk/python/), [TypeScript/JS](sdk/typescript/), [Rust](sdk/rust/), [Java](sdk/java/)
-   - Run all 6 conformance suites: `./scripts/test-catalog-sdks.sh`
-2. **Native Provider** *(Mock-tested Tier 1: Rust `core/`, Go `sdk/go/native`, TS `@lingxifox/model-sdk/native`)*
-   Direct upstream communication using each provider's native protocol, request/response types, and SSE streaming events without forcing a unified abstraction.
-   - Declarative Registry (326 providers): [registry/registry.json](registry/registry.json), [specs/provider-registry-v1.md](specs/provider-registry-v1.md)
-   - Tier-1 Protocols: OpenAI Chat Completions, OpenAI Responses, Anthropic Messages, Google Gemini ([specs/native-provider-v1.md](specs/native-provider-v1.md))
-   - Run all native provider suites: `./scripts/test-native-providers.sh`
-3. **Unified Provider** *(Mock-tested: Rust `core/src/lmp` + C ABI, Go `sdk/go/unified`, TS `@lingxifox/model-sdk/unified`)*
-   Opt-in normalized LingXi Model Protocol (LMP) across providers, with explicit unsupported-feature errors and no silent downgrades.
+   - Language SDKs: [Swift](Sources/LingXiModelSDK/), [Rust](sdk/rust/), [Go](sdk/go/), [TypeScript/JS](sdk/typescript/), [Python](sdk/python/), [Java](sdk/java/), [C++](sdk/cpp/), [C#](sdk/csharp/), [Kotlin](sdk/kotlin/), [Dart](sdk/dart/)
+2. **Native Provider** *(9 protocols `Mock Tested` across all 10 languages)*
+   Direct upstream communication using each provider's native protocol, request/response types, AWS SigV4 signing, and SSE/NDJSON streaming without forcing a unified abstraction.
+   - Declarative Registry (327 providers): [registry/registry.json](registry/registry.json), [specs/provider-registry-v1.md](specs/provider-registry-v1.md)
+   - Protocols: OpenAI Chat Completions, OpenAI Responses, Anthropic Messages, Google Gemini, AWS Bedrock, Google Vertex AI, Azure OpenAI, Ollama, Cohere ([docs/feature-matrix.md](docs/feature-matrix.md))
+3. **Unified Provider** *(Opt-in LMP across all 10 languages, incl. `embed` & `rerank`)*
+   Normalized LingXi Model Protocol (LMP) across providers, with explicit unsupported-feature errors and no silent downgrades.
    - Optional HTTP Gateway: [gateway/](gateway/README.md), [specs/gateway-v1.md](specs/gateway-v1.md)
-   - Specification, Schema & Bindings Evaluation: [specs/lmp-v1.md](specs/lmp-v1.md), [schemas/lmp-v1.schema.json](schemas/lmp-v1.schema.json), [docs/bindings-evaluation.md](docs/bindings-evaluation.md)
+   - Benchmarks & Security Audit: [docs/performance-security-audit.md](docs/performance-security-audit.md)
    - Support Evidence Matrix: [docs/support-matrix.md](docs/support-matrix.md)
-   - Run full monorepo verification: `./scripts/test-all.sh`
+   - Run full local verification: `./scripts/test-all.sh`
 
 See [ROADMAP.md](ROADMAP.md) and [specs/architecture-v2.md](specs/architecture-v2.md) for full details.
 

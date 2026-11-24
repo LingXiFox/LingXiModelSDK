@@ -14,7 +14,8 @@ export function translateRequest(
 ): Record<string, unknown> {
   let payload: Record<string, unknown>;
   switch (protocol) {
-    case "openai_chat_completions": {
+    case "openai_chat_completions":
+    case "azure_openai": {
       if (req.thinking?.budgetTokens !== undefined) {
         throw new LmpUnsupportedFeatureError(protocol, "budget_tokens");
       }
@@ -29,6 +30,15 @@ export function translateRequest(
         })),
         ...(req.maxTokens !== undefined ? { max_tokens: req.maxTokens } : {}),
         ...(req.thinking?.effort ? { reasoning_effort: req.thinking.effort } : {}),
+        ...(req.tools && req.tools.length > 0
+          ? {
+              tools: req.tools.map((t) => ({
+                type: "function",
+                function: { name: t.name, description: t.description, parameters: t.parameters },
+              })),
+            }
+          : {}),
+        ...(req.toolChoice !== undefined ? { tool_choice: req.toolChoice } : {}),
       };
       break;
     }
@@ -79,7 +89,8 @@ export function translateRequest(
       };
       break;
     }
-    case "google_gemini": {
+    case "google_gemini":
+    case "google_vertex_ai": {
       payload = {
         contents: req.messages
           .filter((m) => m.role !== "system")
@@ -89,6 +100,92 @@ export function translateRequest(
               .filter((b): b is { type: "text"; text: string } => b.type === "text")
               .map((b) => ({ text: b.text })),
           })),
+      };
+      break;
+    }
+    case "aws_bedrock": {
+      const system = req.messages
+        .filter((m) => m.role === "system")
+        .flatMap((m) => m.content)
+        .filter((b): b is { type: "text"; text: string } => b.type === "text")
+        .map((b) => ({ text: b.text }));
+      payload = {
+        messages: req.messages
+          .filter((m) => m.role !== "system")
+          .map((m) => ({
+            role: m.role === "assistant" ? "assistant" : "user",
+            content: m.content.map((b) => {
+              if (b.type === "text") return { text: b.text };
+              if (b.type === "thinking") {
+                return {
+                  reasoningContent: {
+                    reasoningText: {
+                      text: b.thinking,
+                      ...(b.signature ? { signature: b.signature } : {}),
+                    },
+                  },
+                };
+              }
+              if (b.type === "tool_call") {
+                return { toolUse: { toolUseId: b.id, name: b.name, input: b.arguments } };
+              }
+              if (b.type === "tool_result") {
+                return {
+                  toolResult: {
+                    toolUseId: b.toolCallID,
+                    content: [{ text: b.content }],
+                    status: b.isError ? "error" : "success",
+                  },
+                };
+              }
+              return {};
+            }),
+          })),
+        ...(system.length > 0 ? { system } : {}),
+        ...(req.thinking?.budgetTokens
+          ? { additionalModelRequestFields: { thinking: { type: "enabled", budget_tokens: req.thinking.budgetTokens } } }
+          : {}),
+      };
+      break;
+    }
+    case "ollama": {
+      if (req.responseFormat?.type === "json_schema") {
+        throw new LmpUnsupportedFeatureError(protocol, "json_schema_strict");
+      }
+      payload = {
+        model: req.model,
+        stream: false,
+        messages: req.messages.map((m) => ({
+          role: m.role,
+          content: m.content
+            .filter((b): b is { type: "text"; text: string } => b.type === "text")
+            .map((b) => b.text)
+            .join(""),
+        })),
+        ...(req.responseFormat?.type === "json_object" ? { format: "json" } : {}),
+        ...(req.thinking ? { think: true } : {}),
+      };
+      break;
+    }
+    case "cohere": {
+      payload = {
+        model: req.model,
+        messages: req.messages.map((m) => ({
+          role: m.role,
+          content: m.content
+            .filter((b): b is { type: "text"; text: string } => b.type === "text")
+            .map((b) => b.text)
+            .join(""),
+        })),
+        ...(req.maxTokens !== undefined ? { max_tokens: req.maxTokens } : {}),
+        ...(req.thinking
+          ? {
+              thinking: {
+                type: "enabled",
+                ...(req.thinking.budgetTokens ? { token_budget: req.thinking.budgetTokens } : {}),
+              },
+            }
+          : {}),
       };
       break;
     }
@@ -104,7 +201,8 @@ export function normalizeResponse(
   raw: Record<string, unknown>
 ): LmpResponse {
   switch (protocol) {
-    case "openai_chat_completions": {
+    case "openai_chat_completions":
+    case "azure_openai": {
       const choice = ((raw.choices as unknown[]) ?? [])[0] as Record<string, unknown>;
       const msg = (choice.message as Record<string, unknown>) ?? {};
       const content: LmpContentBlock[] = [];
@@ -190,7 +288,8 @@ export function normalizeResponse(
         raw,
       };
     }
-    case "google_gemini": {
+    case "google_gemini":
+    case "google_vertex_ai": {
       const cand = ((raw.candidates as Record<string, unknown>[]) ?? [])[0] ?? {};
       const parts = ((cand.content as Record<string, unknown>)?.parts as Record<string, unknown>[]) ?? [];
       const content: LmpContentBlock[] = [];
@@ -198,7 +297,11 @@ export function normalizeResponse(
         if (typeof p.text === "string" && p.text) {
           content.push(
             p.thought === true
-              ? { type: "thinking", thinking: p.text }
+              ? {
+                  type: "thinking",
+                  thinking: p.text,
+                  ...(typeof p.thoughtSignature === "string" ? { signature: p.thoughtSignature } : {}),
+                }
               : { type: "text", text: p.text }
           );
         }
@@ -215,6 +318,84 @@ export function normalizeResponse(
         raw,
       };
     }
+    case "aws_bedrock": {
+      const msg = ((raw.output as Record<string, unknown>)?.message as Record<string, unknown>) ?? {};
+      const blocks = (msg.content as Record<string, unknown>[]) ?? [];
+      const content: LmpContentBlock[] = [];
+      for (const b of blocks) {
+        if (typeof b.text === "string") content.push({ type: "text", text: b.text });
+        else if (b.reasoningContent) {
+          const rt = (b.reasoningContent as Record<string, unknown>).reasoningText as Record<string, unknown>;
+          content.push({
+            type: "thinking",
+            thinking: String(rt?.text ?? ""),
+            ...(typeof rt?.signature === "string" ? { signature: rt.signature } : {}),
+          });
+        } else if (b.toolUse) {
+          const tu = b.toolUse as Record<string, unknown>;
+          content.push({
+            type: "tool_call",
+            id: String(tu.toolUseId ?? ""),
+            name: String(tu.name ?? ""),
+            arguments: (tu.input as Record<string, unknown>) ?? {},
+          });
+        }
+      }
+      const u = (raw.usage as Record<string, number>) ?? {};
+      return {
+        content,
+        finishReason: raw.stopReason as string | undefined,
+        usage: {
+          inputTokens: u.inputTokens ?? 0,
+          outputTokens: u.outputTokens ?? 0,
+          totalTokens: u.totalTokens ?? 0,
+          ...(u.cacheReadInputTokens !== undefined ? { cacheReadTokens: u.cacheReadInputTokens } : {}),
+          ...(u.cacheWriteInputTokens !== undefined ? { cacheWriteTokens: u.cacheWriteInputTokens } : {}),
+        },
+        raw,
+      };
+    }
+    case "ollama": {
+      const msg = (raw.message as Record<string, unknown>) ?? {};
+      const content: LmpContentBlock[] = [];
+      if (typeof msg.thinking === "string" && msg.thinking) {
+        content.push({ type: "thinking", thinking: msg.thinking });
+      }
+      if (typeof msg.content === "string" && msg.content) {
+        content.push({ type: "text", text: msg.content });
+      }
+      const inTok = Number(raw.prompt_eval_count ?? 0);
+      const outTok = Number(raw.eval_count ?? 0);
+      return {
+        model: raw.model as string | undefined,
+        content,
+        finishReason: raw.done_reason as string | undefined,
+        usage: { inputTokens: inTok, outputTokens: outTok, totalTokens: inTok + outTok },
+        raw,
+      };
+    }
+    case "cohere": {
+      const msg = (raw.message as Record<string, unknown>) ?? {};
+      const blocks = (msg.content as Record<string, unknown>[]) ?? [];
+      const content: LmpContentBlock[] = [];
+      for (const b of blocks) {
+        if (b.type === "thinking" && typeof b.thinking === "string") {
+          content.push({ type: "thinking", thinking: b.thinking });
+        } else if (b.type === "text" && typeof b.text === "string") {
+          content.push({ type: "text", text: b.text });
+        }
+      }
+      const tokens = ((raw.usage as Record<string, unknown>)?.tokens as Record<string, number>) ?? {};
+      const inTok = tokens.input_tokens ?? 0;
+      const outTok = tokens.output_tokens ?? 0;
+      return {
+        id: raw.id as string | undefined,
+        content,
+        finishReason: raw.finish_reason as string | undefined,
+        usage: { inputTokens: inTok, outputTokens: outTok, totalTokens: inTok + outTok },
+        raw,
+      };
+    }
   }
 }
 
@@ -227,7 +408,7 @@ export function normalizeStreamEvents(
     const trimmed = ev.data.trim();
     if (!trimmed || trimmed === "[DONE]") continue;
     const val = JSON.parse(trimmed) as Record<string, unknown>;
-    if (protocol === "openai_chat_completions") {
+    if (protocol === "openai_chat_completions" || protocol === "azure_openai") {
       const c0 = ((val.choices as Record<string, unknown>[]) ?? [])[0];
       if (!c0) continue;
       const d = (c0.delta as Record<string, unknown>) ?? {};
@@ -259,7 +440,7 @@ export function normalizeStreamEvents(
       } else if (kind === "message_stop") {
         out.push({ type: "message_end", finishReason: "stop" });
       }
-    } else if (protocol === "google_gemini") {
+    } else if (protocol === "google_gemini" || protocol === "google_vertex_ai") {
       const c0 = ((val.candidates as Record<string, unknown>[]) ?? [])[0] ?? {};
       const parts = ((c0.content as Record<string, unknown>)?.parts as Record<string, unknown>[]) ?? [];
       for (const p of parts) {
@@ -272,6 +453,37 @@ export function normalizeStreamEvents(
       }
       if (typeof c0.finishReason === "string" && c0.finishReason) {
         out.push({ type: "message_end", finishReason: c0.finishReason });
+      }
+    } else if (protocol === "aws_bedrock") {
+      const cb = val.contentBlockDelta as Record<string, unknown> | undefined;
+      const d = cb?.delta as Record<string, unknown> | undefined;
+      if (typeof d?.text === "string") out.push({ type: "text_delta", delta: d.text });
+      const rt = (d?.reasoningContent as Record<string, unknown> | undefined)?.text;
+      if (typeof rt === "string") out.push({ type: "thinking_delta", delta: rt });
+      const ms = val.messageStop as Record<string, unknown> | undefined;
+      if (typeof ms?.stopReason === "string") out.push({ type: "message_end", finishReason: ms.stopReason });
+    } else if (protocol === "ollama") {
+      const msg = val.message as Record<string, unknown> | undefined;
+      if (typeof msg?.thinking === "string" && msg.thinking) {
+        out.push({ type: "thinking_delta", delta: msg.thinking });
+      }
+      if (typeof msg?.content === "string" && msg.content) {
+        out.push({ type: "text_delta", delta: msg.content });
+      }
+      if (val.done === true) {
+        out.push({ type: "message_end", finishReason: val.done_reason as string | undefined });
+      }
+    } else if (protocol === "cohere") {
+      const kind = ev.event ?? (val.type as string);
+      if (kind === "content-delta") {
+        const c = ((val.delta as Record<string, unknown>)?.message as Record<string, unknown>)?.content as
+          | Record<string, unknown>
+          | undefined;
+        if (typeof c?.text === "string") out.push({ type: "text_delta", delta: c.text });
+        if (typeof c?.thinking === "string") out.push({ type: "thinking_delta", delta: c.thinking });
+      } else if (kind === "message-end") {
+        const fr = (val.delta as Record<string, unknown> | undefined)?.finish_reason as string | undefined;
+        out.push({ type: "message_end", finishReason: fr });
       }
     }
   }

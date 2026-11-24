@@ -43,6 +43,7 @@ type pageTemplates struct {
 	sdk       *templateSet
 	protocols *templateSet
 	providers *templateSet
+	gateway   *templateSet
 }
 
 // Each page is parsed alongside partials so page-specific blocks never collide.
@@ -52,6 +53,7 @@ func parsePageTemplates() pageTemplates {
 		sdk:       mustParsePage("templates/pages/sdk.html"),
 		protocols: mustParsePage("templates/pages/protocols.html"),
 		providers: mustParsePage("templates/pages/providers.html"),
+		gateway:   mustParsePage("templates/pages/gateway.html"),
 	}
 }
 
@@ -191,6 +193,11 @@ func publicHandler(s *Store) http.Handler {
 			status = http.StatusServiceUnavailable
 		}
 		renderHTML(w, r, pages.providers, "providers.html", v, status)
+	})
+
+	mux.HandleFunc("GET /gateway", func(w http.ResponseWriter, r *http.Request) {
+		v := buildStaticView(s.snapshot(), "gateway", "HTTP Gateway 部署与安全指南 — LingXi Models")
+		renderHTML(w, r, pages.gateway, "gateway.html", v, http.StatusOK)
 	})
 
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

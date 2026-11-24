@@ -49,15 +49,52 @@ type ResponseFormat struct {
 	Strict *bool          `json:"strict,omitempty"`
 }
 
+// ToolDefinition describes a callable tool in LMP.
+type ToolDefinition struct {
+	Name        string         `json:"name"`
+	Description string         `json:"description,omitempty"`
+	Parameters  map[string]any `json:"parameters"`
+}
+
 // Request is an LMP completion request.
 type Request struct {
-	Model              string          `json:"model"`
-	Messages           []Message       `json:"messages"`
-	MaxTokens          int64           `json:"maxTokens,omitempty"`
-	Temperature        *float64        `json:"temperature,omitempty"`
-	Thinking           *ThinkingConfig `json:"thinking,omitempty"`
-	ResponseFormat     *ResponseFormat `json:"responseFormat,omitempty"`
-	ProviderExtensions map[string]any  `json:"providerExtensions,omitempty"`
+	Model              string           `json:"model"`
+	Messages           []Message        `json:"messages"`
+	MaxTokens          int64            `json:"maxTokens,omitempty"`
+	Temperature        *float64         `json:"temperature,omitempty"`
+	Tools              []ToolDefinition `json:"tools,omitempty"`
+	ToolChoice         any              `json:"toolChoice,omitempty"`
+	Thinking           *ThinkingConfig  `json:"thinking,omitempty"`
+	ResponseFormat     *ResponseFormat  `json:"responseFormat,omitempty"`
+	ProviderExtensions map[string]any   `json:"providerExtensions,omitempty"`
+}
+
+type EmbeddingRequest struct {
+	Model string   `json:"model"`
+	Input []string `json:"input"`
+}
+
+type EmbeddingResponse struct {
+	Embeddings [][]float64    `json:"embeddings"`
+	Usage      Usage          `json:"usage"`
+	Raw        map[string]any `json:"raw"`
+}
+
+type RerankRequest struct {
+	Model     string   `json:"model"`
+	Query     string   `json:"query"`
+	Documents []string `json:"documents"`
+	TopN      int      `json:"topN,omitempty"`
+}
+
+type RerankResult struct {
+	Index          int     `json:"index"`
+	RelevanceScore float64 `json:"relevanceScore"`
+}
+
+type RerankResponse struct {
+	Results []RerankResult `json:"results"`
+	Raw     map[string]any `json:"raw"`
 }
 
 // Usage reports normalized token and prompt cache metrics.

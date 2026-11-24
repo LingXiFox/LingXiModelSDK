@@ -1,0 +1,21 @@
+{
+  "id": "chatcmpl-azure-1",
+  "object": "chat.completion",
+  "model": "gpt-4o",
+  "choices": [
+    {
+      "index": 0,
+      "message": {
+        "role": "assistant",
+        "content": "Hello from Azure OpenAI"
+      },
+      "finish_reason": "stop"
+    }
+  ],
+  "usage": {
+    "prompt_tokens": 14,
+    "completion_tokens": 6,
+    "total_tokens": 20,
+    "prompt_tokens_details": {"cached_tokens": 4}
+  }
+}

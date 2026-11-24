@@ -1,0 +1,41 @@
+{
+  "schemaVersion": "1.0",
+  "scenarios": [
+    {
+      "id": "multi_turn_tool_loop",
+      "description": "Assistant requests a tool call, caller executes it and sends ToolResult back, assistant produces final answer."
+    },
+    {
+      "id": "parallel_tool_calls",
+      "description": "Single assistant turn returns two distinct ToolCall blocks that are both preserved and echoed in subsequent ToolResult turns."
+    },
+    {
+      "id": "thinking_effort_and_opaque_signature",
+      "description": "Thinking effort maps cleanly per protocol and opaque thinking signature survives response -> next request roundtrip."
+    },
+    {
+      "id": "prompt_cache_and_usage",
+      "description": "cache_read_tokens / cache_write_tokens / reasoning_tokens / input_tokens / output_tokens / total_tokens are extracted accurately."
+    },
+    {
+      "id": "multimodal_input",
+      "description": "ImageBase64 and ImageUrl blocks translate across protocols; Audio on unsupported protocols throws explicit UnsupportedFeature."
+    },
+    {
+      "id": "sse_chunking_and_cancel",
+      "description": "Chunked SSE/NDJSON frames split mid-UTF8 or mid-line assemble cleanly and respect cancellation/timeout."
+    },
+    {
+      "id": "native_passthrough_and_custom_relay",
+      "description": "providerExtensions and custom baseUrl/headers pass through untouched to relay endpoints."
+    },
+    {
+      "id": "connection_reuse_200_iterations",
+      "description": "200 sequential calls against a single keep-alive mock server reuse connections without leaking descriptors or memory."
+    },
+    {
+      "id": "explicit_unsupported_feature",
+      "description": "Unmappable features (e.g. rerank on non-Cohere, json_schema on Ollama when unsupported) fail explicitly instead of silently downgrading."
+    }
+  ]
+}

@@ -1,7 +1,25 @@
 {
+  "amazon-bedrock": {
+    "protocols": [
+      "aws_bedrock"
+    ],
+    "status": "mock_tested"
+  },
   "anthropic": {
     "protocols": [
       "anthropic_messages"
+    ],
+    "status": "mock_tested"
+  },
+  "azure": {
+    "protocols": [
+      "azure_openai"
+    ],
+    "status": "mock_tested"
+  },
+  "cohere": {
+    "protocols": [
+      "cohere"
     ],
     "status": "mock_tested"
   },
@@ -23,6 +41,12 @@
     ],
     "status": "mock_tested"
   },
+  "google-vertex": {
+    "protocols": [
+      "google_vertex_ai"
+    ],
+    "status": "mock_tested"
+  },
   "groq": {
     "protocols": [
       "openai_chat_completions"
@@ -40,6 +64,13 @@
       "openai_chat_completions"
     ],
     "status": "compatible"
+  },
+  "ollama": {
+    "protocols": [
+      "ollama",
+      "openai_chat_completions"
+    ],
+    "status": "mock_tested"
   },
   "openai": {
     "protocols": [

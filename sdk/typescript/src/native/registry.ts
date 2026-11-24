@@ -2,7 +2,12 @@ export type NativeProtocol =
   | "openai_chat_completions"
   | "openai_responses"
   | "anthropic_messages"
-  | "google_gemini";
+  | "google_gemini"
+  | "aws_bedrock"
+  | "google_vertex_ai"
+  | "azure_openai"
+  | "ollama"
+  | "cohere";
 
 export interface AuthConfig {
   readonly type: string;

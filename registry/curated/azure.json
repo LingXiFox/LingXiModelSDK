@@ -1,0 +1,32 @@
+{
+  "id": "azure",
+  "name": "Azure OpenAI",
+  "protocols": ["azure_openai"],
+  "officialEndpoints": {
+    "azure_openai": "https://YOUR_RESOURCE.openai.azure.com"
+  },
+  "auth": {
+    "type": "api-key",
+    "headerName": "api-key",
+    "env": ["AZURE_OPENAI_API_KEY", "AZURE_OPENAI_ENDPOINT", "AZURE_OPENAI_API_VERSION"]
+  },
+  "defaultHeaders": {},
+  "extraParams": {
+    "apiVersion": "2024-10-21"
+  },
+  "thinking": {
+    "mode": "effort",
+    "levels": ["low", "medium", "high"]
+  },
+  "modelOverrides": {},
+  "verificationStatus": "mock_tested",
+  "verificationEvidence": [
+    {
+      "protocol": "azure_openai",
+      "level": "mock_tested",
+      "suite": "conformance/native",
+      "verifiedAt": "2026-11-24",
+      "notes": "Verified Azure deployment path, api-key header, api-version query param, chat/stream/embeddings against mock HTTP server."
+    }
+  ]
+}

@@ -67,3 +67,30 @@ export async function* parseSseStream(
     reader.releaseLock();
   }
 }
+
+export async function* parseNdjsonStream(
+  stream: ReadableStream<Uint8Array>
+): AsyncGenerator<SseEvent> {
+  const reader = stream.getReader();
+  const decoder = new TextDecoder("utf-8");
+  let buffer = "";
+  try {
+    while (true) {
+      const { value, done } = await reader.read();
+      if (done) break;
+      buffer += decoder.decode(value, { stream: true });
+      while (true) {
+        const nl = buffer.indexOf("\n");
+        if (nl === -1) break;
+        const line = buffer.slice(0, nl).trim();
+        buffer = buffer.slice(nl + 1);
+        if (line) yield { event: null, data: line, id: null };
+      }
+    }
+    buffer += decoder.decode();
+    const tail = buffer.trim();
+    if (tail) yield { event: null, data: tail, id: null };
+  } finally {
+    reader.releaseLock();
+  }
+}

@@ -1,0 +1,4 @@
+data: {"candidates":[{"content":{"role":"model","parts":[{"text":"Hello from "}]}}]}
+
+data: {"candidates":[{"content":{"role":"model","parts":[{"text":"Vertex AI"}]},"finishReason":"STOP"}],"usageMetadata":{"promptTokenCount":18,"candidatesTokenCount":9,"totalTokenCount":27}}
+

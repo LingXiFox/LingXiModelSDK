@@ -15,6 +15,11 @@ const (
 	ProtocolOpenAIResponses       Protocol = "openai_responses"
 	ProtocolAnthropicMessages     Protocol = "anthropic_messages"
 	ProtocolGoogleGemini          Protocol = "google_gemini"
+	ProtocolAWSBedrock            Protocol = "aws_bedrock"
+	ProtocolGoogleVertexAI        Protocol = "google_vertex_ai"
+	ProtocolAzureOpenAI           Protocol = "azure_openai"
+	ProtocolOllama                Protocol = "ollama"
+	ProtocolCohere                Protocol = "cohere"
 )
 
 // AuthConfig describes how a provider authenticates requests.

@@ -32,10 +32,12 @@ type Gateway struct {
 }
 
 func NewGateway(cfg GatewayConfig, registry *native.Registry) *Gateway {
+	u := unified.NewClient()
+	u.Native.HTTP = NewSafeHTTPClient(cfg.AllowLoopbackEgress)
 	return &Gateway{
 		cfg:      cfg,
 		registry: registry,
-		unified:  unified.NewClient(),
+		unified:  u,
 		limiter:  NewTokenBucketLimiter(cfg.RateLimitRPS, cfg.RateLimitBurst),
 	}
 }
@@ -45,6 +47,20 @@ type gatewayCompleteReq struct {
 	Protocol         native.Protocol `json:"protocol"`
 	EndpointOverride string          `json:"endpointOverride,omitempty"`
 	Request          unified.Request `json:"request"`
+}
+
+type gatewayEmbedReq struct {
+	ProviderID       string                   `json:"providerId"`
+	Protocol         native.Protocol          `json:"protocol"`
+	EndpointOverride string                   `json:"endpointOverride,omitempty"`
+	Request          unified.EmbeddingRequest `json:"request"`
+}
+
+type gatewayRerankReq struct {
+	ProviderID       string                `json:"providerId"`
+	Protocol         native.Protocol       `json:"protocol"`
+	EndpointOverride string                `json:"endpointOverride,omitempty"`
+	Request          unified.RerankRequest `json:"request"`
 }
 
 type diagnosticsReq struct {
@@ -59,6 +75,8 @@ func (g *Gateway) Handler() http.Handler {
 	mux.HandleFunc("GET /v1/healthz", g.handleHealthz)
 	mux.HandleFunc("POST /v1/lmp/complete", g.withPolicy(g.handleComplete))
 	mux.HandleFunc("POST /v1/lmp/stream", g.withPolicy(g.handleStream))
+	mux.HandleFunc("POST /v1/lmp/embed", g.withPolicy(g.handleEmbed))
+	mux.HandleFunc("POST /v1/lmp/rerank", g.withPolicy(g.handleRerank))
 	mux.HandleFunc("POST /v1/diagnostics/connect", g.withPolicy(g.handleDiagnostics))
 
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -174,35 +192,78 @@ func (g *Gateway) handleStream(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	events, err := g.unified.Stream(r.Context(), req.Protocol, target, apiKey, req.Request)
-	if err != nil {
-		writeLmpError(w, err)
-		return
-	}
-
 	w.Header().Set("Content-Type", "text/event-stream; charset=utf-8")
 	w.Header().Set("X-Accel-Buffering", "no")
 	flusher, _ := w.(http.Flusher)
 
-	for _, ev := range events {
+	err = g.unified.StreamEach(r.Context(), req.Protocol, target, apiKey, req.Request, func(ev unified.StreamEvent) error {
 		select {
 		case <-r.Context().Done():
-			return
+			return r.Context().Err()
 		default:
 		}
 		data, err := json.Marshal(ev)
 		if err != nil {
-			continue
+			return nil
 		}
 		_, _ = fmt.Fprintf(w, "event: %s\ndata: %s\n\n", ev.Type, data)
 		if flusher != nil {
 			flusher.Flush()
 		}
+		return nil
+	})
+	if err != nil {
+		errPayload, _ := json.Marshal(map[string]string{"error": err.Error()})
+		_, _ = fmt.Fprintf(w, "event: error\ndata: %s\n\n", errPayload)
+		if flusher != nil {
+			flusher.Flush()
+		}
+		return
 	}
 	_, _ = fmt.Fprint(w, "data: [DONE]\n\n")
 	if flusher != nil {
 		flusher.Flush()
 	}
+}
+
+func (g *Gateway) handleEmbed(w http.ResponseWriter, r *http.Request) {
+	var req gatewayEmbedReq
+	if err := decodeBoundedJSON(r.Body, &req); err != nil {
+		writeErrorJSON(w, http.StatusBadRequest, "invalid_request", err.Error())
+		return
+	}
+	apiKey := r.Header.Get("X-Provider-API-Key")
+	target, err := g.resolveTarget(req.ProviderID, req.Protocol, req.Request.Model, req.EndpointOverride)
+	if err != nil {
+		writeErrorJSON(w, http.StatusForbidden, "egress_or_registry_error", err.Error())
+		return
+	}
+	resp, err := g.unified.Embed(r.Context(), req.Protocol, target, apiKey, req.Request)
+	if err != nil {
+		writeLmpError(w, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, resp)
+}
+
+func (g *Gateway) handleRerank(w http.ResponseWriter, r *http.Request) {
+	var req gatewayRerankReq
+	if err := decodeBoundedJSON(r.Body, &req); err != nil {
+		writeErrorJSON(w, http.StatusBadRequest, "invalid_request", err.Error())
+		return
+	}
+	apiKey := r.Header.Get("X-Provider-API-Key")
+	target, err := g.resolveTarget(req.ProviderID, req.Protocol, req.Request.Model, req.EndpointOverride)
+	if err != nil {
+		writeErrorJSON(w, http.StatusForbidden, "egress_or_registry_error", err.Error())
+		return
+	}
+	resp, err := g.unified.Rerank(r.Context(), req.Protocol, target, apiKey, req.Request)
+	if err != nil {
+		writeLmpError(w, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, resp)
 }
 
 func (g *Gateway) handleDiagnostics(w http.ResponseWriter, r *http.Request) {

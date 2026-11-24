@@ -12,14 +12,20 @@ func TranslateRequest(proto native.Protocol, req Request) (map[string]any, error
 	var payload map[string]any
 	var err error
 	switch proto {
-	case native.ProtocolOpenAIChatCompletions:
+	case native.ProtocolOpenAIChatCompletions, native.ProtocolAzureOpenAI:
 		payload, err = toOpenAIChat(req)
 	case native.ProtocolOpenAIResponses:
 		payload, err = toOpenAIResponses(req)
 	case native.ProtocolAnthropicMessages:
 		payload, err = toAnthropicMessages(req)
-	case native.ProtocolGoogleGemini:
+	case native.ProtocolGoogleGemini, native.ProtocolGoogleVertexAI:
 		payload, err = toGoogleGemini(req)
+	case native.ProtocolAWSBedrock:
+		payload, err = toAWSBedrock(req)
+	case native.ProtocolOllama:
+		payload, err = toOllamaChat(req)
+	case native.ProtocolCohere:
+		payload, err = toCohereChat(req)
 	default:
 		return nil, &UnsupportedFeatureError{Protocol: string(proto), Feature: "protocol"}
 	}
@@ -34,14 +40,20 @@ func TranslateRequest(proto native.Protocol, req Request) (map[string]any, error
 
 func NormalizeResponse(proto native.Protocol, raw map[string]any) (*Response, error) {
 	switch proto {
-	case native.ProtocolOpenAIChatCompletions:
+	case native.ProtocolOpenAIChatCompletions, native.ProtocolAzureOpenAI:
 		return fromOpenAIChat(raw)
 	case native.ProtocolOpenAIResponses:
 		return fromOpenAIResponses(raw)
 	case native.ProtocolAnthropicMessages:
 		return fromAnthropicMessages(raw)
-	case native.ProtocolGoogleGemini:
+	case native.ProtocolGoogleGemini, native.ProtocolGoogleVertexAI:
 		return fromGoogleGemini(raw)
+	case native.ProtocolAWSBedrock:
+		return fromAWSBedrock(raw)
+	case native.ProtocolOllama:
+		return fromOllamaChat(raw)
+	case native.ProtocolCohere:
+		return fromCohereChat(raw)
 	default:
 		return nil, &UnsupportedFeatureError{Protocol: string(proto), Feature: "protocol"}
 	}
@@ -50,93 +62,159 @@ func NormalizeResponse(proto native.Protocol, raw map[string]any) (*Response, er
 func NormalizeStreamEvents(proto native.Protocol, events []native.SSEEvent) ([]StreamEvent, error) {
 	var out []StreamEvent
 	for _, ev := range events {
-		trimmed := strings.TrimSpace(ev.Data)
-		if trimmed == "" || trimmed == "[DONE]" {
-			continue
-		}
-		var val map[string]any
-		if err := json.Unmarshal([]byte(trimmed), &val); err != nil {
+		parsed, err := NormalizeStreamEvent(proto, ev)
+		if err != nil {
 			return nil, err
 		}
-		switch proto {
-		case native.ProtocolOpenAIChatCompletions:
-			if choices, ok := val["choices"].([]any); ok && len(choices) > 0 {
-				if c, ok := choices[0].(map[string]any); ok {
-					if d, ok := c["delta"].(map[string]any); ok {
-						if rc, _ := d["reasoning_content"].(string); rc != "" {
-							out = append(out, StreamEvent{Type: "thinking_delta", Delta: rc})
-						}
-						if txt, _ := d["content"].(string); txt != "" {
-							out = append(out, StreamEvent{Type: "text_delta", Delta: txt})
-						}
+		out = append(out, parsed...)
+	}
+	return out, nil
+}
+
+// NormalizeStreamEvent parses a single SSE/NDJSON frame into zero or more LMP StreamEvents.
+func NormalizeStreamEvent(proto native.Protocol, ev native.SSEEvent) ([]StreamEvent, error) {
+	var out []StreamEvent
+	trimmed := strings.TrimSpace(ev.Data)
+	if trimmed == "" || trimmed == "[DONE]" {
+		return out, nil
+	}
+	var val map[string]any
+	if err := json.Unmarshal([]byte(trimmed), &val); err != nil {
+		return nil, err
+	}
+	switch proto {
+	case native.ProtocolOpenAIChatCompletions, native.ProtocolAzureOpenAI:
+		if choices, ok := val["choices"].([]any); ok && len(choices) > 0 {
+			if c, ok := choices[0].(map[string]any); ok {
+				if d, ok := c["delta"].(map[string]any); ok {
+					if rc, _ := d["reasoning_content"].(string); rc != "" {
+						out = append(out, StreamEvent{Type: "thinking_delta", Delta: rc})
 					}
-					if fr, _ := c["finish_reason"].(string); fr != "" {
-						out = append(out, StreamEvent{Type: "message_end", FinishReason: fr})
-					}
-				}
-			}
-		case native.ProtocolOpenAIResponses:
-			kind := ev.Event
-			if kind == "" {
-				kind, _ = val["type"].(string)
-			}
-			switch kind {
-			case "response.output_text.delta":
-				if d, _ := val["delta"].(string); d != "" {
-					out = append(out, StreamEvent{Type: "text_delta", Delta: d})
-				}
-			case "response.reasoning_summary_text.delta":
-				if d, _ := val["delta"].(string); d != "" {
-					out = append(out, StreamEvent{Type: "thinking_delta", Delta: d})
-				}
-			case "response.completed":
-				out = append(out, StreamEvent{Type: "message_end", FinishReason: "completed"})
-			}
-		case native.ProtocolAnthropicMessages:
-			kind := ev.Event
-			if kind == "" {
-				kind, _ = val["type"].(string)
-			}
-			switch kind {
-			case "content_block_delta":
-				if d, ok := val["delta"].(map[string]any); ok {
-					switch d["type"] {
-					case "thinking_delta":
-						if t, _ := d["thinking"].(string); t != "" {
-							out = append(out, StreamEvent{Type: "thinking_delta", Delta: t})
-						}
-					case "text_delta":
-						if t, _ := d["text"].(string); t != "" {
-							out = append(out, StreamEvent{Type: "text_delta", Delta: t})
-						}
+					if txt, _ := d["content"].(string); txt != "" {
+						out = append(out, StreamEvent{Type: "text_delta", Delta: txt})
 					}
 				}
-			case "message_stop":
-				out = append(out, StreamEvent{Type: "message_end", FinishReason: "stop"})
+				if fr, _ := c["finish_reason"].(string); fr != "" {
+					out = append(out, StreamEvent{Type: "message_end", FinishReason: fr})
+				}
 			}
-		case native.ProtocolGoogleGemini:
-			if cands, ok := val["candidates"].([]any); ok && len(cands) > 0 {
-				if c, ok := cands[0].(map[string]any); ok {
-					if content, ok := c["content"].(map[string]any); ok {
-						if parts, ok := content["parts"].([]any); ok {
-							for _, rawP := range parts {
-								if p, ok := rawP.(map[string]any); ok {
-									if txt, _ := p["text"].(string); txt != "" {
-										if th, _ := p["thought"].(bool); th {
-											out = append(out, StreamEvent{Type: "thinking_delta", Delta: txt})
-										} else {
-											out = append(out, StreamEvent{Type: "text_delta", Delta: txt})
-										}
+		}
+	case native.ProtocolOpenAIResponses:
+		kind := ev.Event
+		if kind == "" {
+			kind, _ = val["type"].(string)
+		}
+		switch kind {
+		case "response.output_text.delta":
+			if d, _ := val["delta"].(string); d != "" {
+				out = append(out, StreamEvent{Type: "text_delta", Delta: d})
+			}
+		case "response.reasoning_summary_text.delta":
+			if d, _ := val["delta"].(string); d != "" {
+				out = append(out, StreamEvent{Type: "thinking_delta", Delta: d})
+			}
+		case "response.completed":
+			out = append(out, StreamEvent{Type: "message_end", FinishReason: "completed"})
+		}
+	case native.ProtocolAnthropicMessages:
+		kind := ev.Event
+		if kind == "" {
+			kind, _ = val["type"].(string)
+		}
+		switch kind {
+		case "content_block_delta":
+			if d, ok := val["delta"].(map[string]any); ok {
+				switch d["type"] {
+				case "thinking_delta":
+					if t, _ := d["thinking"].(string); t != "" {
+						out = append(out, StreamEvent{Type: "thinking_delta", Delta: t})
+					}
+				case "text_delta":
+					if t, _ := d["text"].(string); t != "" {
+						out = append(out, StreamEvent{Type: "text_delta", Delta: t})
+					}
+				}
+			}
+		case "message_stop":
+			out = append(out, StreamEvent{Type: "message_end", FinishReason: "stop"})
+		}
+	case native.ProtocolGoogleGemini, native.ProtocolGoogleVertexAI:
+		if cands, ok := val["candidates"].([]any); ok && len(cands) > 0 {
+			if c, ok := cands[0].(map[string]any); ok {
+				if content, ok := c["content"].(map[string]any); ok {
+					if parts, ok := content["parts"].([]any); ok {
+						for _, rawP := range parts {
+							if p, ok := rawP.(map[string]any); ok {
+								if txt, _ := p["text"].(string); txt != "" {
+									if th, _ := p["thought"].(bool); th {
+										out = append(out, StreamEvent{Type: "thinking_delta", Delta: txt})
+									} else {
+										out = append(out, StreamEvent{Type: "text_delta", Delta: txt})
 									}
 								}
 							}
 						}
 					}
-					if fr, _ := c["finishReason"].(string); fr != "" {
-						out = append(out, StreamEvent{Type: "message_end", FinishReason: fr})
+				}
+				if fr, _ := c["finishReason"].(string); fr != "" {
+					out = append(out, StreamEvent{Type: "message_end", FinishReason: fr})
+				}
+			}
+		}
+	case native.ProtocolAWSBedrock:
+		if cb, ok := val["contentBlockDelta"].(map[string]any); ok {
+			if d, ok := cb["delta"].(map[string]any); ok {
+				if txt, _ := d["text"].(string); txt != "" {
+					out = append(out, StreamEvent{Type: "text_delta", Delta: txt})
+				}
+				if rc, ok := d["reasoningContent"].(map[string]any); ok {
+					if txt, _ := rc["text"].(string); txt != "" {
+						out = append(out, StreamEvent{Type: "thinking_delta", Delta: txt})
 					}
 				}
 			}
+		} else if ms, ok := val["messageStop"].(map[string]any); ok {
+			sr, _ := ms["stopReason"].(string)
+			out = append(out, StreamEvent{Type: "message_end", FinishReason: sr})
+		}
+	case native.ProtocolOllama:
+		if msg, ok := val["message"].(map[string]any); ok {
+			if th, _ := msg["thinking"].(string); th != "" {
+				out = append(out, StreamEvent{Type: "thinking_delta", Delta: th})
+			}
+			if txt, _ := msg["content"].(string); txt != "" {
+				out = append(out, StreamEvent{Type: "text_delta", Delta: txt})
+			}
+		}
+		if done, _ := val["done"].(bool); done {
+			fr, _ := val["done_reason"].(string)
+			out = append(out, StreamEvent{Type: "message_end", FinishReason: fr})
+		}
+	case native.ProtocolCohere:
+		kind := ev.Event
+		if kind == "" {
+			kind, _ = val["type"].(string)
+		}
+		switch kind {
+		case "content-delta":
+			if d, ok := val["delta"].(map[string]any); ok {
+				if m, ok := d["message"].(map[string]any); ok {
+					if c, ok := m["content"].(map[string]any); ok {
+						if txt, _ := c["text"].(string); txt != "" {
+							out = append(out, StreamEvent{Type: "text_delta", Delta: txt})
+						}
+						if th, _ := c["thinking"].(string); th != "" {
+							out = append(out, StreamEvent{Type: "thinking_delta", Delta: th})
+						}
+					}
+				}
+			}
+		case "message-end":
+			fr := ""
+			if d, ok := val["delta"].(map[string]any); ok {
+				fr, _ = d["finish_reason"].(string)
+			}
+			out = append(out, StreamEvent{Type: "message_end", FinishReason: fr})
 		}
 	}
 	return out, nil
@@ -148,20 +226,72 @@ func toOpenAIChat(req Request) (map[string]any, error) {
 	}
 	msgs := make([]map[string]any, 0, len(req.Messages))
 	for _, m := range req.Messages {
-		var text string
+		var text strings.Builder
+		var parts []map[string]any
+		var toolCalls []map[string]any
+		var toolCallID string
+		hasParts := false
 		for _, b := range m.Content {
-			if b.Type == "text" {
-				text += b.Text
+			switch b.Type {
+			case "text":
+				text.WriteString(b.Text)
+				parts = append(parts, map[string]any{"type": "text", "text": b.Text})
+			case "image_url":
+				hasParts = true
+				parts = append(parts, map[string]any{"type": "image_url", "image_url": map[string]any{"url": b.URL}})
+			case "image_base64":
+				hasParts = true
+				parts = append(parts, map[string]any{"type": "image_url", "image_url": map[string]any{"url": "data:" + b.MediaType + ";base64," + b.Data}})
+			case "tool_call":
+				argBytes, _ := json.Marshal(b.Arguments)
+				toolCalls = append(toolCalls, map[string]any{
+					"id":       b.ID,
+					"type":     "function",
+					"function": map[string]any{"name": b.Name, "arguments": string(argBytes)},
+				})
+			case "tool_result":
+				toolCallID = b.ToolCallID
+				text.WriteString(b.Content)
+			case "audio":
+				return nil, &UnsupportedFeatureError{Protocol: "openai_chat_completions", Feature: "audio_input"}
 			}
 		}
-		msgs = append(msgs, map[string]any{"role": m.Role, "content": text})
+		entry := map[string]any{"role": m.Role}
+		if hasParts {
+			entry["content"] = parts
+		} else {
+			entry["content"] = text.String()
+		}
+		if len(toolCalls) > 0 {
+			entry["tool_calls"] = toolCalls
+		}
+		if toolCallID != "" {
+			entry["tool_call_id"] = toolCallID
+		}
+		msgs = append(msgs, entry)
 	}
 	out := map[string]any{"model": req.Model, "messages": msgs}
 	if req.MaxTokens > 0 {
 		out["max_tokens"] = req.MaxTokens
 	}
+	if req.Temperature != nil {
+		out["temperature"] = *req.Temperature
+	}
 	if req.Thinking != nil && req.Thinking.Effort != "" {
 		out["reasoning_effort"] = req.Thinking.Effort
+	}
+	if len(req.Tools) > 0 {
+		var tools []map[string]any
+		for _, t := range req.Tools {
+			tools = append(tools, map[string]any{
+				"type":     "function",
+				"function": map[string]any{"name": t.Name, "description": t.Description, "parameters": t.Parameters},
+			})
+		}
+		out["tools"] = tools
+	}
+	if req.ToolChoice != nil {
+		out["tool_choice"] = req.ToolChoice
 	}
 	return out, nil
 }
@@ -391,7 +521,8 @@ func fromGoogleGemini(raw map[string]any) (*Response, error) {
 			p, _ := pRaw.(map[string]any)
 			if txt, _ := p["text"].(string); txt != "" {
 				if th, _ := p["thought"].(bool); th {
-					content = append(content, ContentBlock{Type: "thinking", Thinking: txt})
+					sig, _ := p["thoughtSignature"].(string)
+					content = append(content, ContentBlock{Type: "thinking", Thinking: txt, Signature: sig})
 				} else {
 					content = append(content, ContentBlock{Type: "text", Text: txt})
 				}
@@ -403,10 +534,242 @@ func fromGoogleGemini(raw map[string]any) (*Response, error) {
 	return &Response{
 		Content: content, FinishReason: fr,
 		Usage: Usage{
-			InputTokens:  int64Field(u, "promptTokenCount"),
-			OutputTokens: int64Field(u, "candidatesTokenCount"),
-			TotalTokens:  int64Field(u, "totalTokenCount"),
+			InputTokens:     int64Field(u, "promptTokenCount"),
+			OutputTokens:    int64Field(u, "candidatesTokenCount"),
+			TotalTokens:     int64Field(u, "totalTokenCount"),
+			ReasoningTokens: optInt64Field(u, "thoughtsTokenCount"),
+			CacheReadTokens: optInt64Field(u, "cachedContentTokenCount"),
 		},
 		Raw: raw,
+	}, nil
+}
+
+func toAWSBedrock(req Request) (map[string]any, error) {
+	var system []map[string]any
+	var messages []map[string]any
+	for _, m := range req.Messages {
+		if m.Role == "system" {
+			for _, b := range m.Content {
+				if b.Type == "text" {
+					system = append(system, map[string]any{"text": b.Text})
+				}
+			}
+			continue
+		}
+		role := "user"
+		if m.Role == "assistant" {
+			role = "assistant"
+		}
+		var blocks []map[string]any
+		for _, b := range m.Content {
+			switch b.Type {
+			case "text":
+				blocks = append(blocks, map[string]any{"text": b.Text})
+			case "thinking":
+				rt := map[string]any{"text": b.Thinking}
+				if b.Signature != "" {
+					rt["signature"] = b.Signature
+				}
+				blocks = append(blocks, map[string]any{"reasoningContent": map[string]any{"reasoningText": rt}})
+			case "tool_call":
+				blocks = append(blocks, map[string]any{"toolUse": map[string]any{"toolUseId": b.ID, "name": b.Name, "input": b.Arguments}})
+			case "tool_result":
+				status := "success"
+				if b.IsError {
+					status = "error"
+				}
+				blocks = append(blocks, map[string]any{"toolResult": map[string]any{"toolUseId": b.ToolCallID, "content": []map[string]any{{"text": b.Content}}, "status": status}})
+			case "audio":
+				return nil, &UnsupportedFeatureError{Protocol: "aws_bedrock", Feature: "audio_input"}
+			}
+		}
+		messages = append(messages, map[string]any{"role": role, "content": blocks})
+	}
+	body := map[string]any{"messages": messages}
+	if len(system) > 0 {
+		body["system"] = system
+	}
+	if req.MaxTokens > 0 || req.Temperature != nil {
+		inf := map[string]any{}
+		if req.MaxTokens > 0 {
+			inf["maxTokens"] = req.MaxTokens
+		}
+		if req.Temperature != nil {
+			inf["temperature"] = *req.Temperature
+		}
+		body["inferenceConfig"] = inf
+	}
+	if len(req.Tools) > 0 {
+		var tools []map[string]any
+		for _, t := range req.Tools {
+			tools = append(tools, map[string]any{"toolSpec": map[string]any{"name": t.Name, "description": t.Description, "inputSchema": map[string]any{"json": t.Parameters}}})
+		}
+		body["toolConfig"] = map[string]any{"tools": tools}
+	}
+	if req.Thinking != nil && req.Thinking.BudgetTokens > 0 {
+		body["additionalModelRequestFields"] = map[string]any{"thinking": map[string]any{"type": "enabled", "budget_tokens": req.Thinking.BudgetTokens}}
+	}
+	return body, nil
+}
+
+func fromAWSBedrock(raw map[string]any) (*Response, error) {
+	var content []ContentBlock
+	if out, ok := raw["output"].(map[string]any); ok {
+		if msg, ok := out["message"].(map[string]any); ok {
+			if blocks, ok := msg["content"].([]any); ok {
+				for _, bRaw := range blocks {
+					b, _ := bRaw.(map[string]any)
+					if txt, _ := b["text"].(string); txt != "" {
+						content = append(content, ContentBlock{Type: "text", Text: txt})
+					} else if rc, ok := b["reasoningContent"].(map[string]any); ok {
+						if rt, ok := rc["reasoningText"].(map[string]any); ok {
+							th, _ := rt["text"].(string)
+							sig, _ := rt["signature"].(string)
+							content = append(content, ContentBlock{Type: "thinking", Thinking: th, Signature: sig})
+						}
+					} else if tu, ok := b["toolUse"].(map[string]any); ok {
+						id, _ := tu["toolUseId"].(string)
+						name, _ := tu["name"].(string)
+						args, _ := tu["input"].(map[string]any)
+						content = append(content, ContentBlock{Type: "tool_call", ID: id, Name: name, Arguments: args})
+					}
+				}
+			}
+		}
+	}
+	u, _ := raw["usage"].(map[string]any)
+	fr, _ := raw["stopReason"].(string)
+	return &Response{
+		Content: content, FinishReason: fr,
+		Usage: Usage{
+			InputTokens:      int64Field(u, "inputTokens"),
+			OutputTokens:     int64Field(u, "outputTokens"),
+			TotalTokens:      int64Field(u, "totalTokens"),
+			CacheReadTokens:  optInt64Field(u, "cacheReadInputTokens"),
+			CacheWriteTokens: optInt64Field(u, "cacheWriteInputTokens"),
+		},
+		Raw: raw,
+	}, nil
+}
+
+func toOllamaChat(req Request) (map[string]any, error) {
+	if req.ResponseFormat != nil && req.ResponseFormat.Type == "json_schema" {
+		return nil, &UnsupportedFeatureError{Protocol: "ollama", Feature: "json_schema_strict"}
+	}
+	var messages []map[string]any
+	for _, m := range req.Messages {
+		var sb strings.Builder
+		var images []string
+		for _, b := range m.Content {
+			switch b.Type {
+			case "text":
+				sb.WriteString(b.Text)
+			case "image_base64":
+				images = append(images, b.Data)
+			case "tool_result":
+				sb.WriteString(b.Content)
+			case "audio":
+				return nil, &UnsupportedFeatureError{Protocol: "ollama", Feature: "audio_input"}
+			}
+		}
+		entry := map[string]any{"role": m.Role, "content": sb.String()}
+		if len(images) > 0 {
+			entry["images"] = images
+		}
+		messages = append(messages, entry)
+	}
+	body := map[string]any{"model": req.Model, "messages": messages, "stream": false}
+	if req.ResponseFormat != nil && req.ResponseFormat.Type == "json_object" {
+		body["format"] = "json"
+	}
+	if req.Thinking != nil {
+		body["think"] = true
+	}
+	return body, nil
+}
+
+func fromOllamaChat(raw map[string]any) (*Response, error) {
+	var content []ContentBlock
+	if msg, ok := raw["message"].(map[string]any); ok {
+		if th, _ := msg["thinking"].(string); th != "" {
+			content = append(content, ContentBlock{Type: "thinking", Thinking: th})
+		}
+		if txt, _ := msg["content"].(string); txt != "" {
+			content = append(content, ContentBlock{Type: "text", Text: txt})
+		}
+	}
+	inTok := int64Field(raw, "prompt_eval_count")
+	outTok := int64Field(raw, "eval_count")
+	model, _ := raw["model"].(string)
+	fr, _ := raw["done_reason"].(string)
+	return &Response{
+		Model: model, Content: content, FinishReason: fr,
+		Usage: Usage{InputTokens: inTok, OutputTokens: outTok, TotalTokens: inTok + outTok},
+		Raw:   raw,
+	}, nil
+}
+
+func toCohereChat(req Request) (map[string]any, error) {
+	var messages []map[string]any
+	for _, m := range req.Messages {
+		var sb strings.Builder
+		for _, b := range m.Content {
+			switch b.Type {
+			case "text":
+				sb.WriteString(b.Text)
+			case "tool_result":
+				sb.WriteString(b.Content)
+			case "audio":
+				return nil, &UnsupportedFeatureError{Protocol: "cohere", Feature: "audio_input"}
+			}
+		}
+		messages = append(messages, map[string]any{"role": m.Role, "content": sb.String()})
+	}
+	body := map[string]any{"model": req.Model, "messages": messages}
+	if req.MaxTokens > 0 {
+		body["max_tokens"] = req.MaxTokens
+	}
+	if req.Temperature != nil {
+		body["temperature"] = *req.Temperature
+	}
+	if req.Thinking != nil {
+		th := map[string]any{"type": "enabled"}
+		if req.Thinking.BudgetTokens > 0 {
+			th["token_budget"] = req.Thinking.BudgetTokens
+		}
+		body["thinking"] = th
+	}
+	return body, nil
+}
+
+func fromCohereChat(raw map[string]any) (*Response, error) {
+	var content []ContentBlock
+	if msg, ok := raw["message"].(map[string]any); ok {
+		if blocks, ok := msg["content"].([]any); ok {
+			for _, bRaw := range blocks {
+				b, _ := bRaw.(map[string]any)
+				switch b["type"] {
+				case "thinking":
+					if th, _ := b["thinking"].(string); th != "" {
+						content = append(content, ContentBlock{Type: "thinking", Thinking: th})
+					}
+				case "text":
+					if txt, _ := b["text"].(string); txt != "" {
+						content = append(content, ContentBlock{Type: "text", Text: txt})
+					}
+				}
+			}
+		}
+	}
+	u, _ := raw["usage"].(map[string]any)
+	tokens, _ := u["tokens"].(map[string]any)
+	inTok := int64Field(tokens, "input_tokens")
+	outTok := int64Field(tokens, "output_tokens")
+	id, _ := raw["id"].(string)
+	fr, _ := raw["finish_reason"].(string)
+	return &Response{
+		ID: id, Content: content, FinishReason: fr,
+		Usage: Usage{InputTokens: inTok, OutputTokens: outTok, TotalTokens: inTok + outTok},
+		Raw:   raw,
 	}, nil
 }
