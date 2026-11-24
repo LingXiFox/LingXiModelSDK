@@ -18,11 +18,26 @@ The initial Phase 7 commit `d017031` passed Website, Native Providers, Unified L
 - [Catalog SDKs recovery](https://github.com/LingXiFox/LingXiModelSDK/actions/runs/45413773034)
 - [All 10 SDKs recovery and per-language jobs](https://github.com/LingXiFox/LingXiModelSDK/actions/runs/45413772901)
 
+Candidate commit [`2d4a8fc`](https://github.com/LingXiFox/LingXiModelSDK/commit/2d4a8fc15faa0f15da3b4ece0f4cad5dccbd50e3) passed all six push workflows.
+
+| Workflow | Candidate result |
+| --- | --- |
+| All 10 SDKs & Agent Conformance | [Passed](https://github.com/LingXiFox/LingXiModelSDK/actions/runs/45419159442) |
+| Catalog SDKs | [Passed](https://github.com/LingXiFox/LingXiModelSDK/actions/runs/45419159919) |
+| Native Providers | [Passed](https://github.com/LingXiFox/LingXiModelSDK/actions/runs/45419159886) |
+| Unified LMP | [Passed](https://github.com/LingXiFox/LingXiModelSDK/actions/runs/45419159631) |
+| Gateway | [Passed](https://github.com/LingXiFox/LingXiModelSDK/actions/runs/45419159654) |
+| Website | [Passed](https://github.com/LingXiFox/LingXiModelSDK/actions/runs/45419159291) |
+
+Local checks also exercised the built npm tarball from an installed package directory, executed both C++ runtime HTTP modes against a loopback fixture, and staged a separate website instance from a fixture snapshot. The nine credentialed probes reported nine skips with an empty environment. The probe tool also passed mock success and failure checks. The provider ledger remains unchanged by those tool checks.
+
+The [candidate artifact](https://github.com/LingXiFox/LingXiModelSDK/actions/runs/45419259399/artifacts/14931774519) was downloaded and verified against `COMMIT.txt` and all 11 listed SHA-256 checksums. The Linux Go binaries are statically linked for amd64 and arm64. The Rust shared library targets Linux x86_64.
+
 The reproducible local checks are `./scripts/test-all.sh` and `./scripts/benchmark.sh`. The local runner exercises Swift, Rust, Go, TypeScript, Python, Java, C++ and both Go applications. The all-SDK workflow also runs C#, Kotlin, and Dart. A passing build or smoke test provides evidence for the cases it exercises.
 
 ## Remaining production gates
 
 - Complete language and protocol parity recorded in the [feature matrix](feature-matrix.md). Add shared fixtures for streamed tool deltas, opaque provider state, interruption recovery and feature rejection. Full C++ catalog parsing and long-lived process and connection testing remain open.
 - Verify browser execution and the actual installable package on each supported platform. Record upstream tests using the [credentialed probe](live-verification.md) and additional capability-specific checks.
-- Measure process RSS, reconnect behavior, long-running memory use, and deployment-target performance under representative load. Complete an external dependency vulnerability scan before general availability.
+- Measure process RSS, reconnect behavior, long-running memory use, and deployment-target performance under representative load. Extend the manifest scan to target binaries and the production environment before general availability.
 - Obtain separate approval for public publishing and production rollout.
