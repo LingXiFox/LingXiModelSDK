@@ -1,0 +1,29 @@
+[Unit]
+Description=LingXi Models public catalog website
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=lingxi-models
+Group=lingxi-models
+WorkingDirectory=/var/lib/lingxi-models
+StateDirectory=lingxi-models
+ExecStart=/usr/local/bin/lingxi-models \
+  -listen 127.0.0.1:18080 \
+  -data-dir /var/lib/lingxi-models \
+  -sync-interval 1h
+ExecReload=/bin/kill -HUP $MAINPID
+Restart=on-failure
+RestartSec=5s
+
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/var/lib/lingxi-models
+CapabilityBoundingSet=
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX
+
+[Install]
+WantedBy=multi-user.target

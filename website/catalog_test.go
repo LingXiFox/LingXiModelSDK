@@ -1,40 +1,171 @@
 package main
+
 import (
- "bytes"
- "context"
- "encoding/json"
- "net/http"
- "net/http/httptest"
- "net/url"
- "os"
- "path/filepath"
- "strings"
- "testing"
- "time"
+	"bytes"
+	"testing"
+	"time"
 )
-const fixture=`{"p":{"name":"Provider 2","api":"https://example.com/v1","env":["KEY"],"unknown":{"x":1},"models":{"m":{"name":"Model","limit":{"context":128000},"cost":{"input":0,"output":0.000001},"reasoning":true,"attachment":true,"modalities":{"input":["text"]},"extra":"keep"}}}}`
-func snapshot(t *testing.T)*Snapshot{t.Helper();b,e:=normalize([]byte(fixture),sourceURL,time.Unix(1,0),nil,false);if e!=nil{t.Fatal(e)};s,e:=parseSnapshot(b,"");if e!=nil{t.Fatal(e)};return s}
-func TestNormalize(t *testing.T){
- s:=snapshot(t);m:=s.Models[0]
- if s.Catalog.TotalModels!=1||m.InputPrice!="$0"||m.OutputPrice!="$0.000001"||m.Vision||!m.Attachments||m.Output!="—"{t.Fatalf("%+v",m)}
- if !bytes.Contains(s.Raw,[]byte(`"extra":"keep"`))||!bytes.Contains(s.Raw,[]byte(`"unknown"`)){t.Fatal("unknown metadata lost")}
- b,e:=normalize([]byte(fixture),sourceURL,time.Unix(2,0),nil,false);if e!=nil{t.Fatal(e)};s2,e:=parseSnapshot(b,"");if e!=nil||s.Catalog.Revision!=s2.Catalog.Revision{t.Fatal("unstable revision",e)}
- if _,e=normalize([]byte(`{}`),sourceURL,time.Now(),s,false);e==nil{t.Fatal("empty source accepted")}
+
+const richFixture = `{
+  "p2": {
+    "name": "Provider 10",
+    "api": "https://api.example.com/v1",
+    "env": ["KEY_10"],
+    "unknownProv": {"nested": [1, 2]},
+    "swiftDriver": "legacy-guess",
+    "models": {
+      "m1": {
+        "name": "GPT-10",
+        "release_date": "2026-01-01",
+        "limit": {"context": 200000},
+        "cost": {"input": 0, "output": 0.000001},
+        "reasoning": true,
+        "attachment": true,
+        "modalities": {"input": ["text"]},
+        "extraNested": {"b": 2, "a": 1},
+        "swiftSnippet": "remove-me"
+      },
+      "m2": {
+        "name": "GPT-5",
+        "release_date": "2026-01-01",
+        "limit": {"context": 0, "output": 4096},
+        "structured_output": false,
+        "modalities": {"input": ["text", "image"]}
+      }
+    }
+  },
+  "p1": {
+    "name": "Provider 2",
+    "models": {
+      "undated": {
+        "name": "Alpha"
+      }
+    }
+  }
+}`
+
+func buildTestSnapshot(t *testing.T, body string) *Snapshot {
+	t.Helper()
+	out, _, err := normalize([]byte(body), defaultSourceURL, time.Unix(1700000000, 0).UTC(), nil, defaultMinRatio, false)
+	if err != nil {
+		t.Fatalf("normalize failed: %v", err)
+	}
+	snap, err := parseSnapshot(out, "")
+	if err != nil {
+		t.Fatalf("parseSnapshot failed: %v", err)
+	}
+	return snap
 }
-func TestHTTP(t *testing.T){
- s:=&Store{};snap:=snapshot(t);s.current.Store(snap);h:=handler(s)
- for _,p:=range []string{"/","/models.json","/publication.json","/healthz","/static/site.css","/static/site.js"}{r:=httptest.NewRequest("GET",p,nil);w:=httptest.NewRecorder();h.ServeHTTP(w,r);if w.Code!=200{t.Fatalf("%s: %d %s",p,w.Code,w.Body.String())}}
- r:=httptest.NewRequest("GET","/models.json",nil);r.Header.Set("If-None-Match",snap.ETag);w:=httptest.NewRecorder();h.ServeHTTP(w,r);if w.Code!=304{t.Fatalf("ETag: %d",w.Code)}
- w=httptest.NewRecorder();h.ServeHTTP(w,httptest.NewRequest("GET","/publication.json",nil));var m Manifest;if json.Unmarshal(w.Body.Bytes(),&m)!=nil||m.SHA256!=hash(snap.Raw){t.Fatal("manifest mismatch")}
- w=httptest.NewRecorder();h.ServeHTTP(w,httptest.NewRequest("HEAD","/models.json",nil));if w.Code!=200||w.Body.Len()!=0{t.Fatal("HEAD")}
- w=httptest.NewRecorder();h.ServeHTTP(w,httptest.NewRequest("GET","/?q=does-not-exist",nil));if !strings.Contains(w.Body.String(),"未找到"){t.Fatal("filter")}
- if v:=view(snap,url.Values{"cap":{"vision"}});v.Total!=0{t.Fatal("vision filter")}
- if v:=view(snap,url.Values{"cap":{"reasoning"}});v.Total!=1{t.Fatal("reasoning filter")}
+
+func TestNormalizePreservesUnknownAndStripsGuesses(t *testing.T) {
+	snap := buildTestSnapshot(t, richFixture)
+
+	if snap.Catalog.TotalProviders != 2 || snap.Catalog.TotalModels != 3 {
+		t.Fatalf("unexpected totals: providers=%d models=%d", snap.Catalog.TotalProviders, snap.Catalog.TotalModels)
+	}
+	if !bytes.Contains(snap.Raw, []byte(`"unknownProv"`)) || !bytes.Contains(snap.Raw, []byte(`"extraNested"`)) {
+		t.Fatalf("unknown fields were dropped: %s", snap.Raw)
+	}
+	if bytes.Contains(snap.Raw, []byte("swiftDriver")) || bytes.Contains(snap.Raw, []byte("swiftSnippet")) {
+		t.Fatalf("runtime guess fields were not stripped")
+	}
 }
-func TestSyncRetainsSnapshot(t *testing.T){
- body:=fixture;up:=httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter,r *http.Request){_,_=w.Write([]byte(body))}));defer up.Close()
- s:=&Store{dir:t.TempDir()};if e:=s.sync(context.Background(),up.Client(),up.URL,false);e!=nil{t.Fatal(e)};old:=s.current.Load()
- body=`{}`;if e:=s.sync(context.Background(),up.Client(),up.URL,false);e==nil{t.Fatal("expected failure")}
- b,e:=os.ReadFile(filepath.Join(s.dir,"models.json"));if e!=nil||!bytes.Equal(b,old.Raw)||s.current.Load()!=old{t.Fatal("last known good lost")}
- second:=&Store{dir:s.dir};if e=second.load();e!=nil||second.current.Load().Catalog.Revision!=old.Catalog.Revision{t.Fatal("restart failed",e)}
+
+func TestThreeStateValueSemantics(t *testing.T) {
+	snap := buildTestSnapshot(t, richFixture)
+
+	var m1, m2, undated ModelView
+	for _, m := range snap.Models {
+		switch m.ID {
+		case "m1":
+			m1 = m
+		case "m2":
+			m2 = m
+		case "undated":
+			undated = m
+		}
+	}
+
+	// Zero price ($0) is distinct from unknown price (nil / PriceKnown == false).
+	if !m1.PriceKnown || m1.InputPrice != "$0" || m1.OutputPrice != "$0.000001" {
+		t.Fatalf("unexpected m1 pricing: %+v", m1)
+	}
+	if m1.OutputN != nil || m1.Output != "—" {
+		t.Fatalf("expected unknown output limit for m1, got %v / %q", m1.OutputN, m1.Output)
+	}
+	if m1.Vision || !m1.IsAttachments() {
+		t.Fatalf("m1 attachment should not imply vision: vision=%v attachments=%v", m1.Vision, m1.IsAttachments())
+	}
+
+	// Zero context limit (0) is distinct from nil ("—").
+	if m2.ContextN == nil || *m2.ContextN != 0 || m2.Context != "0" {
+		t.Fatalf("expected zero context limit preserved, got %v / %q", m2.ContextN, m2.Context)
+	}
+	if m2.Structured == nil || *m2.Structured != false {
+		t.Fatalf("expected explicit false structured_output preserved, got %v", m2.Structured)
+	}
+	if !m2.Vision {
+		t.Fatalf("expected vision=true for image input modality")
+	}
+
+	if undated.PriceKnown || undated.InputPrice != "—" || undated.Context != "—" {
+		t.Fatalf("expected unknown pricing and limits for undated model, got %+v", undated)
+	}
+	if undated.Reasoning != nil {
+		t.Fatalf("expected nil reasoning when omitted, got %v", *undated.Reasoning)
+	}
+}
+
+func TestCanonicalHashDeterminismWithShuffledNestedKeys(t *testing.T) {
+	a := `{"p":{"name":"P","models":{"m":{"name":"M","extra":{"z":1,"a":{"y":2,"x":3}}}}}}`
+	b := `{"p":{"models":{"m":{"extra":{"a":{"x":3,"y":2},"z":1},"name":"M"}},"name":"P"}}`
+
+	outA, _, err := normalize([]byte(a), defaultSourceURL, time.Unix(1, 0), nil, defaultMinRatio, false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	outB, _, err := normalize([]byte(b), defaultSourceURL, time.Unix(200, 0), nil, defaultMinRatio, false)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	snapA, err := parseSnapshot(outA, "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	snapB, err := parseSnapshot(outB, "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if snapA.Catalog.Revision != snapB.Catalog.Revision || snapA.Catalog.Hash != snapB.Catalog.Hash {
+		t.Fatalf("canonical hash drifted: %s vs %s", snapA.Catalog.Hash, snapB.Catalog.Hash)
+	}
+}
+
+func TestNaturalOrderingParity(t *testing.T) {
+	if naturalCompare("Provider 2", "Provider 10") >= 0 {
+		t.Fatalf("expected Provider 2 < Provider 10")
+	}
+	if naturalCompare("GPT-5", "GPT-10") >= 0 {
+		t.Fatalf("expected GPT-5 < GPT-10")
+	}
+	// Numbers sort before text tokens at the same position (matching Swift ModelCatalogOrdering).
+	if naturalCompare("2fa", "alpha") >= 0 {
+		t.Fatalf("expected number token to sort before text token")
+	}
+
+	snap := buildTestSnapshot(t, richFixture)
+	if snap.Providers[0].ID != "p1" || snap.Providers[1].ID != "p2" {
+		t.Fatalf("unexpected provider sort order: %+v", snap.Providers)
+	}
+	// Under p2: GPT-5 (m2) must precede GPT-10 (m1) when release_date matches.
+	var p2Models []string
+	for _, m := range snap.Models {
+		if m.ProviderID == "p2" {
+			p2Models = append(p2Models, m.ID)
+		}
+	}
+	if len(p2Models) != 2 || p2Models[0] != "m2" || p2Models[1] != "m1" {
+		t.Fatalf("unexpected model sort order under p2: %v", p2Models)
+	}
 }

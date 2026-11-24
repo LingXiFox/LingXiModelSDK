@@ -1,0 +1,22 @@
+{{define "provider_detail"}}
+<section class="details" aria-label="当前提供商详情">
+  <div class="details-head">
+    <h2>{{.Selected.Name}}</h2>
+    <a class="clear-link" href="{{.Link "" .Cap 1}}">清除提供商筛选</a>
+  </div>
+  <dl>
+    <dt>Provider ID</dt>
+    <dd><code>{{.Selected.ID}}</code></dd>
+    <dt>模型数</dt>
+    <dd>{{.Selected.Count}}</dd>
+    <dt>API 端点</dt>
+    <dd>{{if .Selected.Endpoint}}<code>{{.Selected.Endpoint}}</code>{{else}}<span class="muted">来源未发布</span>{{end}}</dd>
+    <dt>环境变量</dt>
+    <dd>{{if .Selected.Env}}<code>{{.Selected.Env}}</code>{{else}}<span class="muted">来源未发布</span>{{end}}</dd>
+    <dt>官方文档</dt>
+    <dd>{{if safeURL .Selected.Doc}}<a href="{{safeURL .Selected.Doc}}" target="_blank" rel="noreferrer">查看文档</a>{{else}}<span class="muted">来源未发布</span>{{end}}</dd>
+    <dt>验证状态</dt>
+    <dd><span class="status-badge">{{.Selected.Status}}</span></dd>
+  </dl>
+</section>
+{{end}}

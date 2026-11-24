@@ -1,0 +1,50 @@
+# Reference snippet ONLY for the models.lingxifox.cn virtual hosts.
+# DO NOT overwrite the full /etc/caddy/Caddyfile with this file — merge only
+# the models.lingxifox.cn blocks after explicit production deployment approval.
+# Preserves existing ZeroSSL + ESA client_auth trust pool and TLS settings.
+
+http://models.lingxifox.cn {
+	handle {
+		reverse_proxy 127.0.0.1:18080 {
+			header_up X-Real-IP {remote_host}
+			header_up X-Forwarded-Proto {scheme}
+			header_up X-Forwarded-Host {host}
+		}
+	}
+
+	header {
+		-Server
+	}
+}
+
+models.lingxifox.cn {
+	tls {
+		ca https://acme.zerossl.com/v2/DV90
+		client_auth {
+			mode require_and_verify
+			trust_pool file {
+				pem_file /etc/caddy/certs/lingxi-esa-origin-ca.pem
+			}
+		}
+	}
+
+	encode zstd gzip
+
+	handle {
+		reverse_proxy 127.0.0.1:18080 {
+			header_up X-Real-IP {remote_host}
+			header_up X-Forwarded-Proto {scheme}
+			header_up X-Forwarded-Host {host}
+		}
+	}
+
+	header {
+		Strict-Transport-Security "max-age=31536000; includeSubDomains; preload"
+		-Server
+	}
+
+	log {
+		output file /var/log/caddy/models-access.log
+		format console
+	}
+}

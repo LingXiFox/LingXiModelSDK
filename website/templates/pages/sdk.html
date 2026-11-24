@@ -1,0 +1,88 @@
+{{template "head" .}}
+<body>
+{{template "header" .}}
+<div class="page-wrap">
+  <main>
+    <section class="intro">
+      <p class="eyebrow">LINGXI MODEL SDK / 2.0 ROADMAP</p>
+      <h1>多语言 SDK 与接入路径</h1>
+      <p>LingXiModelSDK 2.0 提供三条并行且独立的接入路径，默认在调用方进程内直接完成通信与目录解析，不强制依赖任何中转服务。</p>
+    </section>
+
+    <section class="section-grid">
+      <article class="panel">
+        <div class="panel-head">
+          <h2>1. Model Catalog</h2>
+          <span class="status-badge status-live">Swift 已发布</span>
+        </div>
+        <p>只读模型与提供商元数据查询。消费 <code>/models.json</code>，支持 ETag 条件请求、离线缓存、未知字段保留与确定性排序，无推理依赖、无需 API Key。</p>
+      </article>
+      <article class="panel">
+        <div class="panel-head">
+          <h2>2. Native Provider</h2>
+          <span class="status-badge">Phase 3 规划中</span>
+        </div>
+        <p>使用提供商原生请求体、响应与流式事件直接与上游通信，不强制经过统一抽象层。</p>
+      </article>
+      <article class="panel">
+        <div class="panel-head">
+          <h2>3. Unified Provider</h2>
+          <span class="status-badge">Phase 4 规划中</span>
+        </div>
+        <p>基于 LingXi Model Protocol (LMP) 的统一语义接口，显式暴露能力差异，禁止静默降级。可选配合独立 HTTP Gateway 使用。</p>
+      </article>
+    </section>
+
+    <section class="panel doc-block">
+      <h2>Swift SDK（已发布 · 0.1.x）</h2>
+      <p class="muted">仅依赖 Foundation，支持 macOS 13+、iOS 16+、tvOS 16+、watchOS 9+ 及 Swift 6 并发。</p>
+      <h3>Swift Package Manager 安装</h3>
+      <pre id="page-swift-install">.package(
+    url: "https://github.com/LingXiFox/LingXiModelSDK.git",
+    from: "0.1.0"
+)</pre>
+      <button type="button" data-copy-target="page-swift-install">复制安装代码</button>
+
+      <h3>目录查询示例</h3>
+      <pre id="page-swift-usage">import LingXiModelSDK
+
+let catalog = try await LingXiModelCatalog.load()
+if let model = catalog.model(
+    provider: "deepseek",
+    id: "deepseek-v4-flash"
+) {
+    print(model.contextWindow as Any)
+    print(model.pricing.input as Any)
+}
+
+let eligible = catalog.models(matching: ModelFilter(
+    vision: true,
+    minimumContextWindow: 200_000
+))</pre>
+      <button type="button" data-copy-target="page-swift-usage">复制 Swift 示例</button>
+    </section>
+
+    <section class="panel doc-block">
+      <h2>多语言支持矩阵</h2>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr><th>语言生态</th><th>批次</th><th>Model Catalog</th><th>Native / Unified</th><th>状态</th></tr>
+          </thead>
+          <tbody>
+            <tr><td>Swift</td><td>首批</td><td>已发布 (SPM)</td><td>Phase 3–4 规划</td><td><span class="status-badge status-live">Catalog Available</span></td></tr>
+            <tr><td>Rust</td><td>首批</td><td>Phase 2 规划</td><td>Phase 3–4 核心评估</td><td><span class="status-badge">Planned</span></td></tr>
+            <tr><td>TypeScript / JavaScript</td><td>首批</td><td>Phase 2 规划</td><td>Phase 3–4 规划</td><td><span class="status-badge">Planned</span></td></tr>
+            <tr><td>Python</td><td>首批</td><td>Phase 2 规划</td><td>Phase 3–4 规划</td><td><span class="status-badge">Planned</span></td></tr>
+            <tr><td>Go</td><td>首批</td><td>Phase 2 规划</td><td>Phase 3–4 规划</td><td><span class="status-badge">Planned</span></td></tr>
+            <tr><td>Java</td><td>首批</td><td>Phase 2 规划</td><td>Phase 3–4 规划</td><td><span class="status-badge">Planned</span></td></tr>
+            <tr><td>C# / Kotlin / C++ / Dart</td><td>后续</td><td>Phase 2 扩展</td><td>Phase 3–4 扩展</td><td><span class="status-badge">Planned</span></td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+  </main>
+</div>
+{{template "footer" .}}
+</body>
+</html>

@@ -1,0 +1,25 @@
+{{define "provider_sidebar"}}
+<aside class="sidebar">
+  <details id="provider-panel" open>
+    <summary class="sidebar-summary">
+      <span>提供商列表</span>
+      <span class="count">{{.Catalog.TotalProviders}}</span>
+    </summary>
+    <div class="sidebar-body">
+      <input id="provider-search" type="search" placeholder="搜索提供商名称或 ID" aria-label="搜索提供商">
+      <div class="provider-list">
+        <a class="provider{{if not .PID}} selected{{end}}" href="{{.Link "" .Cap 1}}">
+          <span>全部提供商</span>
+          <span class="count">{{.Catalog.TotalModels}}</span>
+        </a>
+        {{range .Providers}}
+        <a class="provider{{if eq .ID $.PID}} selected{{end}}" data-provider="{{.ID}} {{.Name}}" href="{{$.Link .ID $.Cap 1}}">
+          <span>{{.Name}}</span>
+          <span class="count">{{.Count}}</span>
+        </a>
+        {{end}}
+      </div>
+    </div>
+  </details>
+</aside>
+{{end}}

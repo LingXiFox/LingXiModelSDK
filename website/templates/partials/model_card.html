@@ -1,0 +1,37 @@
+{{define "model_card"}}
+<article class="model">
+  <div class="model-head">
+    <a href="/?provider={{urlquery .ProviderID}}">{{.ProviderName}}</a>
+    {{if eq .Status "deprecated"}}<span class="deprecated">已停用</span>{{end}}
+  </div>
+  <h3 title="{{.Name}}">{{.Name}}</h3>
+  <div class="id">
+    <code title="{{.ProviderID}}/{{.ID}}">{{.ID}}</code>
+    <button type="button" class="copy" data-copy="{{.ProviderID}}/{{.ID}}">复制</button>
+  </div>
+  <div class="limits">
+    <span>上下文 <b>{{.Context}}</b></span>
+    <span>输出 <b>{{.Output}}</b></span>
+  </div>
+  <div class="tags">
+    {{if .IsReasoning}}<span>Reasoning</span>{{end}}
+    {{if .Vision}}<span>Vision</span>{{end}}
+    {{if .IsAttachments}}<span>Attachments</span>{{end}}
+    {{if .IsTools}}<span>Tools</span>{{end}}
+    {{if .IsStructured}}<span>Structured</span>{{end}}
+    {{if .IsOpenWeights}}<span>Open weights</span>{{end}}
+  </div>
+  {{if .Description}}<p class="description" title="{{.Description}}">{{.Description}}</p>{{end}}
+  <div class="price">
+    {{if .PriceKnown}}
+    <strong>{{.InputPrice}} / {{.OutputPrice}}</strong>
+    <span>输入 / 输出 · 每百万 tokens</span>
+    {{else}}
+    <strong class="muted">价格未发布</strong>
+    <span>来源未提供计费信息</span>
+    {{end}}
+    {{if .Release}}<small>发布 {{.Release}}</small>{{end}}
+    {{if .Updated}}<small>更新 {{.Updated}}</small>{{end}}
+  </div>
+</article>
+{{end}}

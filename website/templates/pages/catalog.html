@@ -1,0 +1,56 @@
+{{template "head" .}}
+<body>
+{{template "header" .}}
+<div class="layout">
+  {{template "provider_sidebar" .}}
+  <main>
+    <section class="intro">
+      <p class="eyebrow">LINGXI MODEL SDK / CATALOG</p>
+      <h1>公共模型与提供商目录</h1>
+      <p>来自 models.dev 的统一模型元数据，提供能力、价格、上下文窗口及提供商接入信息。</p>
+      <div class="stats">
+        <div><strong>{{.Catalog.TotalProviders}}</strong><span>提供商</span></div>
+        <div><strong>{{.Catalog.TotalModels}}</strong><span>模型</span></div>
+        <div><strong>{{.Catalog.SchemaVersion}}</strong><span>Schema</span></div>
+      </div>
+      <p class="meta">数据源 {{.Catalog.Source}} · 更新 {{.Catalog.GeneratedAt}} · Revision {{.Catalog.Revision}} · Source hash {{shortHash .Catalog.SourceHash}}</p>
+    </section>
+
+    {{if .Unavailable}}
+    <div class="empty">模型目录暂不可用。服务正在等待有效的上游数据。</div>
+    {{else}}
+    <form class="search" method="get" action="/">
+      <input type="hidden" name="provider" value="{{.PID}}">
+      <input type="hidden" name="cap" value="{{.Cap}}">
+      <input name="q" value="{{.Q}}" placeholder="搜索模型名称、ID、家族或提供商" aria-label="搜索模型">
+      <button type="submit">搜索</button>
+    </form>
+
+    <div class="filters" role="navigation" aria-label="能力筛选">
+      {{range .Filters}}
+      <a class="{{if eq .ID $.Cap}}active{{end}}" href="{{$.Link $.PID .ID 1}}">{{.Label}}</a>
+      {{end}}
+    </div>
+
+    {{if .Selected}}{{template "provider_detail" .}}{{end}}
+
+    <p class="result-count">显示 {{.Start}}–{{.End}} / {{.Total}} 个模型</p>
+    <div class="models">
+      {{range .Models}}
+        {{template "model_card" .}}
+      {{else}}
+        <div class="empty">未找到符合条件的模型。</div>
+      {{end}}
+    </div>
+
+    <div class="pagination">
+      {{if .Previous}}<a href="{{.Previous}}">上一页</a>{{end}}
+      <span>第 {{.Page}} / {{.TotalPages}} 页</span>
+      {{if .Next}}<a href="{{.Next}}">下一页</a>{{end}}
+    </div>
+    {{end}}
+  </main>
+</div>
+{{template "footer" .}}
+</body>
+</html>

@@ -1,0 +1,18 @@
+{{define "header"}}
+<header class="site-header">
+  <div class="header-inner">
+    <a class="brand" href="/">LingXi <b>Models</b><small>公共模型目录</small></a>
+    <nav aria-label="主导航">
+      <a class="nav-link{{if eq .NavActive "catalog"}} active{{end}}" href="/">模型目录</a>
+      <a class="nav-link{{if eq .NavActive "sdk"}} active{{end}}" href="/sdk">SDK 文档</a>
+      <a class="nav-link{{if eq .NavActive "protocols"}} active{{end}}" href="/protocols">协议支持</a>
+      <a class="nav-link{{if eq .NavActive "providers"}} active{{end}}" href="/providers">提供商状态</a>
+      <span class="nav-sep" aria-hidden="true"></span>
+      <a class="nav-link" href="/models.json">models.json</a>
+      <a class="nav-link" href="/publication.json">发布信息</a>
+      <button type="button" class="nav-btn" id="sdk-open">快速接入</button>
+      <a class="nav-link" href="https://github.com/LingXiFox/LingXiModelSDK" rel="noreferrer">GitHub</a>
+    </nav>
+  </div>
+</header>
+{{end}}

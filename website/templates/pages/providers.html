@@ -1,0 +1,60 @@
+{{template "head" .}}
+<body>
+{{template "header" .}}
+<div class="page-wrap">
+  <main>
+    <section class="intro">
+      <p class="eyebrow">LINGXI MODEL SDK / PROVIDERS</p>
+      <h1>提供商验证状态</h1>
+      <p>目录收录仅代表元数据已从上游发现（Discovered）。协议兼容与真实调用验证将在 Phase 3–6 分级登记并提供可追溯证据。</p>
+      <div class="tier-row">
+        <span class="status-badge">Discovered · 已收录目录</span>
+        <span class="status-badge">Compatible · 声明式配置就绪</span>
+        <span class="status-badge">Mock Tested · 模拟协议通过</span>
+        <span class="status-badge">Live Verified · 真实 API 验证</span>
+        <span class="status-badge">Full Support · 全能力验证</span>
+      </div>
+    </section>
+
+    {{if .Unavailable}}
+    <div class="empty">模型目录暂不可用。服务正在等待有效的上游数据。</div>
+    {{else}}
+    <form class="search" method="get" action="/providers">
+      <input name="q" value="{{.Q}}" placeholder="搜索提供商名称、ID 或端点" aria-label="搜索提供商">
+      <button type="submit">搜索</button>
+    </form>
+
+    <p class="result-count">显示 {{.Start}}–{{.End}} / {{.Total}} 家提供商 · 当前状态均为 Discovered（仅目录收录，未推导运行时协议）</p>
+
+    <div class="panel table-wrap">
+      <table>
+        <thead>
+          <tr><th>提供商</th><th>Provider ID</th><th>模型数</th><th>目录端点</th><th>验证状态</th></tr>
+        </thead>
+        <tbody>
+          {{range .Providers}}
+          <tr>
+            <td><a href="/?provider={{urlquery .ID}}">{{.Name}}</a></td>
+            <td><code>{{.ID}}</code></td>
+            <td>{{.Count}}</td>
+            <td>{{if .Endpoint}}<code>{{.Endpoint}}</code>{{else}}<span class="muted">来源未发布</span>{{end}}</td>
+            <td><span class="status-badge">{{.Status}}</span></td>
+          </tr>
+          {{else}}
+          <tr><td colspan="5" class="muted">未找到匹配的提供商。</td></tr>
+          {{end}}
+        </tbody>
+      </table>
+    </div>
+
+    <div class="pagination">
+      {{if .Previous}}<a href="{{.Previous}}">上一页</a>{{end}}
+      <span>第 {{.Page}} / {{.TotalPages}} 页</span>
+      {{if .Next}}<a href="{{.Next}}">下一页</a>{{end}}
+    </div>
+    {{end}}
+  </main>
+</div>
+{{template "footer" .}}
+</body>
+</html>

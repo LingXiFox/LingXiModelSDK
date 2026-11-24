@@ -1,0 +1,32 @@
+{{define "sdk_dialog"}}
+<dialog id="sdk-dialog" aria-labelledby="sdk-dialog-title">
+  <div class="dialog-head">
+    <h2 id="sdk-dialog-title">LingXiModelSDK · Swift</h2>
+    <button id="sdk-close" type="button">关闭</button>
+  </div>
+  <p class="muted">当前已发布的 Swift SDK 提供公共模型目录查询。多语言目录 SDK 与原生/统一 Provider 运行时将按 2.0 路线图分阶段发布。</p>
+  <h3>Swift Package Manager</h3>
+  <pre id="install-code">.package(
+    url: "https://github.com/LingXiFox/LingXiModelSDK.git",
+    from: "0.1.0"
+)</pre>
+  <div class="dialog-actions">
+    <button type="button" data-copy-target="install-code">复制安装代码</button>
+    <a class="btn-link" href="/sdk">查看完整 SDK 文档</a>
+  </div>
+  <h3>查询模型目录</h3>
+  <pre id="sdk-code">import LingXiModelSDK
+
+let catalog = try await LingXiModelCatalog.load()
+if let model = catalog.model(
+    provider: "deepseek",
+    id: "deepseek-v4-flash"
+) {
+    print(model.contextWindow as Any)
+    print(model.pricing.input as Any)
+}</pre>
+  <div class="dialog-actions">
+    <button type="button" data-copy-target="sdk-code">复制示例</button>
+  </div>
+</dialog>
+{{end}}

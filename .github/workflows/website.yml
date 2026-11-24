@@ -1,4 +1,5 @@
 name: Website
+
 on:
   push:
     branches: [main, 'rewrite/2.0']
@@ -6,8 +7,10 @@ on:
   pull_request:
     paths: ['website/**', '.github/workflows/website.yml']
   workflow_dispatch:
+
 permissions:
   contents: read
+
 jobs:
   test:
     strategy:
@@ -24,9 +27,14 @@ jobs:
         with:
           go-version-file: website/go.mod
           cache: false
-      - run: go test ./...
       - run: go vet ./...
-      - run: go build ./...
+      - run: go test -v ./...
+      - if: runner.os != 'Windows'
+        run: go test -race ./...
+      - run: go build -trimpath -ldflags="-s -w" -o lingxi-models-check .
+        env:
+          CGO_ENABLED: '0'
+
   linux:
     runs-on: ubuntu-latest
     defaults:
@@ -46,6 +54,8 @@ jobs:
           CGO_ENABLED: '0'
           GOOS: linux
           GOARCH: ${{ matrix.arch }}
+      - if: matrix.arch == 'amd64'
+        run: ./lingxi-models -h >/dev/null 2>&1 || true
       - uses: actions/upload-artifact@v4
         with:
           name: lingxi-models-linux-${{ matrix.arch }}

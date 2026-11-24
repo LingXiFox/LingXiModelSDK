@@ -1,41 +1,46 @@
 # LingXiModelSDK
 
-Official Swift SDK for the LingXi public model catalog:
-**https://models.lingxifox.cn/models.json**
+Cross-language, cross-provider AI infrastructure and official SDK for the LingXi public model catalog (**https://models.lingxifox.cn/models.json**).
 
-MIT · Swift Package Manager · Foundation only · no LingXiAgent required.
+MIT License · Monorepo · In-process by default.
 
 ---
 
-## What this is, and what it is not
+## Architecture (2.0)
 
-```text
-LingXiModelSDK  = developer interface for the public model catalog
-models.json     = data contract
-LingXiAgent     = one consumer of this SDK, like any other
+LingXiModelSDK provides three independent, parallel entry points:
+
+1. **Model Catalog** *(Shipped: Swift · Planned: Rust, TS/JS, Python, Go, Java, C#, Kotlin, C++, Dart)*
+   Read-only model and provider metadata: identity, context/output limits, capabilities, pricing, and freshness. Requires no API keys or inference runtime.
+2. **Native Provider** *(Planned — Phase 3)*
+   Direct upstream communication using each provider's native protocol, request/response types, and streaming events without forcing a unified abstraction.
+3. **Unified Provider** *(Planned — Phase 4)*
+   Opt-in normalized LingXi Model Protocol (LMP) across providers, with explicit unsupported-feature errors and no silent downgrades. An optional self-hosted HTTP Gateway is planned in Phase 5.
+
+See [ROADMAP.md](ROADMAP.md) and [specs/architecture-v2.md](specs/architecture-v2.md) for full details.
+
+---
+
+## Public Catalog Website (`website/`)
+
+The `models.lingxifox.cn` service is implemented as a single-binary Go 1.23+ server (`CGO_ENABLED=0`, standard library only, embedded templates/CSS/JS/icons).
+
+```sh
+cd website
+go test -race ./...
+CGO_ENABLED=0 go build -trimpath -ldflags="-s -w" -o lingxi-models .
+./lingxi-models -listen 127.0.0.1:8080 -data-dir ./data
 ```
 
-It answers questions about **models**: who publishes them, what their identity
-is, how large their context and output windows are, what they cost, and what
-they can do.
+See [website/README.md](website/README.md) for CLI flags, sync behavior, and compatibility notes.
 
-It deliberately does **not** do inference. There is no chat client, no streaming
-loop, no API key handling, no provider auth, and no agent runtime here — those
-belong to whatever consumes the catalog, and mixing them in would mean a
-developer who only wants to read a context window has to install a runtime.
+---
 
-| In scope | Not in scope |
-| --- | --- |
-| fetch, ETag revalidation, cache, freshness | LLM inference |
-| catalog schema decode and version compatibility | OpenAI / Anthropic clients |
-| provider and model lookup, search, filtering | streaming or tool-calling runtime |
-| limits, capabilities, pricing, revision metadata | API key management |
-| one documented ordering rule | agent loops, sessions, permissions |
+## Swift Model Catalog SDK (Shipped · `0.1.x`)
 
-Nothing in this package depends on `LingXiAgent`, `LingXiCore`,
-`LingXiApplication`, `LingXiClient`, `LingXiProtocol` or `LingXiPluginSDK`.
+Foundation-only Swift Package Manager library (`macOS 13+`, `iOS 16+`, `tvOS 16+`, `watchOS 9+`).
 
-## Installation
+### Installation
 
 ```swift
 // Package.swift
@@ -59,10 +64,7 @@ dependencies: [
 )
 ```
 
-In Xcode: **File → Add Package Dependencies…** and paste
-`https://github.com/LingXiFox/LingXiModelSDK.git`.
-
-## Usage
+### Usage
 
 ```swift
 import LingXiModelSDK
@@ -78,78 +80,28 @@ if let model = catalog.model(provider: "deepseek", id: "deepseek-v4-flash") {
     print(model.pricing.input ?? 0.0)          // USD per 1M input tokens
     print(model.pricing.output ?? 0.0)         // USD per 1M output tokens
 }
-```
 
-Filtering by published metadata:
-
-```swift
 let eligible = catalog.models(matching: ModelFilter(
     vision: true,
     minimumContextWindow: 200_000
 ))
+
+print(catalog.revision.schemaVersion)
+print(catalog.revision.catalogRevision)
+print(catalog.revision.generatedAt as Any)
 ```
 
-Catalog provenance and freshness:
-
-```swift
-print(catalog.revision.schemaVersion)      // document shape
-print(catalog.revision.catalogRevision)    // changes when the data changes
-print(catalog.revision.generatedAt as Any) // when it was published
-```
-
-Every snippet above is exercised by `ModelSDKExampleCompileTests`, so the
-documented API and the shipped API cannot drift apart.
-
-## Behaviour worth knowing
-
-- **One source.** `https://models.lingxifox.cn/models.json`, upstream
-  `https://models.dev/api.json`. There is no second catalog to reconcile.
-- **A failed fetch is not an empty catalog.** If a previous copy is on hand it is
-  returned; only having nothing at all raises `ModelCatalogError`.
-- **Unknown means unknown.** `contextWindow`, `pricing.input` and friends stay
-  `nil` when the source states nothing, rather than defaulting to zero.
-- **Unmodelled fields survive.** The SDK carries what it has never heard of in
-  `CatalogModel.fields`, so a new upstream field is reachable without waiting
-  for a release of this package.
-- **Schema compatibility lives here.** When the catalog moves from schema v2 to
-  v3, this package absorbs it; consumers keep the same public API.
-- **Ordering is a rule, not an accident.** Providers sort by display name with a
-  digit-aware comparison and the id as tie-break; models sort newest-first.
-  `ModelCatalogOrdering` is the single comparator, and the published document is
-  emitted in the same order, so a list looks the same everywhere.
-- **Runtime behaviour is not decided here.** Which wire protocol a vendor
-  speaks, how it authenticates, what endpoint it uses — that belongs to the
-  consumer's provider layer, and this catalog states none of it.
-
-## Offline use
-
-Decode a document you already hold — a bundled file, a cached copy, a fixture:
+### Offline Use & Tests
 
 ```swift
 let catalog = try LingXiModelCatalog.decoded(from: Data(contentsOf: url))
 ```
-
-## Tests
 
 ```bash
 swift build
 swift test
 ```
 
-## Platforms
-
-Declared in `Package.swift`: macOS 13+, iOS 16+, tvOS 16+, watchOS 9+.
-
-The floor comes from what the code actually uses (URLSession, FileManager,
-actors), not from the host product — this package is not macOS-only. macOS,
-iOS, tvOS and watchOS were compiled against their SDKs when the repository was
-split out. The networking path falls back to the completion-handler form under
-`#if canImport(FoundationNetworking)`, so Linux and Windows are source-compatible;
-they are not verified from this repository while it has no CI of its own.
-
 ## License
 
-MIT — see [LICENSE](LICENSE). Commercial use, third-party agent and app
-integration, modification, source and binary redistribution, and use inside
-closed-source products are all permitted; the only obligation is keeping the
-copyright and permission notice.
+MIT — see [LICENSE](LICENSE).

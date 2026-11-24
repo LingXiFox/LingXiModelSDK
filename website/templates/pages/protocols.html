@@ -1,0 +1,48 @@
+{{template "head" .}}
+<body>
+{{template "header" .}}
+<div class="page-wrap">
+  <main>
+    <section class="intro">
+      <p class="eyebrow">LINGXI MODEL SDK / PROTOCOLS</p>
+      <h1>协议支持状态</h1>
+      <p>协议接入与验证独立于上游模型目录。此处仅记录经过实际测试与规范定义的状态，不根据上游 npm 包名推断协议兼容性。</p>
+    </section>
+
+    <section class="panel doc-block">
+      <h2>Native Provider 协议（Phase 3）</h2>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr><th>协议族</th><th>批次</th><th>支持范围（规划）</th><th>当前状态</th></tr>
+          </thead>
+          <tbody>
+            <tr><td>OpenAI Chat Completions</td><td>首批</td><td>非流式 / SSE 流式 / 工具调用 / 结构化输出</td><td><span class="status-badge">Planned (Phase 3)</span></td></tr>
+            <tr><td>OpenAI Responses</td><td>首批</td><td>Responses 事件流 / 推理摘要 / 工具调用</td><td><span class="status-badge">Planned (Phase 3)</span></td></tr>
+            <tr><td>Anthropic Messages</td><td>首批</td><td>Messages SSE / Thinking Blocks / Prompt Cache</td><td><span class="status-badge">Planned (Phase 3)</span></td></tr>
+            <tr><td>Google Gemini</td><td>首批</td><td>GenerateContent / 流式 / 多模态 / Thinking Config</td><td><span class="status-badge">Planned (Phase 3)</span></td></tr>
+            <tr><td>Bedrock / Vertex AI / Azure / Ollama / Cohere</td><td>后续</td><td>独立签名与托管端点适配</td><td><span class="status-badge">Roadmap</span></td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <section class="panel doc-block">
+      <h2>Unified Protocol &amp; Optional Gateway（Phase 4–5）</h2>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr><th>子系统</th><th>职责边界</th><th>默认运行方式</th><th>当前状态</th></tr>
+          </thead>
+          <tbody>
+            <tr><td>LingXi Model Protocol (LMP)</td><td>统一消息、流式事件、思考等级、工具调用、Usage、Prompt Cache、错误映射；不支持的能力显式报错</td><td>进程内直连上游</td><td><span class="status-badge">Planned (Phase 4)</span></td></tr>
+            <tr><td>HTTP Gateway</td><td>可选自托管网关，提供版本化 HTTP/SSE、鉴权、限流与出站白名单</td><td>默认本地监听（可选部署）</td><td><span class="status-badge">Planned (Phase 5)</span></td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+  </main>
+</div>
+{{template "footer" .}}
+</body>
+</html>
