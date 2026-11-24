@@ -1,0 +1,19 @@
+<!doctype html>
+<html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>LingXi Models — 公共模型目录</title><meta name="description" content="LingXiModelSDK 公共模型与提供商目录"><link rel="stylesheet" href="/static/site.css"><script defer src="/static/site.js"></script></head>
+<body>
+<header><div class="header-inner"><a class="brand" href="/">LingXi <b>Models</b><small>公共模型目录</small></a><nav><a href="/models.json">models.json</a><a href="/publication.json">发布信息</a><button type="button" id="sdk-open">SDK 接入</button><a href="https://github.com/LingXiFox/LingXiModelSDK">GitHub</a></nav></div></header>
+<div class="layout">
+<aside><h2>提供商 <span>{{.Catalog.TotalProviders}}</span></h2><input id="provider-search" placeholder="搜索提供商" aria-label="搜索提供商"><div class="provider-list"><a class="provider {{if not .PID}}selected{{end}}" href="{{.Link "" .Cap 1}}">全部提供商 <span>{{.Catalog.TotalModels}}</span></a>{{range .Providers}}<a class="provider {{if eq .ID $.PID}}selected{{end}}" data-provider="{{.ID}} {{.Name}}" href="{{$.Link .ID $.Cap 1}}">{{.Name}}<span>{{.Count}}</span></a>{{end}}</div></aside>
+<main>
+<section class="intro"><p class="eyebrow">LINGXI MODEL SDK / CATALOG</p><h1>公共模型与提供商目录</h1><p>来自 models.dev 的统一模型元数据，提供能力、价格、上下文窗口及提供商接入信息。</p><div class="stats"><div><strong>{{.Catalog.TotalProviders}}</strong><span>提供商</span></div><div><strong>{{.Catalog.TotalModels}}</strong><span>模型</span></div><div><strong>{{.Catalog.SchemaVersion}}</strong><span>Schema</span></div></div><p class="meta">数据源 {{.Catalog.Source}} · 更新 {{.Catalog.GeneratedAt}} · Revision {{.Catalog.Revision}} · Source hash {{short .Catalog.SourceHash}}</p></section>
+{{if .Unavailable}}<div class="empty">模型目录暂不可用。服务正在等待有效的上游数据。</div>{{else}}
+<form class="search" method="get" action="/"><input type="hidden" name="provider" value="{{.PID}}"><input type="hidden" name="cap" value="{{.Cap}}"><input name="q" value="{{.Q}}" placeholder="搜索模型名称、ID、家族或提供商" aria-label="搜索模型"><button type="submit">搜索</button></form>
+<div class="filters">{{range .Filters}}<a class="{{if eq .ID $.Cap}}active{{end}}" href="{{$.Link $.PID .ID 1}}">{{.Label}}</a>{{end}}</div>
+{{with .Selected}}<section class="details"><div><h2>{{.Name}}</h2><a href="{{$.Link "" $.Cap 1}}">清除提供商筛选</a></div><dl><dt>Provider ID</dt><dd>{{.ID}}</dd><dt>模型数</dt><dd>{{.Count}}</dd><dt>API 端点</dt><dd>{{if .Endpoint}}{{.Endpoint}}{{else}}来源未发布{{end}}</dd><dt>环境变量</dt><dd>{{if .Env}}{{.Env}}{{else}}来源未发布{{end}}</dd><dt>官方文档</dt><dd>{{if safeURL .Doc}}<a href="{{safeURL .Doc}}" rel="noreferrer">查看文档</a>{{else}}来源未发布{{end}}</dd></dl></section>{{end}}
+<p class="result-count">显示 {{.Start}}–{{.End}} / {{.Total}} 个模型</p>
+<div class="models">{{range .Models}}{{template "model" .}}{{else}}<div class="empty">未找到符合条件的模型。</div>{{end}}</div>
+<div class="pagination">{{if .Previous}}<a href="{{.Previous}}">上一页</a>{{end}}<span>第 {{.Page}} 页</span>{{if .Next}}<a href="{{.Next}}">下一页</a>{{end}}</div>{{end}}
+</main></div>
+<footer>© 2026 LingXiFox · 数据来自 <a href="https://models.dev">models.dev</a> · <a href="https://beian.miit.gov.cn/">苏ICP备2026055395号-1</a> · <a href="https://beian.mps.gov.cn/#/query/webSearch?code=32010202012360">苏公网安备32010202012360号</a></footer>
+{{template "sdk" .}}
+</body></html>
