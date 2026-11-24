@@ -6,5 +6,6 @@ Package.resolved
 sdk/rust/target/
 core/target/
 sdk/java/build/
+gateway/lingxi-gateway
 __pycache__/
 *.pyc

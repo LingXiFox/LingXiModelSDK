@@ -1,0 +1,46 @@
+name: Gateway
+
+on:
+  push:
+    branches: [main, 'rewrite/2.0']
+    paths:
+      - 'gateway/**'
+      - 'sdk/go/**'
+      - 'registry/registry.json'
+      - 'specs/gateway-v1.md'
+      - '.github/workflows/gateway.yml'
+  pull_request:
+    paths:
+      - 'gateway/**'
+      - 'sdk/go/**'
+      - 'registry/registry.json'
+      - 'specs/gateway-v1.md'
+      - '.github/workflows/gateway.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    defaults:
+      run:
+        working-directory: gateway
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: gateway/go.mod
+          cache: false
+      - run: go vet ./...
+      - run: go test -v ./...
+      - if: runner.os != 'Windows'
+        run: go test -race ./...
+      - run: go build -trimpath -ldflags="-s -w" -o lingxi-gateway-check .
+        env:
+          CGO_ENABLED: '0'

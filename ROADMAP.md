@@ -46,11 +46,12 @@ LingXiModelSDK 2.0 evolves the repository from a single-language Swift model cat
 - Implemented bidirectional LMP adapters, explicit `UnsupportedFeature` guards, prompt cache/reasoning usage extraction, streaming normalization, and C ABI (`core/src/lmp/`, `core/src/ffi.rs`, `core/include/lingxi_core.h`).
 - Implemented parallel native Go (`sdk/go/unified/`) and browser/Node TypeScript (`@lingxifox/model-sdk/unified`) clients verified against `conformance/lmp/expectations.json`.
 
-## Phase 5: Optional Unified HTTP Gateway (`gateway/`)
+## Phase 5: Optional Unified HTTP Gateway (`gateway/`) — Implemented (Mock Tested)
 
-- Wrap the unified protocol core in an optional self-hosted HTTP server.
-- Support versioned HTTP endpoints, SSE streaming, authentication, connection diagnostics, rate limiting, and cancellation.
-- Security defaults: loopback bind by default, mandatory auth + egress allowlists + tenant isolation for remote deployments, no credential/body logging, public catalog website never accepts provider API keys or inference traffic.
+- Defined Gateway contract & security model (`specs/gateway-v1.md`).
+- Implemented standalone Go 1.23+ HTTP/SSE gateway (`gateway/`, zero third-party dependencies):
+  - Endpoints: `/v1/healthz`, `/v1/lmp/complete`, `/v1/lmp/stream`, `/v1/diagnostics/connect`.
+  - Security: loopback bind by default, fail-closed mandatory Bearer auth + `-allow-hosts` egress allowlist for remote binds, SSRF protection, 16 MiB bounded requests, per-client token-bucket rate limiting, and zero credential/body logging.
 
 ## Phase 6: Conformance, Release Automation & Ecosystem Publishing
 
