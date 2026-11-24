@@ -90,19 +90,9 @@ export function translateRequest(
       break;
     }
     case "google_gemini":
-    case "google_vertex_ai": {
-      payload = {
-        contents: req.messages
-          .filter((m) => m.role !== "system")
-          .map((m) => ({
-            role: m.role === "assistant" ? "model" : "user",
-            parts: m.content
-              .filter((b): b is { type: "text"; text: string } => b.type === "text")
-              .map((b) => ({ text: b.text })),
-          })),
-      };
+    case "google_vertex_ai":
+      payload = toGoogle(protocol, req);
       break;
-    }
     case "aws_bedrock": {
       const system = req.messages
         .filter((m) => m.role === "system")
@@ -132,7 +122,7 @@ export function translateRequest(
               if (b.type === "tool_result") {
                 return {
                   toolResult: {
-                    toolUseId: b.toolCallID,
+                    toolUseId: b.toolCallId ?? b.toolCallID,
                     content: [{ text: b.content }],
                     status: b.isError ? "error" : "success",
                   },
@@ -293,17 +283,24 @@ export function normalizeResponse(
       const cand = ((raw.candidates as Record<string, unknown>[]) ?? [])[0] ?? {};
       const parts = ((cand.content as Record<string, unknown>)?.parts as Record<string, unknown>[]) ?? [];
       const content: LmpContentBlock[] = [];
-      for (const p of parts) {
-        if (typeof p.text === "string" && p.text) {
-          content.push(
-            p.thought === true
-              ? {
-                  type: "thinking",
-                  thinking: p.text,
-                  ...(typeof p.thoughtSignature === "string" ? { signature: p.thoughtSignature } : {}),
-                }
-              : { type: "text", text: p.text }
-          );
+      for (const [index, part] of parts.entries()) {
+        const signature = typeof part.thoughtSignature === "string" ? part.thoughtSignature : undefined;
+        if (typeof part.text === "string") {
+          content.push(part.thought === true
+            ? { type: "thinking", thinking: part.text, signature }
+            : { type: "text", text: part.text, signature });
+        } else if (part.functionCall && typeof part.functionCall === "object") {
+          const call = part.functionCall as { id?: string; name?: string; args?: Record<string, unknown> };
+          if (!call.name) throw new Error("functionCall missing name");
+          content.push({
+            type: "tool_call",
+            id: call.id ?? `gemini-part:${index}:${call.name}`,
+            name: call.name,
+            arguments: call.args ?? {},
+            signature,
+          });
+        } else if (signature !== undefined) {
+          throw new Error("Gemini returned a signature on an unsupported part");
         }
       }
       const u = (raw.usageMetadata as Record<string, number>) ?? {};
@@ -314,6 +311,8 @@ export function normalizeResponse(
           inputTokens: u.promptTokenCount ?? 0,
           outputTokens: u.candidatesTokenCount ?? 0,
           totalTokens: u.totalTokenCount ?? 0,
+          reasoningTokens: u.thoughtsTokenCount,
+          cacheReadTokens: u.cachedContentTokenCount,
         },
         raw,
       };
@@ -460,8 +459,26 @@ export function normalizeStreamEvents(
       if (typeof d?.text === "string") out.push({ type: "text_delta", delta: d.text });
       const rt = (d?.reasoningContent as Record<string, unknown> | undefined)?.text;
       if (typeof rt === "string") out.push({ type: "thinking_delta", delta: rt });
+      const toolDelta = d?.toolUse as { input?: string } | undefined;
+      if (typeof toolDelta?.input === "string") {
+        out.push({ type: "tool_call_delta", index: Number(cb?.contentBlockIndex ?? 0), argumentsDelta: toolDelta.input });
+      }
+      const start = val.contentBlockStart as {
+        contentBlockIndex: number;
+        start?: { toolUse?: { toolUseId: string; name: string } };
+      } | undefined;
+      const tool = start?.start?.toolUse;
+      if (tool) out.push({ type: "tool_call_delta", index: start.contentBlockIndex, id: tool.toolUseId, name: tool.name });
       const ms = val.messageStop as Record<string, unknown> | undefined;
       if (typeof ms?.stopReason === "string") out.push({ type: "message_end", finishReason: ms.stopReason });
+      const usage = (val.metadata as { usage?: Record<string, number> } | undefined)?.usage;
+      if (usage) out.push({ type: "usage", usage: {
+        inputTokens: usage.inputTokens ?? 0,
+        outputTokens: usage.outputTokens ?? 0,
+        totalTokens: usage.totalTokens ?? 0,
+        cacheReadTokens: usage.cacheReadInputTokens,
+        cacheWriteTokens: usage.cacheWriteInputTokens,
+      } });
     } else if (protocol === "ollama") {
       const msg = val.message as Record<string, unknown> | undefined;
       if (typeof msg?.thinking === "string" && msg.thinking) {
@@ -488,4 +505,86 @@ export function normalizeStreamEvents(
     }
   }
   return out;
+}
+
+function toGoogle(protocol: NativeProtocol, req: LmpRequest): Record<string, unknown> {
+  const unsupported = (feature: string): never => { throw new LmpUnsupportedFeatureError(protocol, feature); };
+  const system: Record<string, unknown>[] = [];
+  const contents: { role: string; parts: Record<string, unknown>[] }[] = [];
+  const calls = new Map<string, { name: string; wireID: boolean }>();
+  let previousRole: string | undefined;
+  for (const message of req.messages) {
+    if (message.role === "system") {
+      for (const block of message.content) {
+        if (block.type !== "text" || block.signature !== undefined) return unsupported("system_content");
+        system.push({ text: block.text });
+      }
+      continue;
+    }
+    if (message.role === "assistant") calls.clear();
+    const parts = message.content.map((block) => {
+      let part: Record<string, unknown>;
+      switch (block.type) {
+        case "text":
+          part = { text: block.text };
+          break;
+        case "thinking":
+          part = { thought: true, text: block.thinking };
+          break;
+        case "image_base64":
+        case "audio":
+          part = { inlineData: { mimeType: block.mediaType, data: block.data } };
+          break;
+        case "tool_call": {
+          if (calls.has(block.id)) return unsupported("duplicate_tool_call_id");
+          const wireID = !!block.id && block.id !== block.name && !block.id.startsWith("gemini-part:");
+          calls.set(block.id, { name: block.name, wireID });
+          part = { functionCall: { name: block.name, args: block.arguments, ...(wireID ? { id: block.id } : {}) } };
+          break;
+        }
+        case "tool_result": {
+          const id = block.toolCallId ?? block.toolCallID;
+          const call = id === undefined ? undefined : calls.get(id);
+          if (!call) return unsupported("unmatched_tool_result");
+          part = { functionResponse: {
+            name: call.name,
+            response: { [block.isError ? "error" : "content"]: block.content },
+            ...(call.wireID ? { id } : {}),
+          } };
+          break;
+        }
+        default:
+          return unsupported(block.type);
+      }
+      if ("signature" in block && block.signature !== undefined) part.thoughtSignature = block.signature;
+      return part;
+    });
+    if (message.role === "tool" && previousRole === "tool") {
+      contents[contents.length - 1].parts.push(...parts);
+    } else {
+      contents.push({ role: message.role === "assistant" ? "model" : "user", parts });
+    }
+    previousRole = message.role;
+  }
+  const generationConfig: Record<string, unknown> = {};
+  if (req.maxTokens !== undefined) generationConfig.maxOutputTokens = req.maxTokens;
+  if (req.temperature !== undefined) generationConfig.temperature = req.temperature;
+  if (req.responseFormat?.type === "json_object" || req.responseFormat?.type === "json_schema") {
+    generationConfig.responseMimeType = "application/json";
+    if (req.responseFormat.type === "json_schema") generationConfig.responseSchema = req.responseFormat.schema;
+  }
+  const { effort, budgetTokens } = req.thinking ?? {};
+  if (effort !== undefined && budgetTokens !== undefined) return unsupported("thinking_budget_and_effort");
+  if (budgetTokens !== undefined) generationConfig.thinkingConfig = { thinkingBudget: budgetTokens, includeThoughts: true };
+  if (effort !== undefined) {
+    if (!["minimal", "low", "medium", "high"].includes(effort)) return unsupported("thinking_effort");
+    generationConfig.thinkingConfig = { thinkingLevel: effort.toUpperCase(), includeThoughts: true };
+  }
+  if (req.toolChoice !== undefined) return unsupported("tool_choice");
+  return {
+    contents,
+    ...(system.length ? { systemInstruction: { parts: system } } : {}),
+    ...(Object.keys(generationConfig).length ? { generationConfig } : {}),
+    ...(req.tools?.length ? { tools: [{ functionDeclarations: req.tools }] } : {}),
+  };
 }

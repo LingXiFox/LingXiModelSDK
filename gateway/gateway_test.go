@@ -1,7 +1,9 @@
 package main
 
 import (
+	"bufio"
 	"bytes"
+	"context"
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
@@ -9,6 +11,7 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/LingXiFox/LingXiModelSDK/sdk/go/native"
 )
@@ -38,6 +41,13 @@ func TestGatewaySecurityPolicies(t *testing.T) {
 	}
 	if err := ValidateStartupSecurity("127.0.0.1:18090", "", nil); err != nil {
 		t.Fatalf("expected loopback config to pass: %v", err)
+	}
+	if err := CheckEgressAllowed("https://fixture:secret@api.openai.com", []string{"api.openai.com"}, false); err == nil {
+		t.Fatal("expected URL credentials to be rejected")
+	}
+	remote := NewGateway(GatewayConfig{ListenAddr: "0.0.0.0:18090", AllowLoopbackEgress: true}, nil)
+	if remote.cfg.AllowLoopbackEgress {
+		t.Fatal("remote listener retained the loopback egress exception")
 	}
 	if err := CheckEgressAllowed("https://evil.internal/v1", []string{"api.openai.com"}, false); err == nil {
 		t.Fatal("expected SSRF host to be blocked")
@@ -175,5 +185,93 @@ func TestGatewaySSRFPrivateIPBlockAndEmbedRerank(t *testing.T) {
 	h.ServeHTTP(w, rrReq)
 	if w.Code != http.StatusOK || !strings.Contains(w.Body.String(), "0.9") {
 		t.Fatalf("gateway rerank failed: %d %s", w.Code, w.Body.String())
+	}
+}
+
+func TestGatewaySuppressesUpstreamErrorBody(t *testing.T) {
+	const key = "fixture-key-that-must-not-be-echoed"
+	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusUnauthorized)
+		_, _ = w.Write([]byte(r.Header.Get("Authorization")))
+	}))
+	defer upstream.Close()
+
+	h := NewGateway(GatewayConfig{ListenAddr: "127.0.0.1:0", AllowLoopbackEgress: true}, nil).Handler()
+	body := `{"protocol":"openai_chat_completions","endpointOverride":"` + upstream.URL + `","request":{"model":"test","messages":[]}}`
+	for _, path := range []string{"/v1/lmp/complete", "/v1/lmp/stream"} {
+		r := httptest.NewRequest(http.MethodPost, path, strings.NewReader(body))
+		r.Header.Set("X-Provider-API-Key", key)
+		w := httptest.NewRecorder()
+		h.ServeHTTP(w, r)
+		if strings.Contains(w.Body.String(), key) || !strings.Contains(w.Body.String(), "upstream returned HTTP 401") {
+			t.Fatalf("%s returned an unexpected error: %s", path, w.Body.String())
+		}
+	}
+}
+
+func BenchmarkGatewayComplete(b *testing.B) {
+	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		_, _ = w.Write([]byte(`{"choices":[{"message":{"content":"ok"},"finish_reason":"stop"}]}`))
+	}))
+	defer upstream.Close()
+	h := NewGateway(GatewayConfig{
+		ListenAddr: "127.0.0.1:0", AllowLoopbackEgress: true, RateLimitBurst: 1e9,
+	}, nil).Handler()
+	body := `{"protocol":"openai_chat_completions","endpointOverride":"` + upstream.URL + `","request":{"model":"benchmark","messages":[]}}`
+	b.ReportAllocs()
+	b.ResetTimer()
+	b.RunParallel(func(pb *testing.PB) {
+		for pb.Next() {
+			r := httptest.NewRequest(http.MethodPost, "/v1/lmp/complete", strings.NewReader(body))
+			r.Header.Set("X-Provider-API-Key", "benchmark-key")
+			w := httptest.NewRecorder()
+			h.ServeHTTP(w, r)
+			if w.Code != http.StatusOK {
+				b.Errorf("gateway request returned %d", w.Code)
+			}
+		}
+	})
+}
+
+func TestGatewayStreamFlushesAndCancelsUpstream(t *testing.T) {
+	cancelled := make(chan struct{})
+	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "text/event-stream")
+		_, _ = w.Write([]byte("data: {\"choices\":[{\"delta\":{\"content\":\"first\"}}]}\n\n"))
+		w.(http.Flusher).Flush()
+		<-r.Context().Done()
+		close(cancelled)
+	}))
+	t.Cleanup(upstream.Close)
+	h := NewGateway(GatewayConfig{ListenAddr: "127.0.0.1:0", AllowLoopbackEgress: true}, nil).Handler()
+	proxy := httptest.NewServer(h)
+	t.Cleanup(proxy.Close)
+	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+	defer cancel()
+	body := `{"protocol":"openai_chat_completions","endpointOverride":"` + upstream.URL + `","request":{"model":"test","messages":[]}}`
+	r, err := http.NewRequestWithContext(ctx, http.MethodPost, proxy.URL+"/v1/lmp/stream", strings.NewReader(body))
+	if err != nil {
+		t.Fatal(err)
+	}
+	r.Header.Set("X-Provider-API-Key", "fixture")
+	response, err := proxy.Client().Do(r)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer response.Body.Close()
+	reader := bufio.NewReader(response.Body)
+	event, err := reader.ReadString('\n')
+	if err != nil || event != "event: text_delta\n" {
+		t.Fatalf("first event=%q err=%v", event, err)
+	}
+	data, err := reader.ReadString('\n')
+	if err != nil || !strings.Contains(data, "first") {
+		t.Fatalf("first data=%q err=%v", data, err)
+	}
+	cancel()
+	select {
+	case <-cancelled:
+	case <-time.After(3 * time.Second):
+		t.Fatal("upstream request was not cancelled")
 	}
 }

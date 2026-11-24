@@ -22,8 +22,8 @@ jobs:
       run:
         working-directory: website
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-go@v5
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5
         with:
           go-version-file: website/go.mod
           cache: false
@@ -44,8 +44,8 @@ jobs:
       matrix:
         arch: [amd64, arm64]
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-go@v5
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5
         with:
           go-version-file: website/go.mod
           cache: false
@@ -55,8 +55,8 @@ jobs:
           GOOS: linux
           GOARCH: ${{ matrix.arch }}
       - if: matrix.arch == 'amd64'
-        run: ./lingxi-models -h >/dev/null 2>&1 || true
-      - uses: actions/upload-artifact@v4
+        run: ./lingxi-models -h >/dev/null
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: lingxi-models-linux-${{ matrix.arch }}
           path: website/lingxi-models

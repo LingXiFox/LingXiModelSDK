@@ -8,7 +8,9 @@ from __future__ import annotations
 
 import argparse
 import json
+from collections import Counter
 from pathlib import Path
+from urllib.parse import urlsplit
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -24,24 +26,50 @@ def main() -> int:
     reg_providers = registry["providers"]
     ev_providers = matrix["providers"]
 
-    for pid, entry in reg_providers.items():
-        status = entry["verificationStatus"]
-        if status == "discovered" and entry["protocols"]:
-            raise SystemExit(f"ERROR: discovered provider {pid} declares protocols")
-        if status in ("mock_tested", "live_verified", "full_support"):
-            if pid not in ev_providers or ev_providers[pid]["status"] != status:
-                raise SystemExit(f"ERROR: {pid} has status {status} in registry without matching support-matrix evidence")
-            if not ev_providers[pid].get("evidence"):
-                raise SystemExit(f"ERROR: {pid} missing evidence array in support-matrix.json")
-
+    schema = json.loads((ROOT / "schemas/provider-registry-v1.schema.json").read_text(encoding="utf-8"))
+    entry_properties = schema["properties"]["providers"]["additionalProperties"]["properties"]
+    auth_types = set(entry_properties["auth"]["properties"]["type"]["enum"])
+    counts = Counter(entry["verificationStatus"] for entry in reg_providers.values())
     summary = registry["summary"]
+    expected = {"totalProviders": len(reg_providers), **{tier: counts[tier] for tier in matrix["tiers"]}}
+    if summary != expected or sum(expected[tier] for tier in matrix["tiers"]) != len(reg_providers):
+        raise SystemExit("ERROR: registry summary does not match entries")
+    expected_evidence = {pid for pid, entry in reg_providers.items() if entry["verificationStatus"] in {"mock_tested", "live_verified", "full_support"}}
+    if ev_providers.keys() != expected_evidence:
+        raise SystemExit("ERROR: evidence providers do not match verified registry entries")
+
     status_map: dict[str, dict[str, object]] = {}
     for pid, entry in sorted(reg_providers.items()):
-        if entry["verificationStatus"] != "discovered":
-            status_map[pid] = {
-                "status": entry["verificationStatus"],
-                "protocols": entry["protocols"],
-            }
+        status = entry["verificationStatus"]
+        auth_type = entry["auth"]["type"]
+        protocols = set(entry["protocols"])
+        endpoints = entry["officialEndpoints"]
+        if pid != entry["id"] or auth_type not in auth_types or not endpoints.keys() <= protocols:
+            raise SystemExit(f"ERROR: invalid registry definition for {pid}")
+        if status == "discovered":
+            if protocols or auth_type != "unknown":
+                raise SystemExit(f"ERROR: discovered provider {pid} declares runtime compatibility")
+            continue
+        for url in endpoints.values():
+            parsed = urlsplit(url)
+            local = parsed.hostname in {"127.0.0.1", "localhost", "::1"}
+            if not parsed.hostname or parsed.username is not None or parsed.query or parsed.fragment or (
+                parsed.scheme != "https" and not (local and parsed.scheme == "http")
+            ):
+                raise SystemExit(f"ERROR: invalid endpoint for {pid}")
+        advertised = entry["protocols"]
+        if pid in ev_providers:
+            evidence = ev_providers[pid]
+            verified = {item["protocol"] for item in entry["verificationEvidence"] if item["level"] == status}
+            if evidence["status"] != status or not verified or set(evidence["protocols"]) != verified or not verified <= protocols:
+                raise SystemExit(f"ERROR: inconsistent protocol evidence for {pid}")
+            if not evidence["evidence"] or not all((ROOT / item["suite"]).exists() for item in evidence["evidence"]):
+                raise SystemExit(f"ERROR: missing test evidence for {pid}")
+            advertised = evidence["protocols"]
+        status_map[pid] = {
+            "name": entry["name"], "status": status, "protocols": advertised,
+            "endpoints": sorted(set(endpoints.values())),
+        }
 
     website_status_bytes = (
         json.dumps(status_map, ensure_ascii=False, indent=2, sort_keys=True) + "\n"

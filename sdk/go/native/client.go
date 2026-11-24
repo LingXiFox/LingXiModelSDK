@@ -135,23 +135,32 @@ func (c *Client) StreamGoogleGeminiGenerate(ctx context.Context, cfg RequestConf
 }
 
 func (c *Client) AWSBedrockConverse(ctx context.Context, cfg RequestConfig, model string, payload map[string]any) (*JSONResponse, error) {
-	uri := fmt.Sprintf("/model/%s/converse", model)
+	uri := fmt.Sprintf("/model/%s/converse", awsEncodePath(model, false))
 	rawURL := strings.TrimRight(cfg.BaseURL, "/") + uri
 	headers := cloneHeaders(cfg.Headers)
-	if err := applyBedrockAuth(rawURL, uri, payload, cfg.APIKey, headers); err != nil {
+	if err := applyBedrockAuth(rawURL, payload, cfg.APIKey, headers); err != nil {
 		return nil, err
 	}
 	return c.postJSON(ctx, rawURL, headers, payload, cfg.AllowInsecureHTTP)
 }
 
 func (c *Client) StreamAWSBedrockConverseEach(ctx context.Context, cfg RequestConfig, model string, payload map[string]any, fn func(SSEEvent) error) error {
-	uri := fmt.Sprintf("/model/%s/converse-stream", model)
+	uri := fmt.Sprintf("/model/%s/converse-stream", awsEncodePath(model, false))
 	rawURL := strings.TrimRight(cfg.BaseURL, "/") + uri
 	headers := cloneHeaders(cfg.Headers)
-	if err := applyBedrockAuth(rawURL, uri, payload, cfg.APIKey, headers); err != nil {
+	if err := applyBedrockAuth(rawURL, payload, cfg.APIKey, headers); err != nil {
 		return err
 	}
-	return c.postNDJSONEach(ctx, rawURL, headers, payload, cfg.AllowInsecureHTTP, fn)
+	return c.postStreamEach(ctx, rawURL, amazonEventStream, headers, payload, cfg.AllowInsecureHTTP, func(r io.Reader, contentType string) error {
+		switch strings.ToLower(strings.TrimSpace(strings.SplitN(contentType, ";", 2)[0])) {
+		case amazonEventStream:
+			return readAmazonEvents(r, fn)
+		case "application/x-ndjson":
+			return ReadNDJSONEach(r, fn)
+		default:
+			return fmt.Errorf("unexpected Bedrock response content type")
+		}
+	})
 }
 
 func (c *Client) GoogleVertexGenerate(ctx context.Context, cfg RequestConfig, model string, payload map[string]any) (*JSONResponse, error) {
@@ -382,18 +391,18 @@ func (c *Client) postSSE(ctx context.Context, rawURL string, headers map[string]
 }
 
 func (c *Client) postSSEEach(ctx context.Context, rawURL string, headers map[string]string, payload map[string]any, allowInsecure bool, fn func(SSEEvent) error) error {
-	return c.postStreamEach(ctx, rawURL, "text/event-stream", headers, payload, allowInsecure, func(r io.Reader) error {
+	return c.postStreamEach(ctx, rawURL, "text/event-stream", headers, payload, allowInsecure, func(r io.Reader, _ string) error {
 		return ReadSSEEach(r, fn)
 	})
 }
 
 func (c *Client) postNDJSONEach(ctx context.Context, rawURL string, headers map[string]string, payload map[string]any, allowInsecure bool, fn func(SSEEvent) error) error {
-	return c.postStreamEach(ctx, rawURL, "application/x-ndjson, application/json", headers, payload, allowInsecure, func(r io.Reader) error {
+	return c.postStreamEach(ctx, rawURL, "application/x-ndjson, application/json", headers, payload, allowInsecure, func(r io.Reader, _ string) error {
 		return ReadNDJSONEach(r, fn)
 	})
 }
 
-func (c *Client) postStreamEach(ctx context.Context, rawURL, accept string, headers map[string]string, payload map[string]any, allowInsecure bool, parse func(io.Reader) error) error {
+func (c *Client) postStreamEach(ctx context.Context, rawURL, accept string, headers map[string]string, payload map[string]any, allowInsecure bool, parse func(io.Reader, string) error) error {
 	if err := ValidateEndpointURL(rawURL, allowInsecure); err != nil {
 		return err
 	}
@@ -419,7 +428,12 @@ func (c *Client) postStreamEach(ctx context.Context, rawURL, accept string, head
 		raw, _ := io.ReadAll(io.LimitReader(resp.Body, 1<<20))
 		return &HTTPStatusError{Status: resp.StatusCode, Headers: resp.Header, Body: raw}
 	}
-	return parse(io.LimitReader(resp.Body, maxNativeResponseBytes))
+	limited := &io.LimitedReader{R: resp.Body, N: maxNativeResponseBytes + 1}
+	err = parse(limited, resp.Header.Get("Content-Type"))
+	if limited.N == 0 {
+		return fmt.Errorf("upstream stream exceeded %d bytes", maxNativeResponseBytes)
+	}
+	return err
 }
 
 func joinAnthropicMessages(base string) string {
@@ -475,7 +489,21 @@ func cloneAnyMap(in map[string]any) map[string]any {
 	return out
 }
 
-func applyBedrockAuth(rawURL, canonicalURI string, payload map[string]any, apiKey string, headers map[string]string) error {
+func awsEncodePath(value string, preserveSlash bool) string {
+	var out strings.Builder
+	for i := 0; i < len(value); i++ {
+		b := value[i]
+		if b >= 'a' && b <= 'z' || b >= 'A' && b <= 'Z' || b >= '0' && b <= '9' ||
+			strings.IndexByte("-._~", b) >= 0 || preserveSlash && b == '/' {
+			out.WriteByte(b)
+		} else {
+			fmt.Fprintf(&out, "%%%02X", b)
+		}
+	}
+	return out.String()
+}
+
+func applyBedrockAuth(rawURL string, payload map[string]any, apiKey string, headers map[string]string) error {
 	if _, ok := headers["Authorization"]; ok {
 		return nil
 	}
@@ -492,14 +520,25 @@ func applyBedrockAuth(rawURL, canonicalURI string, payload map[string]any, apiKe
 	}
 	region := headers["x-aws-region"]
 	if region == "" {
-		region = "us-east-1"
+		if tail, ok := strings.CutPrefix(u.Hostname(), "bedrock-runtime."); ok {
+			candidate, domain, _ := strings.Cut(tail, ".")
+			if domain == "amazonaws.com" || domain == "amazonaws.com.cn" || domain == "api.aws" {
+				region = candidate
+			}
+		}
+		if region == "" {
+			region = "us-east-1"
+		}
 	}
 	session := ""
 	if len(parts) >= 3 {
 		session = parts[2]
 	}
-	encoded, _ := json.Marshal(payload)
-	for k, v := range SignSigV4("POST", canonicalURI, "", u.Host, region, "bedrock", parts[0], parts[1], session, encoded, time.Now()) {
+	encoded, err := json.Marshal(payload)
+	if err != nil {
+		return err
+	}
+	for k, v := range SignSigV4("POST", awsEncodePath(u.EscapedPath(), true), "", u.Host, region, "bedrock", parts[0], parts[1], session, encoded, time.Now()) {
 		headers[k] = v
 	}
 	return nil

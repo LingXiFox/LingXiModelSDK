@@ -1,5 +1,5 @@
+import { amazonEventStream, parseAmazonEventStream } from "./eventstream.ts";
 import { ProviderRegistry, validateEndpointURL, type NativeProtocol } from "./registry.ts";
-import { signSigV4 } from "./sigv4.ts";
 import { parseNdjsonStream, parseSseStream, type SseEvent } from "./sse.ts";
 
 export interface NativeRequestConfig {
@@ -103,21 +103,21 @@ export class NativeClient {
     model: string,
     payload: Record<string, unknown>
   ): Promise<Record<string, unknown>> {
-    const uri = `/model/${model}/converse`;
+    const uri = `/model/${awsEncodeSegment(model)}/converse`;
     const url = `${cfg.baseURL.replace(/\/+$/, "")}${uri}`;
-    const headers = withBedrockAuth(url, uri, payload, cfg.apiKey, cfg.headers);
+    const headers = await withBedrockAuth(url, payload, cfg.apiKey, cfg.headers);
     return this.postJSON(url, headers, payload, cfg.allowInsecureHTTP);
   }
 
-  streamAwsBedrockConverse(
+  async *streamAwsBedrockConverse(
     cfg: NativeRequestConfig,
     model: string,
     payload: Record<string, unknown>
   ): AsyncGenerator<SseEvent> {
-    const uri = `/model/${model}/converse-stream`;
+    const uri = `/model/${awsEncodeSegment(model)}/converse-stream`;
     const url = `${cfg.baseURL.replace(/\/+$/, "")}${uri}`;
-    const headers = withBedrockAuth(url, uri, payload, cfg.apiKey, cfg.headers);
-    return this.postNDJSON(url, headers, payload, cfg.allowInsecureHTTP);
+    const headers = await withBedrockAuth(url, payload, cfg.apiKey, cfg.headers);
+    yield* this.postNDJSON(url, headers, payload, cfg.allowInsecureHTTP, true);
   }
 
   async googleVertexGenerate(
@@ -310,7 +310,8 @@ export class NativeClient {
     url: string,
     headers: Record<string, string>,
     payload: Record<string, unknown>,
-    allowInsecureHTTP = false
+    allowInsecureHTTP = false,
+    bedrock = false
   ): AsyncGenerator<SseEvent> {
     validateEndpointURL(url, allowInsecureHTTP);
     const resp = await fetch(url, {
@@ -318,7 +319,7 @@ export class NativeClient {
       redirect: "error",
       headers: {
         "Content-Type": "application/json",
-        Accept: "application/x-ndjson, application/json",
+        Accept: bedrock ? amazonEventStream : "application/x-ndjson, application/json",
         ...headers,
       },
       body: JSON.stringify(payload),
@@ -327,7 +328,15 @@ export class NativeClient {
       throw new NativeHttpStatusError(resp.status, await resp.text());
     }
     if (!resp.body) return;
-    yield* parseNdjsonStream(resp.body);
+    const contentType = resp.headers.get("content-type")?.split(";")[0].trim().toLowerCase();
+    if (bedrock && contentType === amazonEventStream) {
+      yield* parseAmazonEventStream(resp.body);
+    } else if (!bedrock || contentType === "application/x-ndjson") {
+      yield* parseNdjsonStream(resp.body);
+    } else {
+      await resp.body.cancel();
+      throw new Error("unexpected Bedrock response content type");
+    }
   }
 }
 
@@ -353,23 +362,29 @@ function withHeaderAuth(
   return { [headerName]: apiKey, ...(headers ?? {}) };
 }
 
-function withBedrockAuth(
+function awsEncodeSegment(value: string): string {
+  return encodeURIComponent(value).replace(/[!'()*]/g, (char) => `%${char.charCodeAt(0).toString(16).toUpperCase()}`);
+}
+
+async function withBedrockAuth(
   rawURL: string,
-  canonicalURI: string,
   payload: Record<string, unknown>,
   apiKey: string | undefined,
   headers: Record<string, string> | undefined
-): Record<string, string> {
+): Promise<Record<string, string>> {
   const out = { ...(headers ?? {}) };
   if (out.Authorization || out.authorization) return out;
   if (!apiKey) throw new Error("AWS Bedrock requires 'ACCESS_KEY:SECRET_KEY[:SESSION_TOKEN]'");
   const parts = apiKey.split(":");
   if (parts.length < 2) return withBearer(headers, apiKey);
   const u = new URL(rawURL);
-  const region = out["x-aws-region"] ?? "us-east-1";
+  const region = out["x-aws-region"] ??
+    /^bedrock-runtime\.([a-z0-9-]+)\.(?:amazonaws\.com(?:\.cn)?|api\.aws)$/.exec(u.hostname)?.[1] ??
+    "us-east-1";
+  const { signSigV4 } = await import("./sigv4.ts");
   const signed = signSigV4({
     method: "POST",
-    canonicalURI,
+    canonicalURI: u.pathname.split("/").map(awsEncodeSegment).join("/"),
     host: u.host,
     region,
     service: "bedrock",

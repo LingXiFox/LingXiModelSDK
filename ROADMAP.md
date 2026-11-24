@@ -59,13 +59,17 @@ LingXiModelSDK 2.0 evolves the repository from a single-language Swift model cat
 - Added standalone protocol mock server (`conformance/mock-server/server.py`) and opt-in live verification script (`scripts/live-verify.sh`).
 - Added full monorepo verification runner (`scripts/test-all.sh`), release checklist (`docs/publishing.md`), and manual `workflow_dispatch` release binary workflow (`.github/workflows/release-artifacts.yml`).
 
-## Phase 7: Full Audit, 10-Language SDKs, 9 Protocols & `2.0.0-alpha.1` Readiness — Completed
+## Phase 7: Full Audit and `2.0.0-alpha.1` Candidate — Audited, with Remaining Coverage Gaps
 
-- **10 Languages × 4 Modules**: Swift, Rust, Go, TypeScript/JS, Python (`ctypes` -> `liblingxi_core`), Java, C++20 (Rust C ABI), C# (.NET 8), Kotlin (JVM), Dart 3 — each providing independent Catalog, Provider Registry, Native Provider, and Unified Provider (LMP) modules.
-- **9 Protocols (`Mock Tested`)**: OpenAI Chat Completions, OpenAI Responses, Anthropic Messages, Google Gemini, AWS Bedrock (SigV4 + Converse/NDJSON), Google Vertex AI (`thoughtSignature`), Azure OpenAI, Ollama, Cohere (incl. `/v2/rerank`).
-- **Gateway & Security Hardening**: Dial-time private/metadata IP SSRF protection, HTTP 3xx redirect blocking across all 10 SDKs, real-time `StreamEach` SSE flushing, `/v1/lmp/embed`, `/v1/lmp/rerank`, and secret redaction.
-- **Website & Evidence**: Upgraded `website/` with `/gateway`, 10-language `/sdk`, 9-protocol `/protocols`, `2.0.0-alpha.1` release notes (`docs/release-2.0.0-alpha.1.md`), feature matrix (`docs/feature-matrix.md`), and host benchmarks + security audit (`docs/performance-security-audit.md`). Formal tagging/publishing and production cutover await explicit approval.
+- Ten language directories or targets build in CI. The [feature matrix](docs/feature-matrix.md) identifies each public surface and the capabilities covered by tests.
+- Rust, Go and TypeScript share wire fixtures for Bedrock binary streaming, Gemini signed parallel tool replay, and model catalog decoding. Python and C++ can use the Rust C ABI.
+- The registry distinguishes catalog discovery from protocol compatibility and validates evidence at the provider and protocol levels. Azure and Vertex require configured resource endpoints.
+- The standalone website retains its public catalog APIs, synchronizer, and filing metadata. SDK, provider, protocol, and Gateway pages describe the alpha coverage.
+- See the [Phase 7 audit](docs/phase-7-audit.md), [benchmarks](docs/performance-security-audit.md), and [alpha staging runbook](docs/release-2.0.0-alpha.1.md).
 
-### Remaining Optional / Gated Items
-- Tier-2 Catalog languages (C#, Kotlin, C++, Dart) and Tier-2 protocols (Bedrock, Vertex AI, Azure, Ollama, Cohere).
-- Approved production server cutover (`models.lingxifox.cn`) and external package registry publishing.
+### Remaining Acceptance Work
+
+- Complete catalog parity in C#, Kotlin, C++, and Dart. Complete native and LMP parity across all language bindings, including cancellation and incremental delivery.
+- Expand Agent conformance to all protocols and languages, including build-time browser checks, unsupported-feature errors, long soak tests, and provider-specific opaque state.
+- Run credentialed provider verification and record the exact capabilities exercised. Run target-host performance and deployment acceptance after approval.
+- Obtain separate approval for production cutover, external package publication, and formal Git tags or Releases.

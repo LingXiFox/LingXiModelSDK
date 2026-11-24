@@ -278,16 +278,24 @@ func buildProvidersView(s *Snapshot, q url.Values) ProvidersPageView {
 	}
 	v.Catalog = s.Catalog
 
-	query := strings.ToLower(v.Q)
-	filtered := make([]ProviderView, 0, len(s.Providers))
-	for _, p := range s.Providers {
-		if query != "" {
-			haystack := strings.ToLower(p.ID + " " + p.Name + " " + p.Endpoint)
-			if !strings.Contains(haystack, query) {
-				continue
-			}
+	providers := append([]ProviderView(nil), s.Providers...)
+	for id, status := range embeddedProviderStatuses {
+		if _, inCatalog := s.Catalog.Providers[id]; inCatalog {
+			continue
 		}
-		filtered = append(filtered, p)
+		providers = append(providers, ProviderView{
+			ID: id, Name: status.Name, Status: formatProviderStatusLabel(status.Status),
+			Protocols: strings.Join(status.Protocols, ", "), Endpoint: strings.Join(status.Endpoints, ", "),
+		})
+	}
+	sortProviders(providers)
+	query := strings.ToLower(v.Q)
+	filtered := make([]ProviderView, 0, len(providers))
+	for _, p := range providers {
+		haystack := strings.ToLower(p.ID + " " + p.Name + " " + p.Endpoint)
+		if strings.Contains(haystack, query) {
+			filtered = append(filtered, p)
+		}
 	}
 
 	const pageSize = 60

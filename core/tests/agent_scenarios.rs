@@ -7,11 +7,11 @@ use lingxi_core::lmp::{
 };
 use lingxi_core::NativeProtocol;
 use serde_json::json;
-use tokio::io::{AsyncReadExt, AsyncWriteExt};
+use tokio::io::{AsyncBufReadExt, AsyncReadExt, AsyncWriteExt, BufReader};
 use tokio::net::TcpListener;
 
-async fn start_scripted_server(
-    handler: impl Fn(String) -> (u16, &'static str, String) + Send + Sync + 'static,
+async fn start_scripted_server<B: AsRef<[u8]> + Send + Sync>(
+    handler: impl Fn(String) -> (u16, &'static str, B) + Send + Sync + 'static,
 ) -> (String, tokio::task::JoinHandle<()>) {
     let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
     let addr = listener.local_addr().unwrap();
@@ -21,24 +21,41 @@ async fn start_scripted_server(
             let Ok((mut stream, _)) = listener.accept().await else {
                 break;
             };
+            stream.set_nodelay(true).unwrap();
             let h = Arc::clone(&handler);
             tokio::spawn(async move {
+                let (reader, mut writer) = stream.split();
+                let mut reader = BufReader::new(reader);
                 loop {
-                    let mut buf = vec![0u8; 65536];
-                    let Ok(n) = stream.read(&mut buf).await else {
-                        break;
-                    };
-                    if n == 0 {
-                        break;
+                    let mut req = String::new();
+                    let mut length = 0;
+                    loop {
+                        let mut line = String::new();
+                        if reader.read_line(&mut line).await.unwrap_or(0) == 0 {
+                            return;
+                        }
+                        req.push_str(&line);
+                        if line == "\r\n" {
+                            break;
+                        }
+                        if let Some((name, value)) = line.split_once(':') {
+                            if name.eq_ignore_ascii_case("content-length") {
+                                length = value.trim().parse().unwrap();
+                            }
+                        }
                     }
-                    let req = String::from_utf8_lossy(&buf[..n]).to_string();
+                    let mut body = vec![0; length];
+                    if reader.read_exact(&mut body).await.is_err() {
+                        return;
+                    }
+                    req.push_str(std::str::from_utf8(&body).unwrap());
                     let (status, ctype, body) = h(req);
+                    let body = body.as_ref();
                     let resp = format!(
-                        "HTTP/1.1 {status} OK\r\nContent-Type: {ctype}\r\nContent-Length: {}\r\nConnection: keep-alive\r\n\r\n{}",
-                        body.len(),
-                        body
+                        "HTTP/1.1 {status} OK\r\nContent-Type: {ctype}\r\nContent-Length: {}\r\nConnection: keep-alive\r\n\r\n",
+                        body.len()
                     );
-                    if stream.write_all(resp.as_bytes()).await.is_err() {
+                    if writer.write_all(resp.as_bytes()).await.is_err() || writer.write_all(body).await.is_err() {
                         break;
                     }
                 }
@@ -52,15 +69,15 @@ async fn start_scripted_server(
 async fn tier2_protocols_complete_and_stream_against_mock_servers() {
     let client = UnifiedClient::new();
 
-    // 1. AWS Bedrock (SigV4 + Converse + NDJSON stream)
+    // 1. AWS Bedrock (SigV4 + Converse + Amazon Event Stream)
     let bedrock_resp = include_str!("../../conformance/native/aws_bedrock_response.json").to_string();
-    let bedrock_stream = include_str!("../../conformance/native/aws_bedrock_stream.ndjson").to_string();
+    let bedrock_stream = include_bytes!("../../conformance/native/aws_bedrock_stream.eventstream");
     let (base, h1) = start_scripted_server(move |req| {
         assert!(req.contains("AWS4-HMAC-SHA256"), "missing SigV4 header: {req}");
         if req.contains("converse-stream") {
-            (200, "application/x-ndjson", bedrock_stream.clone())
+            (200, "application/vnd.amazon.eventstream", bedrock_stream.to_vec())
         } else {
-            (200, "application/json", bedrock_resp.clone())
+            (200, "application/json", bedrock_resp.as_bytes().to_vec())
         }
     })
     .await;
@@ -68,7 +85,7 @@ async fn tier2_protocols_complete_and_stream_against_mock_servers() {
         model: "anthropic.claude-3-5-sonnet".into(),
         messages: vec![LmpMessage {
             role: Role::User,
-            content: vec![ContentBlock::Text { text: "hi".into() }],
+            content: vec![ContentBlock::Text { text: "hi".into(), signature: None }],
         }],
         max_tokens: Some(128),
         temperature: None,
@@ -153,7 +170,7 @@ async fn tier2_protocols_complete_and_stream_against_mock_servers() {
         .complete(NativeProtocol::AzureOpenai, &base, Some("az-key".into()), &az_req)
         .await
         .unwrap();
-    assert!(out.content.iter().any(|b| matches!(b, ContentBlock::Text { text } if text.contains("Azure"))));
+    assert!(out.content.iter().any(|b| matches!(b, ContentBlock::Text { text, .. } if text.contains("Azure"))));
     h3.abort();
 
     // 4. Ollama + explicit unsupported strict json_schema
@@ -206,7 +223,7 @@ async fn tier2_protocols_complete_and_stream_against_mock_servers() {
         .complete(NativeProtocol::Cohere, &base, Some("co-key".into()), &az_req)
         .await
         .unwrap();
-    assert!(out.content.iter().any(|b| matches!(b, ContentBlock::Text { text } if text.contains("Cohere"))));
+    assert!(out.content.iter().any(|b| matches!(b, ContentBlock::Text { text, .. } if text.contains("Cohere"))));
     let rr = client
         .rerank(
             NativeProtocol::Cohere,
@@ -253,14 +270,14 @@ async fn real_embed_and_redirect_rejection_and_200_reuse() {
 
     // Redirect rejection (302 must not follow or leak auth)
     let (redir_base, h2) = start_scripted_server(move |_req| {
-        (302, "text/plain", "redirect blocked".into())
+        (302, "text/plain", "redirect blocked")
     })
     .await;
     let req = LmpRequest {
         model: "gpt-4o".into(),
         messages: vec![LmpMessage {
             role: Role::User,
-            content: vec![ContentBlock::Text { text: "hi".into() }],
+            content: vec![ContentBlock::Text { text: "hi".into(), signature: None }],
         }],
         max_tokens: None,
         temperature: None,
@@ -296,4 +313,65 @@ async fn real_embed_and_redirect_rejection_and_200_reuse() {
     }
     assert_eq!(hits.load(Ordering::Relaxed), 200);
     h3.abort();
+}
+
+#[tokio::test]
+async fn gemini_replays_parallel_tool_calls_and_original_signed_parts() {
+    let fixture: serde_json::Value = serde_json::from_str(include_str!("../../conformance/agent/gemini-tool-loop.json")).unwrap();
+    let mocked = fixture.clone();
+    let (base, server) = start_scripted_server(move |request| {
+        let (_, body) = request.split_once("\r\n\r\n").unwrap();
+        let payload: serde_json::Value = serde_json::from_str(body).unwrap();
+        assert_eq!(payload["cachedContent"], "cachedContents/mock-1");
+        assert_eq!(payload["generationConfig"]["thinkingConfig"], json!({"thinkingLevel": "LOW", "includeThoughts": true}));
+        assert_eq!(payload["contents"][0]["parts"][1]["inlineData"]["mimeType"], "image/png");
+        if payload["contents"].as_array().unwrap().len() == 1 {
+            (200, "application/json", mocked["firstResponse"].to_string())
+        } else {
+            assert_eq!(payload["contents"][1], mocked["firstResponse"]["candidates"][0]["content"]);
+            assert_eq!(payload["contents"][2]["parts"], mocked["expectedToolResponses"]);
+            (200, "application/json", mocked["finalResponse"].to_string())
+        }
+    }).await;
+    let client = UnifiedClient::new();
+    let mut req: LmpRequest = serde_json::from_value(fixture["request"].clone()).unwrap();
+    let first = client.complete(NativeProtocol::GoogleGemini, &base, Some("fixture".into()), &req).await.unwrap();
+    assert_eq!(first.usage.cache_read_tokens, Some(0));
+    assert_eq!(first.usage.reasoning_tokens, Some(5));
+    let results: Vec<_> = first.content.iter().filter_map(|block| match block {
+        ContentBlock::ToolCall { id, arguments, .. } => Some(LmpMessage {
+            role: Role::Tool,
+            content: vec![ContentBlock::ToolResult {
+                tool_call_id: id.clone(),
+                content: if arguments["city"] == "東京" { "18 C" } else { "21 C" }.into(),
+                is_error: false,
+            }],
+        }),
+        _ => None,
+    }).collect();
+    assert_eq!(results.len(), 2);
+    req.messages.push(LmpMessage { role: Role::Assistant, content: first.content });
+    req.messages.extend(results);
+    let last = client.complete(NativeProtocol::GoogleGemini, &base, Some("fixture".into()), &req).await.unwrap();
+    assert_eq!(last.text(), "Osaka is 3 C warmer.");
+    assert_eq!(last.usage.cache_read_tokens, Some(25));
+    server.abort();
+}
+
+#[tokio::test]
+async fn gemini_embedding_sends_all_inputs_and_validates_result_count() {
+    let (base, server) = start_scripted_server(|request| {
+        assert!(request.starts_with("POST /v1beta/models/mock:batchEmbedContents "));
+        let body: serde_json::Value = serde_json::from_str(request.split_once("\r\n\r\n").unwrap().1).unwrap();
+        assert_eq!(body["requests"][0]["content"]["parts"][0]["text"], "first");
+        assert_eq!(body["requests"][1]["content"]["parts"][0]["text"], "second");
+        assert_eq!(body["requests"][1]["model"], "models/mock");
+        (200, "application/json", r#"{"embeddings":[{"values":[0.1]},{"values":[0.2]}]}"#)
+    }).await;
+    let request = EmbeddingRequest { model: "models/mock".into(), input: vec!["first".into(), "second".into()] };
+    let client = UnifiedClient::new();
+    let response = client.embed(NativeProtocol::GoogleGemini, &base, Some("fixture".into()), &request).await.unwrap();
+    assert_eq!(response.embeddings, vec![vec![0.1], vec![0.2]]);
+    assert!(matches!(client.embed(NativeProtocol::GoogleVertexAi, &base, Some("fixture".into()), &request).await, Err(LmpError::UnsupportedFeature { .. })));
+    server.abort();
 }

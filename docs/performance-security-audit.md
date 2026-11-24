@@ -1,25 +1,29 @@
-# Performance Benchmarks & Security Audit (2.0.0-alpha.1)
+# Performance and Security Audit
 
-## 1. Real Host Performance Benchmarks
+## Host measurements
 
-Measured via `./scripts/benchmark.sh` on `Darwin 27.3.0 arm64` (Apple M5) at `2026-11-24T14:20:44Z`:
+Measured with `./scripts/benchmark.sh` on Apple M5, macOS arm64, on 2026-11-24. Go benchmarks use `-benchmem`. The Gateway benchmark runs parallel requests through the in-process handler to a loopback HTTP upstream.
 
-| Benchmark Target | Measurement | Throughput / Latency | Memory / Size |
-| --- | --- | --- | --- |
-| Go `unified.TranslateRequest` + `NormalizeResponse` (`go test -bench=. -benchmem`) | 2,667,326 iterations | **443.8 ns/op** | 1,464 B/op, 17 allocs/op |
-| TypeScript LMP `translateRequest` + `normalizeResponse` (Node v26.13.1) | 10,000 iterations | **0.27 µs/op** (2.72 ms total) | Native ESM + TS type stripping |
-| Python -> Rust `liblingxi_core` C ABI (`ctypes`) | 5,000 iterations | **47.67 µs/op** (238.37 ms total) | Shared Rust core (`cdylib`) |
-| Rust `core` 200 sequential keep-alive requests (`agent_scenarios.rs`) | 200 HTTP calls | **< 40 ms** total test runtime | Single pooled `reqwest::Client` |
-| Website (`models.lingxifox.cn`, `CGO_ENABLED=0`) | Static Go binary | — | **9.1 MB** (all HTML/CSS/JS/PNG embedded) |
+| Target | Time | Allocations or size |
+| --- | ---: | ---: |
+| Go Native client initialization | 12.66 ns/op | 56 B/op, 2 allocs/op |
+| Go Unified request translation and response normalization | 342.6 ns/op | 1,464 B/op, 17 allocs/op |
+| Go Native short SSE fixture parsing | 3.48 µs/fixture, 98.10 MB/s | 66,304 B/op, 10 allocs/op |
+| Go Gateway parallel completions | 23.29 µs/op wall time per parallel iteration | 26,718 B/op, 179 allocs/op |
+| Node.js 26 TypeScript translation and normalization | 0.37 µs/op over 10,000 iterations | Process memory unmeasured |
+| Python to Rust C ABI translation and normalization | 45.83 µs/op over 5,000 iterations | Process memory unmeasured |
+| macOS arm64 standalone website binary | — | 9,498,370 bytes |
 
-## 2. Security Audit Checklist
+Allocation measurements are per operation. Process RSS, long-duration memory and descriptor use, production TLS latency and target-host startup remain unmeasured.
 
-| Area | Control Implemented | Verification |
-| --- | --- | --- |
-| **Catalog Isolation** | Public catalog site (`models.lingxifox.cn`) & Catalog SDKs never accept inference payloads or provider API keys. | Verified in `website/server.go` & Catalog SDKs. |
-| **SSRF (Gateway Egress)** | `gateway/security.go` blocks loopback, RFC1918 (`10/8`, `172.16/12`, `192.168/16`), cloud metadata/link-local (`169.254/16`, `fe80::/10`), ULA (`fc00::/7`), CGNAT (`100.64/10`) both on URL validation and at TCP dial time via `NewSafeHTTPClient`. | `TestGatewaySSRFPrivateIPBlockAndEmbedRerank` in `gateway/gateway_test.go`. |
-| **Fail-Closed Binding** | Non-loopback Gateway listen addresses require both `-auth-token` and `-allow-hosts`. | `ValidateStartupSecurity` in `gateway/security.go`. |
-| **HTTP Redirect Blocking** | Automatic HTTP 3xx redirects are blocked across Rust (`Policy::none()`), Go (`http.ErrUseLastResponse`), TS (`redirect: "error"`), Swift (`URLSessionTaskDelegate`), Python (`_NoRedirectHandler`), Java (`Redirect.NEVER`), C# (`AllowAutoRedirect = false`), Kotlin (`Redirect.NEVER`), Dart (`followRedirects = false`) to prevent API key leakage. | Tested against 302 mock servers in Rust, Go, TS, Python, Java, C#, Kotlin, Dart. |
-| **Payload & Response Caps** | Gateway limits incoming request bodies to 16 MiB; Rust & Go native clients cap upstream responses at 32 MiB. | `decodeBoundedJSON`, `maxNativeResponseBytes`, `MAX_RESPONSE_BYTES`. |
-| **Secret Redaction** | `RedactSecret` masks credentials; API keys are never echoed in `/healthz` or catalog responses. | `TestGatewaySSRFPrivateIPBlockAndEmbedRerank`. |
-| **Zero Unapproved Dependencies** | All 10 language SDKs use platform/stdlib crypto & HTTP (Rust uses only pre-approved `serde`, `serde_json`, `reqwest`, `tokio`); AWS SigV4 is implemented using stdlib/pure crypto. | Audited `Cargo.toml`, `go.mod`, `package.json`, `Package.swift`, `pom.xml`, `.csproj`. |
+## Security controls and evidence
+
+| Area | Implementation and verification |
+| --- | --- |
+| Public catalog isolation | The public handler exposes catalog and documentation routes. Tests send an inference request and a credential header to public routes and verify rejection. The admin listener is separate. |
+| Gateway SSRF | Remote bind requires authentication and a host allowlist. The Gateway rejects credential-bearing or query-bearing base URLs and checks resolved IPs before dialing. Loopback egress is limited to development listeners bound to loopback. |
+| Redirects and TLS | Default HTTP clients block redirects for inference. HTTPS is the default for remote targets. Reviewed custom transports and platform SDK policy independently from the core coverage tests. |
+| Inference errors | Gateway strips upstream bodies from HTTP and SSE error messages. A mock that echoes the Authorization header verifies the credential stays out of the Gateway response. Native SDK errors may still contain raw provider data by design. |
+| Request and response bounds | Gateway requests are limited to 16 MiB. Rust and Go enforce 32 MiB on core inference responses and streams. Bedrock validates frame lengths and CRCs. Size and timeout parity across the remaining SDKs is open. |
+| Stream lifecycle | Go closes response bodies and propagates client cancellation. The Gateway integration test reads data before the upstream completes, cancels the client, and observes upstream cancellation. TypeScript cancels its reader on early exit. The blocking Rust C ABI returns buffered events. |
+| Supply chain | GitHub Actions use pinned refs and read-only repository permissions. Kotlin's existing compiler archive is SHA-256 checked. The release workflow builds Rust with the committed lockfile. An external vulnerability scan and end-to-end dependency provenance are open. |

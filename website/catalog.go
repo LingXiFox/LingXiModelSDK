@@ -507,6 +507,8 @@ func parseSnapshot(body []byte, publishedAt string) (*Snapshot, error) {
 }
 
 type providerStatusEntry struct {
+	Name      string   `json:"name"`
+	Endpoints []string `json:"endpoints"`
 	Status    string   `json:"status"`
 	Protocols []string `json:"protocols"`
 }

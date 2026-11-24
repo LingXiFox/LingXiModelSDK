@@ -6,14 +6,23 @@ on:
   pull_request:
     branches: [rewrite/2.0, main]
 
+permissions:
+  contents: read
+
 jobs:
   rust-python-cpp:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: dtolnay/rust-toolchain@stable
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: dtolnay/rust-toolchain@39008827e6b4319a349e9a42dfc90579dd25f1ca # stable
+        with:
+          toolchain: stable
       - name: Test Rust Core (9 protocols + Agent scenarios)
-        run: cd core && cargo build && cargo test
+        run: cd core && cargo build --locked && cargo test --locked
+      - name: Check registry evidence and compile the live verification tool
+        run: |
+          python3 scripts/generate-support-report.py --check
+          cargo check --manifest-path core/Cargo.toml --locked --example live_verify
       - name: Test Python SDK (Catalog + Registry + Native + Unified + Rust FFI)
         run: LINGXI_REQUIRE_FFI=1 PYTHONPATH=sdk/python/src python3 -m unittest discover -s sdk/python/tests
       - name: Test C++ SDK (C++20 + Rust C ABI)
@@ -28,11 +37,12 @@ jobs:
   go-gateway-ts:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-go@v5
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5
         with:
-          go-version: "1.23"
-      - uses: actions/setup-node@v4
+          go-version-file: sdk/go/go.mod
+          cache: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
           node-version: "24"
       - name: Test Go SDK & Gateway
@@ -40,13 +50,17 @@ jobs:
           cd sdk/go && go vet ./... && go test -race ./...
           cd ../../gateway && go vet ./... && go test -race ./...
       - name: Test TypeScript SDK
-        run: cd sdk/typescript && node --test tests/*.test.ts
+        working-directory: sdk/typescript
+        run: |
+          node --test tests/*.test.ts
+          npm run build
+          node --input-type=module -e 'await Promise.all(["", "/registry", "/native", "/unified"].map(part => import("@lingxifox/model-sdk" + part)))'
 
   java-kotlin:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-java@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/setup-java@cf277c60eb25467037889841efdb72551f06f6c3 # v4
         with:
           distribution: temurin
           java-version: "21"
@@ -60,18 +74,18 @@ jobs:
       - name: Install and Test Kotlin SDK (4 modules)
         run: |
           curl -fsSL https://github.com/JetBrains/kotlin/releases/download/v2.1.0/kotlin-compiler-2.1.0.zip -o /tmp/kotlin.zip
+          echo 'b6698d5728ad8f9edcdd01617d638073191d8a03139cc538a391b4e3759ad297  /tmp/kotlin.zip' | sha256sum -c -
           unzip -q /tmp/kotlin.zip -d /tmp/kotlin-sdk
           export PATH="/tmp/kotlin-sdk/kotlinc/bin:$PATH"
           cd sdk/kotlin
           kotlinc src/cn/lingxifox/modelsdk/*.kt tests/TestRunner.kt -include-runtime -d /tmp/lingxi-kotlin.jar
           java -jar /tmp/lingxi-kotlin.jar
-          rm -rf /tmp/kotlin.zip /tmp/kotlin-sdk /tmp/lingxi-kotlin.jar
 
   csharp-dotnet:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-dotnet@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/setup-dotnet@67a3573c9a986a3f9c594539f4ab511d57bb3ce9 # v4
         with:
           dotnet-version: "8.0.x"
       - name: Test C# SDK (4 modules)
@@ -80,8 +94,8 @@ jobs:
   dart-sdk:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: dart-lang/setup-dart@v1
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: dart-lang/setup-dart@2286a0c042b44434fe26d292bbce8d34f7ec662b # v1
         with:
           sdk: stable
       - name: Test Dart SDK (4 modules)
@@ -90,6 +104,6 @@ jobs:
   swift-sdk:
     runs-on: macos-15
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
       - name: Test Swift SDK (Catalog + Registry + Native + Unified)
         run: swift test

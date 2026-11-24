@@ -26,10 +26,11 @@
     "google": {
       "status": "mock_tested",
       "protocols": ["google_gemini"],
-      "capabilities": ["streaming", "tools", "structured_output", "thinking_config", "thinking_signature", "usage", "embed"],
+      "capabilities": ["streaming", "tools", "structured_output", "thinking_config", "thinking_signature", "parallel_tool_replay", "usage", "prompt_cache", "inline_media"],
       "evidence": [
         { "suite": "core/tests/native_protocols.rs", "verifiedAt": "2026-11-24" },
-        { "suite": "core/tests/unified_lmp.rs", "verifiedAt": "2026-11-24" }
+        { "suite": "core/tests/unified_lmp.rs", "verifiedAt": "2026-11-24" },
+        { "suite": "conformance/agent/gemini-tool-loop.json", "verifiedAt": "2026-11-24" }
       ]
     },
     "deepseek": {
@@ -44,7 +45,7 @@
     "amazon-bedrock": {
       "status": "mock_tested",
       "protocols": ["aws_bedrock"],
-      "capabilities": ["aws_sigv4", "streaming_ndjson", "tools", "thinking_budget_tokens", "thinking_signature", "prompt_cache"],
+      "capabilities": ["aws_sigv4", "streaming_amazon_eventstream", "tools", "thinking_budget_tokens", "thinking_signature", "prompt_cache"],
       "evidence": [
         { "suite": "core/tests/agent_scenarios.rs", "verifiedAt": "2026-11-24" },
         { "suite": "sdk/go/unified/unified_test.go", "verifiedAt": "2026-11-24" },
@@ -54,7 +55,7 @@
     "google-vertex": {
       "status": "mock_tested",
       "protocols": ["google_vertex_ai"],
-      "capabilities": ["streaming", "thinking_signature", "usage", "embed"],
+      "capabilities": ["streaming", "thinking_signature", "usage"],
       "evidence": [
         { "suite": "core/tests/agent_scenarios.rs", "verifiedAt": "2026-11-24" },
         { "suite": "sdk/go/unified/unified_test.go", "verifiedAt": "2026-11-24" }
@@ -71,7 +72,7 @@
     },
     "ollama": {
       "status": "mock_tested",
-      "protocols": ["ollama", "openai_chat_completions"],
+      "protocols": ["ollama"],
       "capabilities": ["local_no_auth", "streaming_ndjson", "thinking", "embed"],
       "evidence": [
         { "suite": "core/tests/agent_scenarios.rs", "verifiedAt": "2026-11-24" },

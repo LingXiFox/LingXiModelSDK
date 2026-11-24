@@ -6,7 +6,7 @@
     <section class="intro">
       <p class="eyebrow">LINGXI MODEL SDK / PROVIDERS</p>
       <h1>提供商验证状态</h1>
-      <p>目录收录仅代表元数据已从上游发现（Discovered）。协议兼容与真实调用验证将在 Phase 3–6 分级登记并提供可追溯证据。</p>
+      <p>目录收录仅代表元数据已从上游发现（Discovered）。通过模拟测试的提供商只展示已经有测试证据的协议。</p>
       <div class="tier-row">
         <span class="status-badge">Discovered · 已收录目录</span>
         <span class="status-badge">Compatible · 声明式配置就绪</span>
@@ -29,12 +29,12 @@
     <div class="panel table-wrap">
       <table>
         <thead>
-          <tr><th>提供商</th><th>Provider ID</th><th>模型数</th><th>目录端点</th><th>支持协议</th><th>验证状态</th></tr>
+          <tr><th>提供商</th><th>Provider ID</th><th>模型数</th><th>端点</th><th>支持协议</th><th>验证状态</th></tr>
         </thead>
         <tbody>
           {{range .Providers}}
           <tr>
-            <td><a href="/?provider={{urlquery .ID}}">{{.Name}}</a></td>
+            <td>{{if .Count}}<a href="/?provider={{urlquery .ID}}">{{.Name}}</a>{{else}}{{.Name}}{{end}}</td>
             <td><code>{{.ID}}</code></td>
             <td>{{.Count}}</td>
             <td>{{if .Endpoint}}<code>{{.Endpoint}}</code>{{else}}<span class="muted">来源未发布</span>{{end}}</td>

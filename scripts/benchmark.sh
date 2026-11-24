@@ -11,8 +11,16 @@ echo "--- 1. Go Unified Translate+Normalize Benchmark ---"
 (cd "$ROOT/sdk/go" && go test -bench=BenchmarkTranslateAndNormalizeGo -benchmem -benchtime=1s ./unified)
 
 echo ""
-echo "--- 2. TypeScript LMP Translate+Normalize (10,000 iters) ---"
-node - <<'JS'
+echo "--- 2. Go Native Initialization and SSE Parsing ---"
+(cd "$ROOT/sdk/go" && go test -run '^$' -bench 'Benchmark(ClientInitialization|SSEParsing)$' -benchmem -benchtime=1s ./native)
+
+echo ""
+echo "--- 3. Go Gateway Parallel Completion against loopback ---"
+(cd "$ROOT/gateway" && go test -run '^$' -bench '^BenchmarkGatewayComplete$' -benchmem -benchtime=1s .)
+
+echo ""
+echo "--- 4. TypeScript LMP Translate+Normalize (10,000 iters) ---"
+(cd "$ROOT" && node -) <<'JS'
 import { performance } from "node:perf_hooks";
 import { translateRequest, normalizeResponse } from "./sdk/typescript/src/unified/adapters.ts";
 const req = { model: "gpt-4o", messages: [{ role: "user", content: [{ type: "text", text: "hello" }] }], thinking: { effort: "medium" } };
@@ -27,7 +35,7 @@ console.log(`TS 10,000 translate+normalize: ${dt.toFixed(2)} ms (${((dt * 1000) 
 JS
 
 echo ""
-echo "--- 3. Python + Rust C ABI (ctypes) Translate+Normalize (5,000 iters) ---"
+echo "--- 5. Python + Rust C ABI (ctypes) Translate+Normalize (5,000 iters) ---"
 PYTHONPATH="$ROOT/sdk/python/src" python3 - <<'PY'
 import time
 from lingxi_model_sdk.ffi_bridge import RustCoreBridge
@@ -44,7 +52,8 @@ print(f"Python->Rust FFI 5,000 translate+normalize: {dt:.2f} ms ({dt*1000/5000:.
 PY
 
 echo ""
-echo "--- 4. Website CGO=0 Binary Size & Cold Start /healthz ---"
-(cd "$ROOT/website" && CGO_ENABLED=0 go build -trimpath -ldflags="-s -w" -o /tmp/lingxi-models-bench .)
-ls -lh /tmp/lingxi-models-bench | awk '{print "Website binary size: " $5}'
-rm -f /tmp/lingxi-models-bench
+echo "--- 6. Website CGO=0 Binary Size ---"
+BINARY="$(mktemp "${TMPDIR:-/tmp}/lingxi-models-benchmark.XXXXXXXX")"
+trap 'rm -f "$BINARY"' EXIT
+(cd "$ROOT/website" && CGO_ENABLED=0 go build -trimpath -ldflags="-s -w" -o "$BINARY" .)
+printf 'Website binary size: %s bytes\n' "$(wc -c < "$BINARY" | tr -d '[:space:]')"

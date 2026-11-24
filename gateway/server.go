@@ -32,6 +32,7 @@ type Gateway struct {
 }
 
 func NewGateway(cfg GatewayConfig, registry *native.Registry) *Gateway {
+	cfg.AllowLoopbackEgress = cfg.AllowLoopbackEgress && isLoopbackAddr(cfg.ListenAddr)
 	u := unified.NewClient()
 	u.Native.HTTP = NewSafeHTTPClient(cfg.AllowLoopbackEgress)
 	return &Gateway{
@@ -157,13 +158,13 @@ func (g *Gateway) handleComplete(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	apiKey := r.Header.Get("X-Provider-API-Key")
-	if apiKey == "" {
+	if apiKey == "" && req.Protocol != native.ProtocolOllama {
 		writeErrorJSON(w, http.StatusBadRequest, "auth_missing", "X-Provider-API-Key header is required")
 		return
 	}
 	target, err := g.resolveTarget(req.ProviderID, req.Protocol, req.Request.Model, req.EndpointOverride)
 	if err != nil {
-		writeErrorJSON(w, http.StatusForbidden, "egress_or_registry_error", err.Error())
+		writeErrorJSON(w, http.StatusForbidden, "egress_or_registry_error", "provider endpoint or protocol rejected")
 		return
 	}
 
@@ -182,13 +183,13 @@ func (g *Gateway) handleStream(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	apiKey := r.Header.Get("X-Provider-API-Key")
-	if apiKey == "" {
+	if apiKey == "" && req.Protocol != native.ProtocolOllama {
 		writeErrorJSON(w, http.StatusBadRequest, "auth_missing", "X-Provider-API-Key header is required")
 		return
 	}
 	target, err := g.resolveTarget(req.ProviderID, req.Protocol, req.Request.Model, req.EndpointOverride)
 	if err != nil {
-		writeErrorJSON(w, http.StatusForbidden, "egress_or_registry_error", err.Error())
+		writeErrorJSON(w, http.StatusForbidden, "egress_or_registry_error", "provider endpoint or protocol rejected")
 		return
 	}
 
@@ -204,16 +205,22 @@ func (g *Gateway) handleStream(w http.ResponseWriter, r *http.Request) {
 		}
 		data, err := json.Marshal(ev)
 		if err != nil {
-			return nil
+			return err
 		}
-		_, _ = fmt.Fprintf(w, "event: %s\ndata: %s\n\n", ev.Type, data)
+		if _, err := fmt.Fprintf(w, "event: %s\ndata: %s\n\n", ev.Type, data); err != nil {
+			return err
+		}
 		if flusher != nil {
 			flusher.Flush()
 		}
 		return nil
 	})
 	if err != nil {
-		errPayload, _ := json.Marshal(map[string]string{"error": err.Error()})
+		if r.Context().Err() != nil {
+			return
+		}
+		_, _, message := lmpErrorResponse(err)
+		errPayload, _ := json.Marshal(map[string]string{"error": message})
 		_, _ = fmt.Fprintf(w, "event: error\ndata: %s\n\n", errPayload)
 		if flusher != nil {
 			flusher.Flush()
@@ -233,9 +240,13 @@ func (g *Gateway) handleEmbed(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	apiKey := r.Header.Get("X-Provider-API-Key")
+	if apiKey == "" && req.Protocol != native.ProtocolOllama {
+		writeErrorJSON(w, http.StatusBadRequest, "auth_missing", "X-Provider-API-Key header is required")
+		return
+	}
 	target, err := g.resolveTarget(req.ProviderID, req.Protocol, req.Request.Model, req.EndpointOverride)
 	if err != nil {
-		writeErrorJSON(w, http.StatusForbidden, "egress_or_registry_error", err.Error())
+		writeErrorJSON(w, http.StatusForbidden, "egress_or_registry_error", "provider endpoint or protocol rejected")
 		return
 	}
 	resp, err := g.unified.Embed(r.Context(), req.Protocol, target, apiKey, req.Request)
@@ -253,9 +264,13 @@ func (g *Gateway) handleRerank(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	apiKey := r.Header.Get("X-Provider-API-Key")
+	if apiKey == "" {
+		writeErrorJSON(w, http.StatusBadRequest, "auth_missing", "X-Provider-API-Key header is required")
+		return
+	}
 	target, err := g.resolveTarget(req.ProviderID, req.Protocol, req.Request.Model, req.EndpointOverride)
 	if err != nil {
-		writeErrorJSON(w, http.StatusForbidden, "egress_or_registry_error", err.Error())
+		writeErrorJSON(w, http.StatusForbidden, "egress_or_registry_error", "provider endpoint or protocol rejected")
 		return
 	}
 	resp, err := g.unified.Rerank(r.Context(), req.Protocol, target, apiKey, req.Request)
@@ -274,7 +289,7 @@ func (g *Gateway) handleDiagnostics(w http.ResponseWriter, r *http.Request) {
 	}
 	target, err := g.resolveTarget(req.ProviderID, req.Protocol, req.ModelID, req.EndpointOverride)
 	if err != nil {
-		writeErrorJSON(w, http.StatusForbidden, "diagnostics_failed", err.Error())
+		writeErrorJSON(w, http.StatusForbidden, "diagnostics_failed", "provider endpoint or protocol rejected")
 		return
 	}
 	writeJSON(w, http.StatusOK, map[string]any{
@@ -311,15 +326,22 @@ func writeErrorJSON(w http.ResponseWriter, status int, code, msg string) {
 }
 
 func writeLmpError(w http.ResponseWriter, err error) {
+	status, code, message := lmpErrorResponse(err)
+	writeErrorJSON(w, status, code, message)
+}
+
+func lmpErrorResponse(err error) (int, string, string) {
 	var unsup *unified.UnsupportedFeatureError
 	if errors.As(err, &unsup) {
-		writeErrorJSON(w, http.StatusUnprocessableEntity, "unsupported_feature", unsup.Error())
-		return
+		return http.StatusUnprocessableEntity, "unsupported_feature", unsup.Error()
 	}
 	var httpErr *native.HTTPStatusError
 	if errors.As(err, &httpErr) {
-		writeErrorJSON(w, httpErr.Status, "upstream_error", httpErr.Error())
-		return
+		status := httpErr.Status
+		if status < 400 {
+			status = http.StatusBadGateway
+		}
+		return status, "upstream_error", fmt.Sprintf("upstream returned HTTP %d", httpErr.Status)
 	}
-	writeErrorJSON(w, http.StatusBadGateway, "gateway_error", err.Error())
+	return http.StatusBadGateway, "gateway_error", "upstream request failed"
 }

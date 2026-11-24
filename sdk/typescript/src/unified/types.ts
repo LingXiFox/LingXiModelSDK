@@ -3,19 +3,21 @@ import type { NativeProtocol } from "../native/registry.ts";
 export type LmpRole = "system" | "user" | "assistant" | "tool";
 
 export type LmpContentBlock =
-  | { readonly type: "text"; readonly text: string }
+  | { readonly type: "text"; readonly text: string; readonly signature?: string }
   | { readonly type: "image_url"; readonly url: string }
-  | { readonly type: "image_base64"; readonly mediaType: string; readonly data: string }
+  | { readonly type: "image_base64" | "audio"; readonly mediaType: string; readonly data: string }
   | { readonly type: "thinking"; readonly thinking: string; readonly signature?: string }
   | {
       readonly type: "tool_call";
       readonly id: string;
       readonly name: string;
       readonly arguments: Record<string, unknown>;
+      readonly signature?: string;
     }
   | {
       readonly type: "tool_result";
-      readonly toolCallID: string;
+      readonly toolCallID?: string;
+      readonly toolCallId?: string;
       readonly content: string;
       readonly isError?: boolean;
     };
@@ -72,6 +74,7 @@ export interface LmpUsage {
   readonly inputTokens: number;
   readonly outputTokens: number;
   readonly totalTokens: number;
+  readonly reasoningTokens?: number;
   readonly cacheReadTokens?: number;
   readonly cacheWriteTokens?: number;
 }
@@ -86,9 +89,14 @@ export interface LmpResponse {
 }
 
 export interface LmpStreamEvent {
-  readonly type: "thinking_delta" | "text_delta" | "message_end";
+  readonly type: "thinking_delta" | "text_delta" | "message_end" | "tool_call_delta" | "usage";
   readonly delta?: string;
   readonly finishReason?: string;
+  readonly index?: number;
+  readonly id?: string;
+  readonly name?: string;
+  readonly argumentsDelta?: string;
+  readonly usage?: LmpUsage;
 }
 
 export class LmpUnsupportedFeatureError extends Error {

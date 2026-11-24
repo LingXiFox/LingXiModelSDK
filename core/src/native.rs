@@ -4,19 +4,29 @@ use std::time::Duration;
 use serde_json::{Map, Value};
 
 use crate::errors::NativeError;
+use crate::eventstream::{EventStream, MEDIA_TYPE};
 use crate::registry::{validate_endpoint_url, AuthConfig, NativeProtocol, ProviderRegistry};
 use crate::sigv4::{current_amz_date, sign_sigv4, SigV4Input};
 use crate::sse::{NdjsonParser, SseEvent, SseParser};
 
 const MAX_RESPONSE_BYTES: usize = 32 * 1024 * 1024;
 
-#[derive(Debug, Clone)]
+#[derive(Clone)]
 pub struct NativeRequestConfig {
     pub base_url: String,
     pub api_key: Option<String>,
     pub headers: HashMap<String, String>,
     pub timeout: Duration,
     pub allow_insecure_http: bool,
+}
+
+impl std::fmt::Debug for NativeRequestConfig {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("NativeRequestConfig")
+            .field("timeout", &self.timeout)
+            .field("allow_insecure_http", &self.allow_insecure_http)
+            .finish_non_exhaustive()
+    }
 }
 
 impl NativeRequestConfig {
@@ -54,7 +64,7 @@ impl NativeClient {
         let http = reqwest::Client::builder()
             .redirect(reqwest::redirect::Policy::none())
             .build()
-            .unwrap_or_else(|_| reqwest::Client::new());
+            .expect("failed to build redirect-disabled HTTP client");
         Self { http }
     }
 
@@ -179,10 +189,10 @@ impl NativeClient {
         model: &str,
         payload: &Value,
     ) -> Result<NativeJsonResponse, NativeError> {
-        let uri = format!("/model/{model}/converse");
+        let uri = format!("/model/{}/converse", aws_encode_path(model, false));
         let url = format!("{}{uri}", cfg.base_url.trim_end_matches('/'));
         let mut headers = cfg.headers.clone();
-        apply_bedrock_auth(&url, &uri, payload, cfg.api_key.as_deref(), &mut headers)?;
+        apply_bedrock_auth(&url, payload, cfg.api_key.as_deref(), &mut headers)?;
         self.post_json(&url, &headers, payload, cfg.timeout, cfg.allow_insecure_http)
             .await
     }
@@ -193,11 +203,11 @@ impl NativeClient {
         model: &str,
         payload: &Value,
     ) -> Result<Vec<SseEvent>, NativeError> {
-        let uri = format!("/model/{model}/converse-stream");
+        let uri = format!("/model/{}/converse-stream", aws_encode_path(model, false));
         let url = format!("{}{uri}", cfg.base_url.trim_end_matches('/'));
         let mut headers = cfg.headers.clone();
-        apply_bedrock_auth(&url, &uri, payload, cfg.api_key.as_deref(), &mut headers)?;
-        self.post_ndjson(&url, &headers, payload, cfg.timeout, cfg.allow_insecure_http)
+        apply_bedrock_auth(&url, payload, cfg.api_key.as_deref(), &mut headers)?;
+        self.post_ndjson(&url, &headers, payload, cfg.timeout, cfg.allow_insecure_http, true)
             .await
     }
 
@@ -301,7 +311,7 @@ impl NativeClient {
     ) -> Result<Vec<SseEvent>, NativeError> {
         let url = join_path(&cfg.base_url, "/api/chat");
         let body = with_stream_true(payload);
-        self.post_ndjson(&url, &cfg.headers, &body, cfg.timeout, cfg.allow_insecure_http)
+        self.post_ndjson(&url, &cfg.headers, &body, cfg.timeout, cfg.allow_insecure_http, false)
             .await
     }
 
@@ -370,43 +380,100 @@ impl NativeClient {
             timeout: Duration::from_secs(60),
             allow_insecure_http: false,
         };
+        self.request_json(protocol, &cfg, model_id, &merged_payload).await
+    }
+
+    pub async fn request_json(
+        &self,
+        protocol: NativeProtocol,
+        cfg: &NativeRequestConfig,
+        model_id: Option<&str>,
+        payload: &Value,
+    ) -> Result<NativeJsonResponse, NativeError> {
         match protocol {
             NativeProtocol::OpenaiChatCompletions => {
-                self.openai_chat_completions(&cfg, &merged_payload).await
+                self.openai_chat_completions(cfg, payload).await
             }
-            NativeProtocol::OpenaiResponses => self.openai_responses(&cfg, &merged_payload).await,
+            NativeProtocol::OpenaiResponses => self.openai_responses(cfg, payload).await,
             NativeProtocol::AnthropicMessages => {
-                self.anthropic_messages(&cfg, &merged_payload).await
+                self.anthropic_messages(cfg, payload).await
             }
             NativeProtocol::GoogleGemini => {
                 let model = model_id.ok_or_else(|| {
                     NativeError::Registry("google_gemini requires a model_id".into())
                 })?;
-                self.google_gemini_generate(&cfg, model, &merged_payload)
+                self.google_gemini_generate(cfg, model, payload)
                     .await
             }
             NativeProtocol::AwsBedrock => {
                 let model = model_id.ok_or_else(|| {
                     NativeError::Registry("aws_bedrock requires a model_id".into())
                 })?;
-                self.aws_bedrock_converse(&cfg, model, &merged_payload).await
+                self.aws_bedrock_converse(cfg, model, payload).await
             }
             NativeProtocol::GoogleVertexAi => {
                 let model = model_id.ok_or_else(|| {
                     NativeError::Registry("google_vertex_ai requires a model_id".into())
                 })?;
-                self.google_vertex_generate(&cfg, model, &merged_payload)
+                self.google_vertex_generate(cfg, model, payload)
                     .await
             }
             NativeProtocol::AzureOpenai => {
                 let deployment = model_id.ok_or_else(|| {
                     NativeError::Registry("azure_openai requires a model_id/deployment".into())
                 })?;
-                self.azure_openai_chat_completions(&cfg, deployment, &merged_payload)
+                self.azure_openai_chat_completions(cfg, deployment, payload)
                     .await
             }
-            NativeProtocol::Ollama => self.ollama_chat(&cfg, &merged_payload).await,
-            NativeProtocol::Cohere => self.cohere_chat(&cfg, &merged_payload).await,
+            NativeProtocol::Ollama => self.ollama_chat(cfg, payload).await,
+            NativeProtocol::Cohere => self.cohere_chat(cfg, payload).await,
+        }
+    }
+
+    pub async fn request_stream(
+        &self,
+        protocol: NativeProtocol,
+        cfg: &NativeRequestConfig,
+        model_id: Option<&str>,
+        payload: &Value,
+    ) -> Result<Vec<SseEvent>, NativeError> {
+        let model_required = || model_id.ok_or_else(|| NativeError::Registry(format!("{} requires a model_id", protocol.as_str())));
+        match protocol {
+            NativeProtocol::OpenaiChatCompletions => {
+                self
+                    .stream_openai_chat_completions(cfg, payload)
+                    .await
+            }
+            NativeProtocol::OpenaiResponses => {
+                self.stream_openai_responses(cfg, payload).await
+            }
+            NativeProtocol::AnthropicMessages => {
+                self
+                    .stream_anthropic_messages(cfg, payload)
+                    .await
+            }
+            NativeProtocol::GoogleGemini => {
+                self
+                    .stream_google_gemini_generate(cfg, model_required()?, payload)
+                    .await
+            }
+            NativeProtocol::AwsBedrock => {
+                self
+                    .stream_aws_bedrock_converse(cfg, model_required()?, payload)
+                    .await
+            }
+            NativeProtocol::GoogleVertexAi => {
+                self
+                    .stream_google_vertex_generate(cfg, model_required()?, payload)
+                    .await
+            }
+            NativeProtocol::AzureOpenai => {
+                self
+                    .stream_azure_openai_chat_completions(cfg, model_required()?, payload)
+                    .await
+            }
+            NativeProtocol::Ollama => self.stream_ollama_chat(cfg, payload).await,
+            NativeProtocol::Cohere => self.stream_cohere_chat(cfg, payload).await,
         }
     }
 
@@ -431,22 +498,13 @@ impl NativeClient {
         for (k, v) in headers {
             req = req.header(k, v);
         }
-        let resp = req
+        let mut resp = req
             .send()
             .await
             .map_err(|e| NativeError::Transport(e.to_string()))?;
         let status = resp.status().as_u16();
         let resp_headers = collect_headers(resp.headers());
-        let raw_bytes = resp
-            .bytes()
-            .await
-            .map_err(|e| NativeError::Transport(e.to_string()))?
-            .to_vec();
-        if raw_bytes.len() > MAX_RESPONSE_BYTES {
-            return Err(NativeError::Transport(format!(
-                "response exceeded {MAX_RESPONSE_BYTES} byte limit"
-            )));
-        }
+        let raw_bytes = read_bounded(&mut resp).await?;
         if !(200..=299).contains(&status) {
             return Err(NativeError::HttpStatus {
                 status,
@@ -492,7 +550,7 @@ impl NativeClient {
         let status = resp.status().as_u16();
         let resp_headers = collect_headers(resp.headers());
         if !(200..=299).contains(&status) {
-            let raw = resp.bytes().await.unwrap_or_default().to_vec();
+            let raw = read_bounded(&mut resp).await?;
             return Err(NativeError::HttpStatus {
                 status,
                 body: raw,
@@ -526,6 +584,7 @@ impl NativeClient {
         payload: &Value,
         timeout: Duration,
         allow_insecure_http: bool,
+        bedrock: bool,
     ) -> Result<Vec<SseEvent>, NativeError> {
         validate_endpoint_url(url, allow_insecure_http)?;
         let body_bytes = serde_json::to_vec(payload)
@@ -535,7 +594,7 @@ impl NativeClient {
             .post(url)
             .timeout(timeout)
             .header("Content-Type", "application/json")
-            .header("Accept", "application/x-ndjson, application/json")
+            .header("Accept", if bedrock { MEDIA_TYPE } else { "application/x-ndjson, application/json" })
             .body(body_bytes);
         for (k, v) in headers {
             req = req.header(k, v);
@@ -547,13 +606,21 @@ impl NativeClient {
         let status = resp.status().as_u16();
         let resp_headers = collect_headers(resp.headers());
         if !(200..=299).contains(&status) {
-            let raw = resp.bytes().await.unwrap_or_default().to_vec();
+            let raw = read_bounded(&mut resp).await?;
             return Err(NativeError::HttpStatus {
                 status,
                 body: raw,
                 headers: resp_headers,
             });
         }
+        let content_type = resp.headers().get("content-type")
+            .and_then(|value| value.to_str().ok()).unwrap_or("")
+            .split(';').next().unwrap_or("").trim();
+        let binary = bedrock && content_type.eq_ignore_ascii_case(MEDIA_TYPE);
+        if bedrock && !binary && content_type != "application/x-ndjson" {
+            return Err(NativeError::StreamParse("unexpected Bedrock response content type".into()));
+        }
+        let mut event_stream = EventStream::default();
         let mut parser = NdjsonParser::new();
         let mut events = Vec::new();
         let mut total_bytes = 0usize;
@@ -568,11 +635,30 @@ impl NativeClient {
                     "stream exceeded {MAX_RESPONSE_BYTES} byte limit"
                 )));
             }
-            events.extend(parser.push(&chunk[..]));
+            if binary {
+                events.extend(event_stream.push(&chunk)?);
+            } else {
+                events.extend(parser.push(&chunk));
+            }
         }
-        events.extend(parser.finish());
+        if binary {
+            event_stream.finish()?;
+        } else {
+            events.extend(parser.finish());
+        }
         Ok(events)
     }
+}
+
+async fn read_bounded(resp: &mut reqwest::Response) -> Result<Vec<u8>, NativeError> {
+    let mut body = Vec::new();
+    while let Some(chunk) = resp.chunk().await.map_err(|e| NativeError::Transport(e.to_string()))? {
+        if chunk.len() > MAX_RESPONSE_BYTES - body.len() {
+            return Err(NativeError::Transport(format!("response exceeded {MAX_RESPONSE_BYTES} byte limit")));
+        }
+        body.extend_from_slice(&chunk);
+    }
+    Ok(body)
 }
 
 fn join_path(base: &str, suffix: &str) -> String {
@@ -631,9 +717,21 @@ fn apply_header_auth(
     Ok(())
 }
 
+fn aws_encode_path(value: &str, preserve_slash: bool) -> String {
+    use std::fmt::Write;
+    let mut encoded = String::new();
+    for byte in value.bytes() {
+        if byte.is_ascii_alphanumeric() || b"-._~".contains(&byte) || (preserve_slash && byte == b'/') {
+            encoded.push(char::from(byte));
+        } else {
+            write!(&mut encoded, "%{byte:02X}").unwrap();
+        }
+    }
+    encoded
+}
+
 fn apply_bedrock_auth(
     url: &str,
-    canonical_uri: &str,
     payload: &Value,
     api_key: Option<&str>,
     headers: &mut HashMap<String, String>,
@@ -659,16 +757,18 @@ fn apply_bedrock_auth(
         Some(p) => format!("{host}:{p}"),
         None => host.to_string(),
     };
-    let region = headers
-        .get("x-aws-region")
-        .map(String::as_str)
-        .unwrap_or("us-east-1");
+    let region = headers.get("x-aws-region").map(String::as_str).or_else(|| {
+        let tail = host.strip_prefix("bedrock-runtime.")?;
+        let (region, domain) = tail.split_once('.')?;
+        matches!(domain, "amazonaws.com" | "amazonaws.com.cn" | "api.aws").then_some(region)
+    }).unwrap_or("us-east-1");
+    let canonical_uri = aws_encode_path(parsed.path(), true);
     let amz_date = current_amz_date();
     let body_bytes = serde_json::to_vec(payload)
         .map_err(|e| NativeError::Transport(format!("failed to encode JSON: {e}")))?;
     for (k, v) in sign_sigv4(&SigV4Input {
         method: "POST",
-        canonical_uri,
+        canonical_uri: &canonical_uri,
         canonical_query: "",
         host: &host_hdr,
         region,

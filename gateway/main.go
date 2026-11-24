@@ -36,6 +36,10 @@ func main() {
 		log.Fatalf("gateway security policy rejected configuration: %v", err)
 	}
 
+	if *allowLoopbackEgress && !isLoopbackAddr(*listen) {
+		log.Fatal("-allow-loopback-egress requires a loopback listen address")
+	}
+
 	var reg *native.Registry
 	if *regPath != "" {
 		b, err := os.ReadFile(*regPath)

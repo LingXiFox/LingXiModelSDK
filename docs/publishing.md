@@ -11,4 +11,4 @@ All package registry publications require explicit approval and must pass `./scr
 | Go (`sdk/go`, `gateway`, `website`) | Go module proxy / Git tags | `go vet ./... && go test -race ./...` |
 | Java (`cn.lingxifox:lingxi-model-sdk`) | Maven Central | `CatalogTestRunner` & `mvn verify` |
 
-Use `.github/workflows/release-artifacts.yml` (`workflow_dispatch`) to build `website` and `gateway` Linux amd64/arm64 binaries prior to any release.
+Use `.github/workflows/release-artifacts.yml` (`workflow_dispatch`) to stage the [alpha candidate bundle](release-2.0.0-alpha.1.md) prior to any release.

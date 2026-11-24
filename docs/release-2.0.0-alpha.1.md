@@ -1,18 +1,15 @@
-# LingXiModelSDK `2.0.0-alpha.1` Release & Production Cutover Guide
+# LingXiModelSDK 2.0.0-alpha.1 Candidate
 
-## 1. Release Summary (`2.0.0-alpha.1`)
-- **Three Parallel Entry Points**: Model Catalog (zero inference runtime), Native Provider, and Unified Provider (LMP) across **10 languages** (Swift, Rust, Go, TypeScript, Python, Java, C++, C#, Kotlin, Dart).
-- **Nine Protocols**: OpenAI Chat Completions, OpenAI Responses, Anthropic Messages, Google Gemini, AWS Bedrock (SigV4), Google Vertex AI, Azure OpenAI, Ollama, Cohere (including `/v2/rerank`).
-- **327-Provider Registry**: 9 `mock_tested`, 9 `compatible`, 309 `discovered` (zero npm-based protocol inference).
-- **Optional HTTP Gateway**: Real-time SSE flushing, dial-time private-IP SSRF protection, redirect blocking, fail-closed remote bind policy, `/v1/lmp/embed` & `/v1/lmp/rerank`.
-- **Official Website (`models.lingxifox.cn`)**: Single `CGO_ENABLED=0` Go binary with `/`, `/sdk`, `/protocols`, `/providers`, `/gateway`, `/models.json`, `/publication.json`, `/healthz`, preserving ICP and MPS filing metadata.
+The candidate covers the SDK, provider registry, optional Gateway, and public catalog site. The [feature matrix](feature-matrix.md) records supported paths and gaps. Provider verification remains at 9 mock-tested, 9 declared compatible, and 309 discovered. No provider has credentialed verification evidence.
 
-## 2. Production Website Cutover & Rollback Plan (Requires Explicit Approval)
-1. **Stage Binary**: Build `CGO_ENABLED=0 go build -trimpath -ldflags="-s -w" -o lingxi-models .` (or download from `release-artifacts.yml`).
-2. **Pre-flight Check**: Verify SHA-256 checksum, run on staging port (`127.0.0.1:18080`), check `/healthz`, `/models.json`, `/publication.json`, `/gateway`, and `/static/beian-icon.png`.
-3. **Cutover**: Keep existing `/etc/caddy/Caddyfile` untouched or update only after explicit sign-off; swap systemd `lingxi-models.service` binary atomically (`install -m 0755`), keeping previous binary as `/usr/local/bin/lingxi-models.prev`.
-4. **Rollback**:
-   ```sh
-   sudo mv /usr/local/bin/lingxi-models.prev /usr/local/bin/lingxi-models
-   sudo systemctl restart lingxi-models
-   ```
+## Stage and validate
+
+Run the [release artifact workflow](../.github/workflows/release-artifacts.yml) for the candidate commit. It builds Linux amd64 and arm64 website and Gateway binaries, the Linux x86_64 Rust shared library and C ABI header, and the npm tarball. The bundle includes the provider registry, license, release notes, `COMMIT.txt`, and `SHA256SUMS.txt`.
+
+Download the workflow artifact, compare `COMMIT.txt` with the approved candidate SHA, and verify the files with `sha256sum -c SHA256SUMS.txt`. Use the binary matching the target host architecture and stage it with a separate service port and data directory.
+
+## Website rollout and rollback
+
+Follow [the deployment runbook](../website/deploy/DEPLOYMENT.md) with separate production approval. Validate the staged binary against a copy of the last-known-good catalog before switching traffic. Verify conditional reads, filing icon, and the SDK, protocol, provider and Gateway pages. Preserve the previous route configuration and binary until the new service has passed production acceptance.
+
+For rollback, restore the saved Caddy site configuration and hot-reload Caddy. If the rollout replaced an existing Go binary, restore the previous binary via a same-filesystem rename, restart its service, and repeat the public catalog checks.

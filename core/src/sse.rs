@@ -8,7 +8,7 @@ pub struct SseEvent {
 /// Incremental line-oriented SSE parser handling arbitrary chunk boundaries.
 #[derive(Debug, Default)]
 pub struct SseParser {
-    buffer: String,
+    buffer: Vec<u8>,
     event_name: Option<String>,
     data_lines: Vec<String>,
     last_id: Option<String>,
@@ -20,16 +20,16 @@ impl SseParser {
     }
 
     pub fn push(&mut self, chunk: &[u8]) -> Vec<SseEvent> {
-        let text = String::from_utf8_lossy(chunk);
-        self.buffer.push_str(&text);
-
         let mut events = Vec::new();
-        while let Some(pos) = self.buffer.find('\n') {
-            let mut line = self.buffer[..pos].to_string();
-            self.buffer.drain(..=pos);
-            if line.ends_with('\r') {
-                line.pop();
-            }
+        for bytes in chunk.split_inclusive(|byte| *byte == b'\n') {
+            let Some(bytes) = bytes.strip_suffix(b"\n") else {
+                self.buffer.extend_from_slice(bytes);
+                break;
+            };
+            self.buffer.extend_from_slice(bytes);
+            let line = String::from_utf8_lossy(&self.buffer);
+            let line = line.strip_suffix('\r').unwrap_or(line.as_ref()).to_owned();
+            self.buffer.clear();
             if line.is_empty() {
                 if let Some(ev) = self.flush_event() {
                     events.push(ev);
@@ -44,8 +44,9 @@ impl SseParser {
     pub fn finish(&mut self) -> Vec<SseEvent> {
         let mut events = Vec::new();
         if !self.buffer.is_empty() {
-            let line = std::mem::take(&mut self.buffer);
-            let line = line.strip_suffix('\r').unwrap_or(&line);
+            let bytes = std::mem::take(&mut self.buffer);
+            let line = String::from_utf8_lossy(&bytes);
+            let line = line.strip_suffix('\r').unwrap_or(line.as_ref());
             if !line.is_empty() {
                 self.process_line(line);
             }
@@ -87,10 +88,10 @@ impl SseParser {
     }
 }
 
-/// Incremental NDJSON parser for Ollama and Bedrock event streams.
+/// Incremental NDJSON parser for Ollama and NDJSON relays.
 #[derive(Debug, Default)]
 pub struct NdjsonParser {
-    buffer: String,
+    buffer: Vec<u8>,
 }
 
 impl NdjsonParser {
@@ -99,11 +100,15 @@ impl NdjsonParser {
     }
 
     pub fn push(&mut self, chunk: &[u8]) -> Vec<SseEvent> {
-        self.buffer.push_str(&String::from_utf8_lossy(chunk));
         let mut out = Vec::new();
-        while let Some(pos) = self.buffer.find('\n') {
-            let line = self.buffer[..pos].trim().to_string();
-            self.buffer.drain(..=pos);
+        for bytes in chunk.split_inclusive(|byte| *byte == b'\n') {
+            let Some(bytes) = bytes.strip_suffix(b"\n") else {
+                self.buffer.extend_from_slice(bytes);
+                break;
+            };
+            self.buffer.extend_from_slice(bytes);
+            let line = String::from_utf8_lossy(&self.buffer).trim().to_string();
+            self.buffer.clear();
             if !line.is_empty() {
                 out.push(SseEvent {
                     event: None,
@@ -117,7 +122,8 @@ impl NdjsonParser {
 
     pub fn finish(&mut self) -> Vec<SseEvent> {
         let tail = std::mem::take(&mut self.buffer);
-        let trimmed = tail.trim();
+        let decoded = String::from_utf8_lossy(&tail);
+        let trimmed = decoded.trim();
         if trimmed.is_empty() {
             Vec::new()
         } else {
@@ -127,5 +133,28 @@ impl NdjsonParser {
                 id: None,
             }]
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn utf8_survives_fragmentation() {
+        let mut sse = SseParser::new();
+        let mut ndjson = NdjsonParser::new();
+        let sse_events: Vec<_> = "data: 東京\n\n"
+            .as_bytes()
+            .chunks(1)
+            .flat_map(|b| sse.push(b))
+            .collect();
+        let ndjson_events: Vec<_> = "\"東京\"\n"
+            .as_bytes()
+            .chunks(1)
+            .flat_map(|b| ndjson.push(b))
+            .collect();
+        assert_eq!(sse_events[0].data, "東京");
+        assert_eq!(ndjson_events[0].data, "\"東京\"");
     }
 }

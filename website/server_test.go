@@ -18,6 +18,7 @@ func TestHTTPEndpointsAndConditionalRequests(t *testing.T) {
 	routes := []string{
 		"/",
 		"/sdk",
+		"/gateway",
 		"/protocols",
 		"/providers",
 		"/models.json",
@@ -34,6 +35,13 @@ func TestHTTPEndpointsAndConditionalRequests(t *testing.T) {
 		if w.Code != http.StatusOK {
 			t.Fatalf("GET %s returned %d: %s", path, w.Code, w.Body.String())
 		}
+	}
+
+	registryOnly := httptest.NewRecorder()
+	h.ServeHTTP(registryOnly, httptest.NewRequest(http.MethodGet, "/providers?q=ollama", nil))
+	if registryOnly.Code != http.StatusOK || !strings.Contains(registryOnly.Body.String(), "<code>ollama</code>") ||
+		!strings.Contains(registryOnly.Body.String(), "127.0.0.1:11434") {
+		t.Fatal("provider directory omitted the registry-only Ollama entry")
 	}
 
 	// /index.html permanently redirects to /.
@@ -155,5 +163,19 @@ func TestHTTPUnavailableAndAdminSync(t *testing.T) {
 	admin.ServeHTTP(w, req)
 	if w.Code != http.StatusOK || !called {
 		t.Fatalf("expected 200 with valid token, got %d %s", w.Code, w.Body.String())
+	}
+}
+
+func TestPublicSiteHasNoInferenceOrCredentialEndpoints(t *testing.T) {
+	h := publicHandler(newStore(t.TempDir(), defaultMinRatio))
+	for _, path := range []string{"/models.json", "/v1/lmp/complete", "/v1/lmp/stream", "/admin/sync"} {
+		r := httptest.NewRequest(http.MethodPost, path, strings.NewReader(`{"input":"private prompt"}`))
+		r.Header.Set("X-Provider-API-Key", "private-fixture-key")
+		w := httptest.NewRecorder()
+		h.ServeHTTP(w, r)
+		if (w.Code != http.StatusNotFound && w.Code != http.StatusMethodNotAllowed) ||
+			strings.Contains(w.Body.String(), "private-fixture-key") || strings.Contains(w.Body.String(), "private prompt") {
+			t.Fatalf("public site accepted or echoed input at %s: %d %s", path, w.Code, w.Body.String())
+		}
 	}
 }

@@ -1,6 +1,7 @@
 package native_test
 
 import (
+	"bytes"
 	"context"
 	"errors"
 	"net/http"
@@ -123,5 +124,30 @@ func TestFourNativeProtocolsAndRegistry(t *testing.T) {
 	var httpErr *native.HTTPStatusError
 	if !errors.As(err, &httpErr) || httpErr.Status != 429 || !strings.Contains(string(httpErr.Body), "rate_limit_exceeded") {
 		t.Fatalf("expected 429 error body preserved, got %v", err)
+	}
+}
+
+var clientForBenchmark *native.Client
+
+func BenchmarkClientInitialization(b *testing.B) {
+	b.ReportAllocs()
+	for i := 0; i < b.N; i++ {
+		clientForBenchmark = native.NewClient()
+	}
+}
+
+func BenchmarkSSEParsing(b *testing.B) {
+	data, err := os.ReadFile(filepath.Join("..", "..", "..", "conformance", "native", "openai_chat_stream.sse"))
+	if err != nil {
+		b.Fatal(err)
+	}
+	b.ReportAllocs()
+	b.SetBytes(int64(len(data)))
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		events, err := native.ReadSSE(bytes.NewReader(data))
+		if err != nil || len(events) == 0 {
+			b.Fatalf("invalid SSE: %v", err)
+		}
 	}
 }

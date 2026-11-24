@@ -10,7 +10,7 @@ import urllib.request
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from typing import Any
-from urllib.parse import urlparse
+from urllib.parse import quote, urlparse
 
 from .registry import validate_endpoint_url
 
@@ -116,8 +116,8 @@ def parse_ndjson(text: str) -> list[dict[str, str | None]]:
 @dataclass
 class NativeRequestConfig:
     base_url: str
-    api_key: str | None = None
-    headers: dict[str, str] = field(default_factory=dict)
+    api_key: str | None = field(default=None, repr=False)
+    headers: dict[str, str] = field(default_factory=dict, repr=False)
     timeout: float = 60.0
     allow_insecure_http: bool = False
 
@@ -142,7 +142,7 @@ class NativeClient:
                     raise NativeError("Response exceeded 32 MiB limit")
                 return json.loads(raw.decode("utf-8"))
         except urllib.error.HTTPError as e:
-            raise NativeHTTPStatusError(e.code, e.read().decode("utf-8", errors="replace")) from e
+            raise NativeHTTPStatusError(e.code, e.read(1024 * 1024).decode("utf-8", errors="replace")) from e
 
     def post_stream(
         self,
@@ -160,10 +160,13 @@ class NativeClient:
         req = urllib.request.Request(url, data=data, headers=req_headers, method="POST")
         try:
             with _OPENER.open(req, timeout=timeout) as resp:
-                text = resp.read(32 * 1024 * 1024).decode("utf-8", errors="replace")
+                raw = resp.read(32 * 1024 * 1024 + 1)
+                if len(raw) > 32 * 1024 * 1024:
+                    raise NativeError("Stream exceeded 32 MiB limit")
+                text = raw.decode("utf-8", errors="replace")
                 return parse_ndjson(text) if ndjson else parse_sse(text)
         except urllib.error.HTTPError as e:
-            raise NativeHTTPStatusError(e.code, e.read().decode("utf-8", errors="replace")) from e
+            raise NativeHTTPStatusError(e.code, e.read(1024 * 1024).decode("utf-8", errors="replace")) from e
 
     def build_target(
         self,
@@ -191,7 +194,8 @@ class NativeClient:
             return f"{base}/v1beta/models/{model}:generateContent", hdrs, False
         if protocol == "google_vertex_ai":
             hdrs.setdefault("Authorization", f"Bearer {key}")
-            return f"{base}/v1/publishers/google/models/{model}:generateContent", hdrs, False
+            publisher = base if base.endswith("/models") else f"{base}/v1/publishers/google/models"
+            return f"{publisher}/{model}:generateContent", hdrs, False
         if protocol == "azure_openai":
             hdrs.setdefault("api-key", key)
             ver = hdrs.get("x-azure-api-version", "2024-10-21")
@@ -202,15 +206,19 @@ class NativeClient:
             hdrs.setdefault("Authorization", f"Bearer {key}")
             return f"{base}/v2/chat", hdrs, False
         if protocol == "aws_bedrock":
-            uri = f"/model/{model}/converse"
+            uri = f"/model/{quote(model, safe='')}/converse"
             parts = key.split(":")
             if len(parts) >= 2:
-                parsed = urlparse(base)
+                parsed = urlparse(base + uri)
+                subdomain, _, remainder = (parsed.hostname or "").partition(".")
+                region, _, domain = remainder.partition(".")
+                if subdomain != "bedrock-runtime" or domain not in {"amazonaws.com", "amazonaws.com.cn", "api.aws"}:
+                    region = "us-east-1"
                 signed = sign_sigv4(
                     method="POST",
-                    canonical_uri=uri,
+                    canonical_uri=quote(parsed.path, safe="/"),
                     host=parsed.netloc,
-                    region=hdrs.get("x-aws-region", "us-east-1"),
+                    region=hdrs.get("x-aws-region", region),
                     service="bedrock",
                     access_key=parts[0],
                     secret_key=parts[1],

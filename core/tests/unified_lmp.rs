@@ -57,6 +57,7 @@ fn simple_req(model: &str) -> LmpRequest {
             role: Role::User,
             content: vec![ContentBlock::Text {
                 text: "Hello".into(),
+                signature: None,
             }],
         }],
         max_tokens: Some(128),

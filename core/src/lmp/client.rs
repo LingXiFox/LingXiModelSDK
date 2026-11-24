@@ -44,37 +44,7 @@ impl UnifiedClient {
             timeout: Duration::from_millis(req.timeout_ms.unwrap_or(60_000)),
             allow_insecure_http: false,
         };
-        let resp = match protocol {
-            NativeProtocol::OpenaiChatCompletions => {
-                self.native.openai_chat_completions(&cfg, &payload).await?
-            }
-            NativeProtocol::OpenaiResponses => self.native.openai_responses(&cfg, &payload).await?,
-            NativeProtocol::AnthropicMessages => {
-                self.native.anthropic_messages(&cfg, &payload).await?
-            }
-            NativeProtocol::GoogleGemini => {
-                self.native
-                    .google_gemini_generate(&cfg, &req.model, &payload)
-                    .await?
-            }
-            NativeProtocol::AwsBedrock => {
-                self.native
-                    .aws_bedrock_converse(&cfg, &req.model, &payload)
-                    .await?
-            }
-            NativeProtocol::GoogleVertexAi => {
-                self.native
-                    .google_vertex_generate(&cfg, &req.model, &payload)
-                    .await?
-            }
-            NativeProtocol::AzureOpenai => {
-                self.native
-                    .azure_openai_chat_completions(&cfg, &req.model, &payload)
-                    .await?
-            }
-            NativeProtocol::Ollama => self.native.ollama_chat(&cfg, &payload).await?,
-            NativeProtocol::Cohere => self.native.cohere_chat(&cfg, &payload).await?,
-        };
+        let resp = self.native.request_json(protocol, &cfg, Some(&req.model), &payload).await?;
         normalize_response(protocol, &resp.body)
     }
 
@@ -93,43 +63,7 @@ impl UnifiedClient {
             timeout: Duration::from_millis(req.timeout_ms.unwrap_or(60_000)),
             allow_insecure_http: false,
         };
-        let events = match protocol {
-            NativeProtocol::OpenaiChatCompletions => {
-                self.native
-                    .stream_openai_chat_completions(&cfg, &payload)
-                    .await?
-            }
-            NativeProtocol::OpenaiResponses => {
-                self.native.stream_openai_responses(&cfg, &payload).await?
-            }
-            NativeProtocol::AnthropicMessages => {
-                self.native
-                    .stream_anthropic_messages(&cfg, &payload)
-                    .await?
-            }
-            NativeProtocol::GoogleGemini => {
-                self.native
-                    .stream_google_gemini_generate(&cfg, &req.model, &payload)
-                    .await?
-            }
-            NativeProtocol::AwsBedrock => {
-                self.native
-                    .stream_aws_bedrock_converse(&cfg, &req.model, &payload)
-                    .await?
-            }
-            NativeProtocol::GoogleVertexAi => {
-                self.native
-                    .stream_google_vertex_generate(&cfg, &req.model, &payload)
-                    .await?
-            }
-            NativeProtocol::AzureOpenai => {
-                self.native
-                    .stream_azure_openai_chat_completions(&cfg, &req.model, &payload)
-                    .await?
-            }
-            NativeProtocol::Ollama => self.native.stream_ollama_chat(&cfg, &payload).await?,
-            NativeProtocol::Cohere => self.native.stream_cohere_chat(&cfg, &payload).await?,
-        };
+        let events = self.native.request_stream(protocol, &cfg, Some(&req.model), &payload).await?;
         normalize_stream_events(protocol, &events)
     }
 
@@ -182,29 +116,20 @@ impl UnifiedClient {
                     LmpError::InvalidRequest("x-goog-api-key is required".into())
                 })?;
                 headers.insert("x-goog-api-key".into(), key);
-                let url = format!("{base}/v1beta/models/{}:embedContent", req.model);
-                let payload = json!({"content": {"parts": [{"text": req.input[0]}]}});
-                let resp = self
-                    .native
-                    .post_json_endpoint(&url, &headers, &payload, timeout, false)
-                    .await?;
-                normalize_embedding_response(protocol, &resp.body)
-            }
-            NativeProtocol::GoogleVertexAi => {
-                let key = api_key.filter(|s| !s.is_empty()).ok_or_else(|| {
-                    LmpError::InvalidRequest("Vertex bearer token is required".into())
-                })?;
-                headers.insert("Authorization".into(), format!("Bearer {key}"));
-                let url = format!(
-                    "{base}/v1/publishers/google/models/{}:embedContent",
-                    req.model
-                );
-                let payload = json!({"content": {"parts": [{"text": req.input[0]}]}});
-                let resp = self
-                    .native
-                    .post_json_endpoint(&url, &headers, &payload, timeout, false)
-                    .await?;
-                normalize_embedding_response(protocol, &resp.body)
+                let model = format!("models/{}", req.model.trim_start_matches("models/"));
+                let (operation, payload) = if req.input.len() == 1 {
+                    ("embedContent", json!({"content": {"parts": [{"text": req.input[0]}]}}))
+                } else {
+                    let requests: Vec<_> = req.input.iter().map(|text| json!({"model": model, "content": {"parts": [{"text": text}]}})).collect();
+                    ("batchEmbedContents", json!({"requests": requests}))
+                };
+                let url = format!("{base}/v1beta/{model}:{operation}");
+                let resp = self.native.post_json_endpoint(&url, &headers, &payload, timeout, false).await?;
+                let out = normalize_embedding_response(protocol, &resp.body)?;
+                if out.embeddings.len() != req.input.len() {
+                    return Err(LmpError::Decode("embedding count does not match request".into()));
+                }
+                Ok(out)
             }
             NativeProtocol::Ollama => {
                 let url = format!("{base}/api/embed");
@@ -234,7 +159,8 @@ impl UnifiedClient {
             }
             NativeProtocol::OpenaiResponses
             | NativeProtocol::AnthropicMessages
-            | NativeProtocol::AwsBedrock => Err(LmpError::UnsupportedFeature {
+            | NativeProtocol::AwsBedrock
+            | NativeProtocol::GoogleVertexAi => Err(LmpError::UnsupportedFeature {
                 protocol: protocol.as_str().to_string(),
                 feature: "embed".into(),
             }),
@@ -320,18 +246,15 @@ pub fn normalize_embedding_response(
                 raw: raw.clone(),
             })
         }
-        NativeProtocol::GoogleGemini | NativeProtocol::GoogleVertexAi => {
-            let values: Vec<f64> = raw["embedding"]["values"]
-                .as_array()
-                .ok_or_else(|| LmpError::Decode("missing embedding.values".into()))?
-                .iter()
-                .filter_map(Value::as_f64)
-                .collect();
-            Ok(EmbeddingResponse {
-                embeddings: vec![values],
-                usage: Usage::default(),
-                raw: raw.clone(),
-            })
+        NativeProtocol::GoogleGemini => {
+            let rows = raw["embeddings"].as_array().map(Vec::as_slice)
+                .unwrap_or_else(|| std::slice::from_ref(&raw["embedding"]));
+            let embeddings = rows.iter().map(|row| {
+                let values = row["values"].as_array().filter(|values| !values.is_empty())
+                    .ok_or_else(|| LmpError::Decode("missing embedding.values".into()))?;
+                values.iter().map(|value| value.as_f64().ok_or_else(|| LmpError::Decode("invalid embedding component".into()))).collect()
+            }).collect::<Result<_, _>>()?;
+            Ok(EmbeddingResponse { embeddings, usage: Usage::default(), raw: raw.clone() })
         }
         NativeProtocol::Ollama => {
             let arr = raw["embeddings"]

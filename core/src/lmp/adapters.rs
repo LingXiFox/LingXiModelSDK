@@ -12,7 +12,7 @@ pub fn translate_request(protocol: NativeProtocol, req: &LmpRequest) -> Result<V
         NativeProtocol::OpenaiChatCompletions | NativeProtocol::AzureOpenai => to_openai_chat(req)?,
         NativeProtocol::OpenaiResponses => to_openai_responses(req)?,
         NativeProtocol::AnthropicMessages => to_anthropic_messages(req)?,
-        NativeProtocol::GoogleGemini | NativeProtocol::GoogleVertexAi => to_google_gemini(req)?,
+        NativeProtocol::GoogleGemini | NativeProtocol::GoogleVertexAi => to_google_gemini(protocol, req)?,
         NativeProtocol::AwsBedrock => to_aws_bedrock(req)?,
         NativeProtocol::Ollama => to_ollama_chat(req)?,
         NativeProtocol::Cohere => to_cohere_chat(req)?,
@@ -311,7 +311,7 @@ fn to_openai_chat(req: &LmpRequest) -> Result<Value, LmpError> {
 
         for block in &msg.content {
             match block {
-                ContentBlock::Text { text } => {
+                ContentBlock::Text { text, .. } => {
                     text_parts.push(text.clone());
                     multi_parts.push(json!({"type": "text", "text": text}));
                 }
@@ -326,7 +326,7 @@ fn to_openai_chat(req: &LmpRequest) -> Result<Value, LmpError> {
                         "image_url": {"url": format!("data:{media_type};base64,{data}")}
                     }));
                 }
-                ContentBlock::ToolCall { id, name, arguments } => {
+                ContentBlock::ToolCall { id, name, arguments, .. } => {
                     tool_calls.push(json!({
                         "id": id,
                         "type": "function",
@@ -450,7 +450,7 @@ fn to_openai_responses(req: &LmpRequest) -> Result<Value, LmpError> {
         let mut parts = Vec::new();
         for b in &msg.content {
             match b {
-                ContentBlock::Text { text } => {
+                ContentBlock::Text { text, .. } => {
                     parts.push(json!({"type": "input_text", "text": text}));
                 }
                 ContentBlock::ImageUrl { url } => {
@@ -525,7 +525,7 @@ fn to_anthropic_messages(req: &LmpRequest) -> Result<Value, LmpError> {
     for msg in &req.messages {
         if msg.role == Role::System {
             for b in &msg.content {
-                if let ContentBlock::Text { text } = b {
+                if let ContentBlock::Text { text, .. } = b {
                     system_parts.push(text.clone());
                 }
             }
@@ -538,7 +538,7 @@ fn to_anthropic_messages(req: &LmpRequest) -> Result<Value, LmpError> {
         let mut blocks = Vec::new();
         for b in &msg.content {
             match b {
-                ContentBlock::Text { text } => blocks.push(json!({"type": "text", "text": text})),
+                ContentBlock::Text { text, .. } => blocks.push(json!({"type": "text", "text": text})),
                 ContentBlock::ImageBase64 { media_type, data } => blocks.push(json!({
                     "type": "image",
                     "source": {"type": "base64", "media_type": media_type, "data": data}
@@ -563,6 +563,7 @@ fn to_anthropic_messages(req: &LmpRequest) -> Result<Value, LmpError> {
                     id,
                     name,
                     arguments,
+                    ..
                 } => {
                     blocks.push(json!({"type": "tool_use", "id": id, "name": name, "input": arguments}));
                 }
@@ -622,54 +623,73 @@ fn to_anthropic_messages(req: &LmpRequest) -> Result<Value, LmpError> {
     Ok(Value::Object(body))
 }
 
-fn to_google_gemini(req: &LmpRequest) -> Result<Value, LmpError> {
+fn to_google_gemini(protocol: NativeProtocol, req: &LmpRequest) -> Result<Value, LmpError> {
+    let unsupported = |feature: &str| LmpError::UnsupportedFeature {
+        protocol: protocol.as_str().into(),
+        feature: feature.into(),
+    };
     let mut system_parts = Vec::new();
     let mut contents = Vec::new();
+    let mut calls = std::collections::HashMap::new();
+    let mut previous_role = None;
     for msg in &req.messages {
         if msg.role == Role::System {
             for b in &msg.content {
-                if let ContentBlock::Text { text } = b {
-                    system_parts.push(json!({"text": text}));
+                match b {
+                    ContentBlock::Text { text, signature: None } => system_parts.push(json!({"text": text})),
+                    _ => return Err(unsupported("system_content")),
                 }
             }
             continue;
         }
-        let role = match msg.role {
-            Role::Assistant => "model",
-            _ => "user",
+        let role = if msg.role == Role::Assistant {
+            calls.clear();
+            "model"
+        } else {
+            "user"
         };
         let mut parts = Vec::new();
         for b in &msg.content {
-            match b {
-                ContentBlock::Text { text } => parts.push(json!({"text": text})),
-                ContentBlock::ImageBase64 { media_type, data } => {
-                    parts.push(json!({"inlineData": {"mimeType": media_type, "data": data}}))
+            let (mut part, signature) = match b {
+                ContentBlock::Text { text, signature } => (json!({"text": text}), signature.as_deref()),
+                ContentBlock::ImageBase64 { media_type, data } |
+                ContentBlock::Audio { media_type, data } => (json!({"inlineData": {"mimeType": media_type, "data": data}}), None),
+                ContentBlock::ImageUrl { .. } => return Err(unsupported("image_url")),
+                ContentBlock::Thinking { thinking, signature } => (json!({"thought": true, "text": thinking}), signature.as_deref()),
+                ContentBlock::ToolCall { id, name, arguments, signature } => {
+                    let wire_id = !id.is_empty() && id != name && !id.starts_with("gemini-part:");
+                    if calls.insert(id, (name, wire_id)).is_some() {
+                        return Err(unsupported("duplicate_tool_call_id"));
+                    }
+                    let mut call = json!({"name": name, "args": arguments});
+                    if wire_id {
+                        call["id"] = json!(id);
+                    }
+                    (json!({"functionCall": call}), signature.as_deref())
                 }
-                ContentBlock::Audio { media_type, data } => {
-                    parts.push(json!({"inlineData": {"mimeType": media_type, "data": data}}))
+                ContentBlock::ToolResult { tool_call_id, content, is_error } => {
+                    let (name, wire_id) = calls.get(tool_call_id).ok_or_else(|| unsupported("unmatched_tool_result"))?;
+                    let key = if *is_error { "error" } else { "content" };
+                    let mut response = json!({"name": name, "response": {key: content}});
+                    if *wire_id {
+                        response["id"] = json!(tool_call_id);
+                    }
+                    (json!({"functionResponse": response}), None)
                 }
-                ContentBlock::ImageUrl { .. } => {
-                    return Err(LmpError::UnsupportedFeature {
-                        protocol: "google_gemini".into(),
-                        feature: "image_url".into(),
-                    });
-                }
-                ContentBlock::Thinking { .. } => {}
-                ContentBlock::ToolCall { name, arguments, .. } => {
-                    parts.push(json!({"functionCall": {"name": name, "args": arguments}}));
-                }
-                ContentBlock::ToolResult {
-                    tool_call_id,
-                    content,
-                    ..
-                } => {
-                    parts.push(json!({
-                        "functionResponse": {"name": tool_call_id, "response": {"content": content}}
-                    }));
-                }
+            };
+            if let Some(sig) = signature {
+                part["thoughtSignature"] = json!(sig);
             }
+            parts.push(part);
         }
-        contents.push(json!({"role": role, "parts": parts}));
+        if msg.role == Role::Tool && previous_role == Some(Role::Tool) {
+            if let Some(Value::Array(previous)) = contents.last_mut().and_then(|v: &mut Value| v.get_mut("parts")) {
+                previous.extend(parts);
+            }
+        } else {
+            contents.push(json!({"role": role, "parts": parts}));
+        }
+        previous_role = Some(msg.role.clone());
     }
 
     let mut body = Map::new();
@@ -697,10 +717,16 @@ fn to_google_gemini(req: &LmpRequest) -> Result<Value, LmpError> {
         }
     }
     if let Some(ref t) = req.thinking {
-        if let Some(budget) = t.budget_tokens {
-            gen_cfg.insert("thinkingConfig".into(), json!({"thinkingBudget": budget}));
-        } else if let Some(ref effort) = t.effort {
-            gen_cfg.insert("thinkingConfig".into(), json!({"thinkingLevel": effort}));
+        match (t.budget_tokens, t.effort.as_deref()) {
+            (Some(_), Some(_)) => return Err(unsupported("thinking_budget_and_effort")),
+            (Some(budget), None) => {
+                gen_cfg.insert("thinkingConfig".into(), json!({"thinkingBudget": budget, "includeThoughts": true}));
+            }
+            (None, Some(effort @ ("minimal" | "low" | "medium" | "high"))) => {
+                gen_cfg.insert("thinkingConfig".into(), json!({"thinkingLevel": effort.to_ascii_uppercase(), "includeThoughts": true}));
+            }
+            (None, Some(_)) => return Err(unsupported("thinking_effort")),
+            (None, None) => {}
         }
     }
     if !gen_cfg.is_empty() {
@@ -713,6 +739,9 @@ fn to_google_gemini(req: &LmpRequest) -> Result<Value, LmpError> {
             .map(|t| json!({"name": t.name, "description": t.description, "parameters": t.parameters}))
             .collect();
         body.insert("tools".into(), json!([{"functionDeclarations": decls}]));
+    }
+    if req.tool_choice.is_some() {
+        return Err(unsupported("tool_choice"));
     }
     Ok(Value::Object(body))
 }
@@ -735,6 +764,7 @@ fn from_openai_chat(raw: &Value) -> Result<LmpResponse, LmpError> {
         if !txt.is_empty() {
             content.push(ContentBlock::Text {
                 text: txt.to_string(),
+                signature: None,
             });
         }
     }
@@ -746,6 +776,7 @@ fn from_openai_chat(raw: &Value) -> Result<LmpResponse, LmpError> {
                 id: tc["id"].as_str().unwrap_or("").to_string(),
                 name: tc["function"]["name"].as_str().unwrap_or("").to_string(),
                 arguments: args,
+                signature: None,
             });
         }
     }
@@ -785,6 +816,7 @@ fn from_openai_responses(raw: &Value) -> Result<LmpResponse, LmpError> {
                             if let Some(txt) = p["text"].as_str() {
                                 content.push(ContentBlock::Text {
                                     text: txt.to_string(),
+                                    signature: None,
                                 });
                             }
                         }
@@ -799,6 +831,7 @@ fn from_openai_responses(raw: &Value) -> Result<LmpResponse, LmpError> {
                         id: item["call_id"].as_str().unwrap_or("").to_string(),
                         name: item["name"].as_str().unwrap_or("").to_string(),
                         arguments: args,
+                signature: None,
                     });
                 }
                 _ => {}
@@ -835,11 +868,13 @@ fn from_anthropic_messages(raw: &Value) -> Result<LmpResponse, LmpError> {
                 }),
                 Some("text") => content.push(ContentBlock::Text {
                     text: b["text"].as_str().unwrap_or("").to_string(),
+                    signature: None,
                 }),
                 Some("tool_use") => content.push(ContentBlock::ToolCall {
                     id: b["id"].as_str().unwrap_or("").to_string(),
                     name: b["name"].as_str().unwrap_or("").to_string(),
                     arguments: b["input"].clone(),
+                signature: None,
                 }),
                 _ => {}
             }
@@ -871,24 +906,26 @@ fn from_google_gemini(raw: &Value) -> Result<LmpResponse, LmpError> {
         .ok_or_else(|| LmpError::Decode("missing candidates[0]".into()))?;
     let mut content = Vec::new();
     if let Some(parts) = cand["content"]["parts"].as_array() {
-        for p in parts {
+        for (index, p) in parts.iter().enumerate() {
+            let signature = p["thoughtSignature"].as_str().map(str::to_owned);
             if let Some(txt) = p["text"].as_str() {
                 if p["thought"].as_bool() == Some(true) {
-                    content.push(ContentBlock::Thinking {
-                        thinking: txt.to_string(),
-                        signature: p["thoughtSignature"].as_str().map(ToString::to_string),
-                    });
+                    content.push(ContentBlock::Thinking { thinking: txt.to_owned(), signature });
                 } else {
-                    content.push(ContentBlock::Text {
-                        text: txt.to_string(),
-                    });
+                    content.push(ContentBlock::Text { text: txt.to_owned(), signature });
                 }
-            } else if p["functionCall"].is_object() {
+            } else if let Some(call) = p["functionCall"].as_object() {
+                let name = call.get("name").and_then(Value::as_str)
+                    .ok_or_else(|| LmpError::Decode("functionCall missing name".into()))?;
                 content.push(ContentBlock::ToolCall {
-                    id: p["functionCall"]["name"].as_str().unwrap_or("").to_string(),
-                    name: p["functionCall"]["name"].as_str().unwrap_or("").to_string(),
-                    arguments: p["functionCall"]["args"].clone(),
+                    id: call.get("id").and_then(Value::as_str).map(str::to_owned)
+                        .unwrap_or_else(|| format!("gemini-part:{index}:{name}")),
+                    name: name.to_owned(),
+                    arguments: call.get("args").cloned().unwrap_or_else(|| json!({})),
+                    signature,
                 });
+            } else if signature.is_some() {
+                return Err(LmpError::Decode("Gemini returned a signature on an unsupported part".into()));
             }
         }
     }
@@ -927,7 +964,7 @@ fn to_aws_bedrock(req: &LmpRequest) -> Result<Value, LmpError> {
     for msg in &req.messages {
         if msg.role == Role::System {
             for b in &msg.content {
-                if let ContentBlock::Text { text } = b {
+                if let ContentBlock::Text { text, .. } = b {
                     system.push(json!({"text": text}));
                 }
             }
@@ -940,7 +977,7 @@ fn to_aws_bedrock(req: &LmpRequest) -> Result<Value, LmpError> {
         let mut blocks = Vec::new();
         for b in &msg.content {
             match b {
-                ContentBlock::Text { text } => blocks.push(json!({"text": text})),
+                ContentBlock::Text { text, .. } => blocks.push(json!({"text": text})),
                 ContentBlock::Thinking { thinking, signature } => {
                     let mut rc = json!({"text": thinking});
                     if let Some(sig) = signature {
@@ -948,7 +985,7 @@ fn to_aws_bedrock(req: &LmpRequest) -> Result<Value, LmpError> {
                     }
                     blocks.push(json!({"reasoningContent": {"reasoningText": rc}}));
                 }
-                ContentBlock::ToolCall { id, name, arguments } => {
+                ContentBlock::ToolCall { id, name, arguments, .. } => {
                     blocks.push(json!({"toolUse": {"toolUseId": id, "name": name, "input": arguments}}));
                 }
                 ContentBlock::ToolResult { tool_call_id, content, is_error } => {
@@ -1018,7 +1055,7 @@ fn from_aws_bedrock(raw: &Value) -> Result<LmpResponse, LmpError> {
     if let Some(blocks) = raw["output"]["message"]["content"].as_array() {
         for b in blocks {
             if let Some(txt) = b["text"].as_str() {
-                content.push(ContentBlock::Text { text: txt.to_string() });
+                content.push(ContentBlock::Text { text: txt.to_string(), signature: None });
             } else if let Some(rt) = b["reasoningContent"]["reasoningText"].as_object() {
                 content.push(ContentBlock::Thinking {
                     thinking: rt.get("text").and_then(Value::as_str).unwrap_or("").to_string(),
@@ -1029,6 +1066,7 @@ fn from_aws_bedrock(raw: &Value) -> Result<LmpResponse, LmpError> {
                     id: tu.get("toolUseId").and_then(Value::as_str).unwrap_or("").to_string(),
                     name: tu.get("name").and_then(Value::as_str).unwrap_or("").to_string(),
                     arguments: tu.get("input").cloned().unwrap_or(Value::Null),
+                signature: None,
                 });
             }
         }
@@ -1070,7 +1108,7 @@ fn to_ollama_chat(req: &LmpRequest) -> Result<Value, LmpError> {
         let mut images = Vec::new();
         for b in &msg.content {
             match b {
-                ContentBlock::Text { text: t } => text.push_str(t),
+                ContentBlock::Text { text: t, signature: None } => text.push_str(t),
                 ContentBlock::ImageBase64 { data, .. } => images.push(json!(data)),
                 ContentBlock::ToolResult { content, .. } => text.push_str(content),
                 ContentBlock::Audio { .. } => {
@@ -1125,7 +1163,7 @@ fn from_ollama_chat(raw: &Value) -> Result<LmpResponse, LmpError> {
     }
     if let Some(txt) = raw["message"]["content"].as_str() {
         if !txt.is_empty() {
-            content.push(ContentBlock::Text { text: txt.to_string() });
+            content.push(ContentBlock::Text { text: txt.to_string(), signature: None });
         }
     }
     let input_tokens = raw["prompt_eval_count"].as_u64().unwrap_or(0);
@@ -1157,7 +1195,7 @@ fn to_cohere_chat(req: &LmpRequest) -> Result<Value, LmpError> {
         let mut text = String::new();
         for b in &msg.content {
             match b {
-                ContentBlock::Text { text: t } => text.push_str(t),
+                ContentBlock::Text { text: t, signature: None } => text.push_str(t),
                 ContentBlock::ToolResult { content, .. } => text.push_str(content),
                 ContentBlock::Audio { .. } => {
                     return Err(LmpError::UnsupportedFeature {
@@ -1204,7 +1242,7 @@ fn from_cohere_chat(raw: &Value) -> Result<LmpResponse, LmpError> {
                 }
                 "text" => {
                     if let Some(txt) = b["text"].as_str() {
-                        content.push(ContentBlock::Text { text: txt.to_string() });
+                        content.push(ContentBlock::Text { text: txt.to_string(), signature: None });
                     }
                 }
                 _ => {}

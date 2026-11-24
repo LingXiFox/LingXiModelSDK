@@ -4,10 +4,12 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"reflect"
 	"strings"
 	"testing"
 
@@ -27,15 +29,15 @@ func TestAllNineProtocolsAndAgentScenarios(t *testing.T) {
 	ctx := context.Background()
 	c := NewClient()
 
-	// Bedrock (SigV4 + Converse + NDJSON)
+	// Bedrock (SigV4 + Converse + Amazon Event Stream)
 	bedrockResp := loadNativeFixture(t, "aws_bedrock_response.json")
-	bedrockStream := loadNativeFixture(t, "aws_bedrock_stream.ndjson")
+	bedrockStream := loadNativeFixture(t, "aws_bedrock_stream.eventstream")
 	srvBedrock := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if !strings.HasPrefix(r.Header.Get("Authorization"), "AWS4-HMAC-SHA256") {
 			t.Fatalf("expected SigV4 header, got %q", r.Header.Get("Authorization"))
 		}
 		if strings.Contains(r.URL.Path, "converse-stream") {
-			w.Header().Set("Content-Type", "application/x-ndjson")
+			w.Header().Set("Content-Type", "application/vnd.amazon.eventstream")
 			_, _ = w.Write([]byte(bedrockStream))
 			return
 		}
@@ -179,5 +181,96 @@ func BenchmarkTranslateAndNormalizeGo(b *testing.B) {
 		if _, err := NormalizeResponse(native.ProtocolOpenAIChatCompletions, raw); err != nil {
 			b.Fatal(err)
 		}
+	}
+}
+
+func TestGeminiReplaysParallelToolCallsAndOriginalSignedParts(t *testing.T) {
+	data, err := os.ReadFile(filepath.Join("..", "..", "..", "conformance", "agent", "gemini-tool-loop.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	var fixture struct {
+		Request                      Request
+		FirstResponse, FinalResponse json.RawMessage
+		ExpectedToolResponses        []any
+	}
+	if err := json.Unmarshal(data, &fixture); err != nil {
+		t.Fatal(err)
+	}
+	var firstWire struct {
+		Candidates []struct{ Content map[string]any }
+	}
+	if err := json.Unmarshal(fixture.FirstResponse, &firstWire); err != nil {
+		t.Fatal(err)
+	}
+	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		var payload struct {
+			Contents         []map[string]any
+			GenerationConfig struct{ ThinkingConfig map[string]any }
+			CachedContent    string
+		}
+		if err := json.NewDecoder(r.Body).Decode(&payload); err != nil {
+			t.Error(err)
+			w.WriteHeader(http.StatusBadRequest)
+			return
+		}
+		if r.Header.Get("x-goog-api-key") != "fixture" || payload.CachedContent != "cachedContents/mock-1" || !reflect.DeepEqual(payload.GenerationConfig.ThinkingConfig, map[string]any{"thinkingLevel": "LOW", "includeThoughts": true}) {
+			t.Errorf("unexpected Gemini configuration: %+v", payload)
+		}
+		if len(payload.Contents) == 1 {
+			if !strings.Contains(fmt.Sprint(payload.Contents[0]["parts"]), "image/png") {
+				t.Errorf("missing inline image part: %+v", payload.Contents)
+			}
+			_, _ = w.Write(fixture.FirstResponse)
+			return
+		}
+		if len(payload.Contents) != 3 || !reflect.DeepEqual(payload.Contents[1], firstWire.Candidates[0].Content) || !reflect.DeepEqual(payload.Contents[2]["parts"], fixture.ExpectedToolResponses) {
+			t.Errorf("unexpected tool turn: %+v", payload.Contents)
+		}
+		_, _ = w.Write(fixture.FinalResponse)
+	}))
+	defer upstream.Close()
+	client := NewClient()
+	ctx := context.Background()
+	first, err := client.Complete(ctx, native.ProtocolGoogleGemini, upstream.URL, "fixture", fixture.Request)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if first.Usage.CacheReadTokens == nil || *first.Usage.CacheReadTokens != 0 || first.Usage.ReasoningTokens == nil || *first.Usage.ReasoningTokens != 5 {
+		t.Fatalf("unexpected usage: %+v", first.Usage)
+	}
+	fixture.Request.Messages = append(fixture.Request.Messages, Message{Role: "assistant", Content: first.Content})
+	for _, call := range first.Content {
+		if call.Type != "tool_call" {
+			continue
+		}
+		result := "21 C"
+		if call.Arguments["city"] == "東京" {
+			result = "18 C"
+		}
+		fixture.Request.Messages = append(fixture.Request.Messages, Message{Role: "tool", Content: []ContentBlock{{Type: "tool_result", ToolCallID: call.ID, Content: result}}})
+	}
+	last, err := client.Complete(ctx, native.ProtocolGoogleGemini, upstream.URL, "fixture", fixture.Request)
+	if err != nil || last.Text() != "Osaka is 3 C warmer." || last.Usage.CacheReadTokens == nil || *last.Usage.CacheReadTokens != 25 {
+		t.Fatalf("last=%+v err=%v", last, err)
+	}
+}
+
+func TestGeminiBatchEmbeddingPreservesInputs(t *testing.T) {
+	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		var body struct{ Requests []json.RawMessage }
+		err := json.NewDecoder(r.Body).Decode(&body)
+		if r.URL.Path != "/v1beta/models/mock:batchEmbedContents" || err != nil ||
+			len(body.Requests) != 2 || !strings.Contains(string(body.Requests[1]), "second") {
+			t.Errorf("bad batch request: %s %+v %v", r.URL.Path, body, err)
+		}
+		_, _ = w.Write([]byte(`{"embeddings":[{"values":[0.1]},{"values":[0.2]}]}`))
+	}))
+	defer upstream.Close()
+	client := NewClient()
+	request := EmbeddingRequest{Model: "models/mock", Input: []string{"first", "second"}}
+	response, err := client.Embed(context.Background(), native.ProtocolGoogleGemini, upstream.URL, "fixture", request)
+	if err != nil || !reflect.DeepEqual(response.Embeddings, [][]float64{{0.1}, {0.2}}) {
+		t.Fatalf("bad batch response: %+v %v", response, err)
 	}
 }

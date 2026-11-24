@@ -13,23 +13,23 @@
       <article class="panel">
         <div class="panel-head">
           <h2>1. Model Catalog</h2>
-          <span class="status-badge status-live">10 语言已实现</span>
+          <span class="status-badge status-live">10 语言接口</span>
         </div>
-        <p>消费 <code>/models.json</code>（Schema 2.0），支持 ETag 条件请求、离线缓存、三态语义与未知字段保留，零推理运行时依赖。</p>
+        <p>读取 <code>/models.json</code>（Schema 2.0）。各语言的缓存、解析和查询覆盖见下表，目录可以独立使用。</p>
       </article>
       <article class="panel">
         <div class="panel-head">
           <h2>2. Native Provider</h2>
-          <span class="status-badge status-live">9 协议 · Mock Tested</span>
+          <span class="status-badge status-live">核心协议 · Mock Tested</span>
         </div>
-        <p>使用提供商原生请求体、响应、流式事件与 SigV4 签名直接通信，保留全部原生扩展参数。</p>
+        <p>使用提供商原生请求体和响应直接通信，流式支持取决于语言和协议。</p>
       </article>
       <article class="panel">
         <div class="panel-head">
           <h2>3. Unified Provider (LMP)</h2>
-          <span class="status-badge status-live">9 协议 · Mock Tested</span>
+          <span class="status-badge status-live">核心协议 · Mock Tested</span>
         </div>
-        <p>统一消息、思考签名、工具调用、Prompt Cache、Embedding 与 Rerank；不支持的能力显式报错。</p>
+        <p>使用 LMP 转换数据。按语言和协议核对工具调用、流式输出和推理状态的支持范围。</p>
       </article>
     </section>
 
@@ -42,38 +42,47 @@
               <th>语言</th>
               <th>包 / 目录</th>
               <th>Catalog / Registry / Native / Unified</th>
-              <th>验证状态</th>
+              <th>覆盖边界与测试</th>
             </tr>
           </thead>
           <tbody>
-            <tr><td>Swift</td><td><code>Package.swift</code></td><td><code>LingXiModelSDK</code> + <code>LingXiProviderRegistry</code> + <code>LingXiNativeProvider</code> + <code>LingXiUnifiedProvider</code></td><td><span class="status-badge status-live">Tested (swift test)</span></td></tr>
-            <tr><td>Rust</td><td><code>core/</code></td><td><code>lingxi-core</code> (rlib / cdylib / staticlib + C ABI)</td><td><span class="status-badge status-live">Tested (cargo test)</span></td></tr>
-            <tr><td>Go</td><td><code>sdk/go/</code></td><td>根包 Catalog + <code>native</code> + <code>unified</code></td><td><span class="status-badge status-live">Tested (go test -race)</span></td></tr>
-            <tr><td>TypeScript / JS</td><td><code>sdk/typescript/</code></td><td><code>.</code> / <code>./registry</code> / <code>./native</code> / <code>./unified</code></td><td><span class="status-badge status-live">Tested (node --test)</span></td></tr>
-            <tr><td>Python</td><td><code>sdk/python/</code></td><td><code>catalog</code> / <code>registry</code> / <code>native</code> / <code>unified</code> (ctypes FFI)</td><td><span class="status-badge status-live">Tested (unittest)</span></td></tr>
-            <tr><td>Java</td><td><code>sdk/java/</code></td><td><code>LingXiModelCatalog</code> / <code>ProviderRegistry</code> / <code>NativeClient</code> / <code>UnifiedClient</code></td><td><span class="status-badge status-live">Tested (javac/java)</span></td></tr>
-            <tr><td>C++20</td><td><code>sdk/cpp/</code></td><td><code>lingxi/catalog.hpp</code> + <code>registry/native/unified.hpp</code> (Rust C ABI)</td><td><span class="status-badge status-live">Tested (clang++)</span></td></tr>
-            <tr><td>C# (.NET 8)</td><td><code>sdk/csharp/</code></td><td><code>Catalog</code> / <code>Registry</code> / <code>Native</code> / <code>Unified</code></td><td><span class="status-badge">CI Verified (.NET 8)</span></td></tr>
-            <tr><td>Kotlin (JVM)</td><td><code>sdk/kotlin/</code></td><td><code>ModelCatalog</code> / <code>ProviderRegistry</code> / <code>NativeClient</code> / <code>UnifiedClient</code></td><td><span class="status-badge">CI Verified (kotlinc)</span></td></tr>
-            <tr><td>Dart 3</td><td><code>sdk/dart/</code></td><td><code>catalog.dart</code> / <code>registry.dart</code> / <code>native.dart</code> / <code>unified.dart</code></td><td><span class="status-badge">CI Verified (dart)</span></td></tr>
+            <tr><td>Swift</td><td><a href="https://github.com/LingXiFox/LingXiModelSDK/blob/rewrite/2.0/Package.swift"><code>Package.swift</code></a></td><td><code>LingXiModelSDK</code> + <code>LingXiProviderRegistry</code> + <code>LingXiNativeProvider</code> + <code>LingXiUnifiedProvider</code></td><td><span class="status-badge status-live">目录一致性、原生请求、部分 LMP 转换</span></td></tr>
+            <tr><td>Rust</td><td><a href="https://github.com/LingXiFox/LingXiModelSDK/tree/rewrite/2.0/sdk/rust"><code>sdk/rust + core</code></a></td><td><code>lingxi-core</code> (rlib / cdylib / staticlib + C ABI)</td><td><span class="status-badge status-live">Tested (cargo test)</span></td></tr>
+            <tr><td>Go</td><td><a href="https://github.com/LingXiFox/LingXiModelSDK/tree/rewrite/2.0/sdk/go"><code>sdk/go</code></a></td><td>根包 Catalog + <code>native</code> + <code>unified</code></td><td><span class="status-badge status-live">Tested (go test -race)</span></td></tr>
+            <tr><td>TypeScript / JS</td><td><a href="https://github.com/LingXiFox/LingXiModelSDK/tree/rewrite/2.0/sdk/typescript"><code>sdk/typescript</code></a></td><td><code>.</code> / <code>./registry</code> / <code>./native</code> / <code>./unified</code></td><td><span class="status-badge status-live">Tested (node --test)</span></td></tr>
+            <tr><td>Python</td><td><a href="https://github.com/LingXiFox/LingXiModelSDK/tree/rewrite/2.0/sdk/python"><code>sdk/python</code></a></td><td><code>catalog</code> / <code>registry</code> / <code>native</code> / <code>unified</code> (ctypes FFI)</td><td><span class="status-badge status-live">Tested (unittest)</span></td></tr>
+            <tr><td>Java</td><td><a href="https://github.com/LingXiFox/LingXiModelSDK/tree/rewrite/2.0/sdk/java"><code>sdk/java</code></a></td><td><code>LingXiModelCatalog</code> / <code>ProviderRegistry</code> / <code>NativeClient</code> / <code>UnifiedClient</code></td><td><span class="status-badge status-live">目录一致性、文本调用和 Rerank</span></td></tr>
+            <tr><td>C++20</td><td><a href="https://github.com/LingXiFox/LingXiModelSDK/tree/rewrite/2.0/sdk/cpp"><code>sdk/cpp</code></a></td><td><code>lingxi/catalog.hpp</code> + <code>registry/native/unified.hpp</code> (Rust C ABI)</td><td><span class="status-badge status-live">轻量目录查询、Rust C ABI</span></td></tr>
+            <tr><td>C# (.NET 8)</td><td><a href="https://github.com/LingXiFox/LingXiModelSDK/tree/rewrite/2.0/sdk/csharp"><code>sdk/csharp</code></a></td><td><code>Catalog</code> / <code>Registry</code> / <code>Native</code> / <code>Unified</code></td><td><span class="status-badge">目录烟测、文本调用和 Rerank</span></td></tr>
+            <tr><td>Kotlin (JVM)</td><td><a href="https://github.com/LingXiFox/LingXiModelSDK/tree/rewrite/2.0/sdk/kotlin"><code>sdk/kotlin</code></a></td><td><code>ModelCatalog</code> / <code>ProviderRegistry</code> / <code>NativeClient</code> / <code>UnifiedClient</code></td><td><span class="status-badge">目录烟测、文本调用和 Rerank</span></td></tr>
+            <tr><td>Dart 3</td><td><a href="https://github.com/LingXiFox/LingXiModelSDK/tree/rewrite/2.0/sdk/dart"><code>sdk/dart</code></a></td><td><code>catalog.dart</code> / <code>registry.dart</code> / <code>native.dart</code> / <code>unified.dart</code></td><td><span class="status-badge">目录烟测、文本调用和 Rerank</span></td></tr>
           </tbody>
         </table>
       </div>
     </section>
 
     <section class="panel doc-block">
-      <h2>Swift / Rust / Go / TypeScript / Python 调用示例</h2>
+      <h2>Swift、Go 和 TypeScript 调用示例</h2>
       <pre id="sdk-examples">// Swift (Catalog + Unified)
+import Foundation
 import LingXiModelSDK
+import LingXiProviderRegistry
 import LingXiUnifiedProvider
 let catalog = try await LingXiModelCatalog.load()
 let client = UnifiedClient()
 let resp = try await client.complete(
-    protocol: .awsBedrock,
-    baseURL: "https://bedrock-runtime.us-east-1.amazonaws.com",
-    apiKey: ProcessInfo.processInfo.environment["AWS_CREDS"],
-    request: LmpRequest(model: "anthropic.claude-3-5-sonnet", messages: [.init(role: "user", content: [.text("hi")])])
+    protocol: .openaiChatCompletions,
+    baseURL: "https://api.openai.com/v1",
+    apiKey: ProcessInfo.processInfo.environment["OPENAI_API_KEY"],
+    request: LmpRequest(model: "gpt-4o-mini", messages: [.init(role: "user", content: [.text("hi")])])
 )
+
+// Go (Native)
+n := native.NewClient()
+raw, err := n.OpenAIChatCompletions(ctx, native.RequestConfig{
+    BaseURL: "https://api.openai.com/v1",
+    APIKey: os.Getenv("OPENAI_API_KEY"),
+}, map[string]any{"model": "gpt-4o-mini", "messages": []map[string]string{ {"role": "user", "content": "hello"} }})
 
 // Go (Unified)
 u := unified.NewClient()
@@ -84,14 +93,15 @@ out, err := u.Complete(ctx, native.ProtocolOpenAIResponses, "https://api.openai.
     },
 })
 
-// TypeScript (Node 20+ / Browser)
+// TypeScript (Node 20+, built package)
 import { UnifiedClient } from "@lingxifox/model-sdk/unified";
 const client = new UnifiedClient();
 const res = await client.complete("cohere", "https://api.cohere.com", process.env.COHERE_API_KEY!, {
-  model: "command-a",
+  model: "command-a-03-2025",
   messages: [{ role: "user", content: [{ type: "text", text: "hi" }] }],
 });</pre>
       <button type="button" data-copy-target="sdk-examples">复制示例</button>
+      <p><a href="https://github.com/LingXiFox/LingXiModelSDK/blob/rewrite/2.0/docs/feature-matrix.md">查看各语言和协议的测试覆盖</a></p>
     </section>
   </main>
 </div>

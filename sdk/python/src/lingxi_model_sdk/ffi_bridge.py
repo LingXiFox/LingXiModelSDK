@@ -74,3 +74,21 @@ class RustCoreBridge:
         if not res.get("ok"):
             raise RuntimeError(res.get("error", "normalize_stream_events failed"))
         return res["events"]
+
+    def stream_through_core(self, request: dict[str, Any]) -> list[dict[str, Any]]:
+        assert self._lib is not None
+        fn = getattr(self._lib, "lingxi_runtime_request", None)
+        if fn is None:
+            raise RuntimeError("Build or install the current lingxi_core library for Bedrock streaming")
+        fn.argtypes = [ctypes.c_char_p]
+        fn.restype = ctypes.c_void_p
+        ptr = fn(json.dumps(request).encode("utf-8"))
+        if not ptr:
+            raise RuntimeError("Empty response from LingXi runtime")
+        try:
+            result = json.loads(ctypes.cast(ptr, ctypes.c_char_p).value)
+        finally:
+            self._lib.lingxi_string_free(ptr)
+        if not result.get("ok"):
+            raise RuntimeError(result.get("error", "Rust streaming request failed"))
+        return result["events"]

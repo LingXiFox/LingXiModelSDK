@@ -64,6 +64,7 @@ export async function* parseSseStream(
     const last = flush();
     if (last) yield last;
   } finally {
+    await reader.cancel().catch(() => {});
     reader.releaseLock();
   }
 }
@@ -91,6 +92,7 @@ export async function* parseNdjsonStream(
     const tail = buffer.trim();
     if (tail) yield { event: null, data: tail, id: null };
   } finally {
+    await reader.cancel().catch(() => {});
     reader.releaseLock();
   }
 }

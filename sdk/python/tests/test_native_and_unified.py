@@ -28,7 +28,12 @@ class _MockHandler(http.server.BaseHTTPRequestHandler):
             self.send_header("Location", "http://127.0.0.1:9/leak")
             self.end_headers()
             return
-        if "converse" in self.path:
+        content_type = "application/json"
+        if self.path.endswith("/converse-stream"):
+            assert self.headers.get("Authorization", "").startswith("AWS4-HMAC-SHA256")
+            content_type = "application/vnd.amazon.eventstream"
+            body = (FIXTURES / "aws_bedrock_stream.eventstream").read_bytes()
+        elif "converse" in self.path:
             assert self.headers.get("Authorization", "").startswith("AWS4-HMAC-SHA256")
             body = (FIXTURES / "aws_bedrock_response.json").read_bytes()
         elif "generateContent" in self.path:
@@ -46,7 +51,7 @@ class _MockHandler(http.server.BaseHTTPRequestHandler):
         else:
             body = (FIXTURES / "openai_chat_response.json").read_bytes()
         self.send_response(200)
-        self.send_header("Content-Type", "application/json")
+        self.send_header("Content-Type", content_type)
         self.send_header("Content-Length", str(len(body)))
         self.end_headers()
         self.wfile.write(body)
@@ -80,6 +85,10 @@ class TestPythonNativeAndUnified(unittest.TestCase):
         }
         b_out = client.complete("aws_bedrock", self.base, "AKIA:SECRET", req)
         self.assertEqual(b_out["content"][0]["signature"], "sig-bedrock-1")
+
+        events = client.stream("aws_bedrock", self.base, "AKIA:SECRET", req)
+        self.assertIn("tool_call_delta", {event["type"] for event in events})
+        self.assertTrue(any("東京" in event.get("arguments_delta", "") for event in events))
 
         v_out = client.complete("google_vertex_ai", self.base, "tok", req)
         self.assertEqual(v_out["content"][0]["signature"], "sig-vertex-1")

@@ -55,6 +55,9 @@ func NewSafeHTTPClient(allowLoopback bool) *http.Client {
 					return nil, fmt.Errorf("SSRF blocked dial to reserved IP %s (%s)", ip.String(), host)
 				}
 			}
+			if len(ips) == 0 {
+				return nil, errors.New("no addresses returned for upstream")
+			}
 			return dialer.DialContext(ctx, network, net.JoinHostPort(ips[0].String(), port))
 		},
 	}
@@ -105,8 +108,8 @@ func ValidateStartupSecurity(listenAddr, authToken string, allowHosts []string) 
 // CheckEgressAllowed prevents arbitrary URL proxying / SSRF.
 func CheckEgressAllowed(rawURL string, allowHosts []string, allowLoopbackEgress bool) error {
 	u, err := url.Parse(rawURL)
-	if err != nil || u.Hostname() == "" {
-		return fmt.Errorf("invalid target URL %q", rawURL)
+	if err != nil || u.Hostname() == "" || u.User != nil || u.RawQuery != "" || u.ForceQuery || u.Fragment != "" {
+		return errors.New("invalid egress base URL")
 	}
 	host := strings.ToLower(u.Hostname())
 	if allowLoopbackEgress && (host == "127.0.0.1" || host == "localhost" || host == "::1") {

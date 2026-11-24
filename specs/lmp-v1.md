@@ -19,3 +19,5 @@ Status: Frozen for Phase 4 Unified Provider clients.
 - **Stream Events**: `message_start`, `thinking_delta`, `text_delta`, `tool_call_delta`, `usage`, `message_end`, `error`.
 - **Extensions**: `EmbeddingRequest`/`EmbeddingResponse`, `RerankRequest`/`RerankResponse`.
 - **Error Taxonomy**: `UnsupportedFeature`, `Auth`, `RateLimit`, `InvalidRequest`, `ProviderError`, `Timeout`, `Cancelled`, `Transport`, `Decode`.
+
+Gemini and Vertex `text`, `thinking`, and `tool_call` blocks may carry an opaque `signature`. Preserve the original assistant blocks and their order when replaying a tool turn. `tool_result.toolCallId` refers to the normalized call ID. For upstream calls without wire IDs, the Google adapters create turn-local IDs for correlation and omit them from replayed provider parts. Rust callers constructing `ContentBlock::Text` or `ContentBlock::ToolCall` directly supply `signature: None` for unsigned parts.

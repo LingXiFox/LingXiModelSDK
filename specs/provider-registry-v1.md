@@ -14,7 +14,7 @@ Each provider entry contains:
 - `id` & `name`
 - `officialEndpoints`: map of `protocol -> baseURL`
 - `protocols`: supported protocol IDs (`openai_chat_completions`, `openai_responses`, `anthropic_messages`, `google_gemini`, etc.)
-- `auth`: `{ "type": "bearer" | "x-api-key" | "x-goog-api-key" | "query_param" | "custom_header" | "none", "headerName"?, "prefix"?, "queryParam"?, "env": [...] }`
+- `auth`: `{ "type": "bearer" | "x-api-key" | "x-goog-api-key" | "query_param" | "custom_header" | "api-key" | "aws_sigv4" | "none" | "unknown", "headerName"?, "prefix"?, "queryParam"?, "env": [...] }`
 - `defaultHeaders` & `extraParams`
 - `thinking`: `{ "mode": "none" | "effort" | "budget_tokens" | "gemini_thinking_config", "effortLevels"?, "minBudgetTokens"?, "maxBudgetTokens"? }`
 - `modelOverrides`: per-model overrides for `endpoint`, `protocols`, `defaultHeaders`, `extraParams`, `thinking`
@@ -26,3 +26,5 @@ Each provider entry contains:
 
 - Remote registry updates MUST NOT silently redirect caller credentials to arbitrary domains.
 - Endpoint overrides must be explicitly supplied by the caller; non-HTTPS endpoints are rejected unless loopback (`127.0.0.1`, `localhost`, `[::1]`) or explicitly opted-in for testing.
+
+Discovered providers record environment variable names as metadata with `auth.type = "unknown"`. Azure and Vertex require an explicit deployment or project endpoint. See [live verification](../docs/live-verification.md) for their base URL formats.

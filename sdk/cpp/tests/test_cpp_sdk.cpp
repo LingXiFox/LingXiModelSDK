@@ -26,6 +26,10 @@ int main() {
     auto resolved = lingxi::registry::resolve_endpoint(reg_json, "amazon-bedrock", "aws_bedrock");
     assert(resolved.find("bedrock-runtime") != std::string::npos);
 
+    // Invalid input returns an error through the same ABI used for network requests.
+    auto invalid = lingxi::native::request(R"({"protocol":"unknown","baseUrl":"https://example.invalid","payload":{}})");
+    assert(invalid.find("unknown protocol") != std::string::npos);
+
     // 3. Native endpoint builder (9 protocols)
     assert(lingxi::native::build_endpoint_path("cohere", "command-a") == "/v2/chat");
     assert(lingxi::native::build_endpoint_path("ollama", "llama3.3") == "/api/chat");

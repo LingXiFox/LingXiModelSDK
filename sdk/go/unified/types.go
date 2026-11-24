@@ -139,9 +139,12 @@ func (r *Response) ThinkingText() string {
 
 // StreamEvent represents a normalized streaming delta or lifecycle event.
 type StreamEvent struct {
-	Type         string
-	ID           string
-	Delta        string
-	FinishReason string
-	Usage        *Usage
+	Type           string
+	ID             string
+	Delta          string
+	FinishReason   string
+	Usage          *Usage
+	Index          *int   `json:",omitempty"`
+	Name           string `json:",omitempty"`
+	ArgumentsDelta string `json:",omitempty"`
 }

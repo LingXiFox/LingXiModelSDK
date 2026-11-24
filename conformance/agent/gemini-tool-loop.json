@@ -1,0 +1,29 @@
+{
+  "request": {
+    "model": "gemini-3-flash-preview",
+    "messages": [
+      {"role":"system","content":[{"type":"text","text":"Compare both readings."}]},
+      {"role":"user","content":[{"type":"text","text":"Compare these cities."},{"type":"image_base64","mediaType":"image/png","data":"AQID"}]}
+    ],
+    "tools": [{"name":"weather","description":"Read temperature","parameters":{"type":"object","properties":{"city":{"type":"string"}}}}],
+    "thinking": {"effort":"low"},
+    "providerExtensions": {"cachedContent":"cachedContents/mock-1"}
+  },
+  "firstResponse": {
+    "candidates": [{"finishReason":"STOP","content":{"role":"model","parts":[
+      {"thought":true,"text":"I need two readings.","thoughtSignature":"opaque-thought"},
+      {"functionCall":{"id":"call-east","name":"weather","args":{"city":"東京"}},"thoughtSignature":"opaque-call"},
+      {"functionCall":{"name":"weather","args":{"city":"Osaka"}}},
+      {"text":"Checking both.","thoughtSignature":"opaque-text"}
+    ]}}],
+    "usageMetadata":{"promptTokenCount":25,"candidatesTokenCount":10,"totalTokenCount":40,"thoughtsTokenCount":5,"cachedContentTokenCount":0}
+  },
+  "expectedToolResponses": [
+    {"functionResponse":{"id":"call-east","name":"weather","response":{"content":"18 C"}}},
+    {"functionResponse":{"name":"weather","response":{"content":"21 C"}}}
+  ],
+  "finalResponse": {
+    "candidates":[{"finishReason":"STOP","content":{"role":"model","parts":[{"text":"Osaka is 3 C warmer."}]}}],
+    "usageMetadata":{"promptTokenCount":44,"candidatesTokenCount":9,"totalTokenCount":53,"cachedContentTokenCount":25}
+  }
+}

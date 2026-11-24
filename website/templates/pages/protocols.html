@@ -16,7 +16,7 @@
             <tr>
               <th>协议标识</th>
               <th>批次</th>
-              <th>已验证能力（Chat / Stream / Tools / Thinking / Embed / Rerank）</th>
+              <th>核心模拟用例（各 SDK 能力以覆盖矩阵为准）</th>
               <th>当前验证级别</th>
             </tr>
           </thead>
@@ -24,16 +24,16 @@
             <tr><td><code>openai_chat_completions</code></td><td>首批</td><td>Chat / SSE / Tool Calls / Reasoning Effort / JSON Schema / Embeddings</td><td><span class="status-badge status-live">Mock Tested</span></td></tr>
             <tr><td><code>openai_responses</code></td><td>首批</td><td>Responses API / SSE 事件流 / Reasoning Summary / Tool Calls（<code>budget_tokens</code> 显式报错）</td><td><span class="status-badge status-live">Mock Tested</span></td></tr>
             <tr><td><code>anthropic_messages</code></td><td>首批</td><td>Messages SSE / Thinking Blocks &amp; Signature / Prompt Cache / Tools（<code>json_schema</code> 显式报错）</td><td><span class="status-badge status-live">Mock Tested</span></td></tr>
-            <tr><td><code>google_gemini</code></td><td>首批</td><td>GenerateContent / SSE / 多模态 / Thought Signature / EmbedContent</td><td><span class="status-badge status-live">Mock Tested</span></td></tr>
-            <tr><td><code>aws_bedrock</code></td><td>Phase 7</td><td>SigV4 签名 / Converse &amp; NDJSON Stream / Reasoning Signature / ToolUse</td><td><span class="status-badge status-live">Mock Tested</span></td></tr>
-            <tr><td><code>google_vertex_ai</code></td><td>Phase 7</td><td>Vertex GenerateContent / SSE / Thought Signature / EmbedContent</td><td><span class="status-badge status-live">Mock Tested</span></td></tr>
+            <tr><td><code>google_gemini</code></td><td>首批</td><td>GenerateContent / SSE / 并行工具回传 / Thought Signature / 批量 Embedding</td><td><span class="status-badge status-live">Mock Tested</span></td></tr>
+            <tr><td><code>aws_bedrock</code></td><td>Phase 7</td><td>SigV4 签名 / Converse &amp; Amazon Event Stream / Reasoning Signature / ToolUse</td><td><span class="status-badge status-live">Mock Tested</span></td></tr>
+            <tr><td><code>google_vertex_ai</code></td><td>Phase 7</td><td>Vertex GenerateContent / SSE / Thought Signature</td><td><span class="status-badge status-live">Mock Tested</span></td></tr>
             <tr><td><code>azure_openai</code></td><td>Phase 7</td><td>Deployment 路由 / <code>api-key</code> &amp; <code>api-version</code> / Chat / SSE / Embeddings</td><td><span class="status-badge status-live">Mock Tested</span></td></tr>
             <tr><td><code>ollama</code></td><td>Phase 7</td><td>本地 <code>/api/chat</code> / NDJSON 流 / Thinking / <code>/api/embed</code>（严格 <code>json_schema</code> 显式报错）</td><td><span class="status-badge status-live">Mock Tested</span></td></tr>
             <tr><td><code>cohere</code></td><td>Phase 7</td><td>Cohere v2 <code>/v2/chat</code> / SSE / Thinking / <code>/v2/embed</code> / <code>/v2/rerank</code></td><td><span class="status-badge status-live">Mock Tested</span></td></tr>
           </tbody>
         </table>
       </div>
-      <p class="muted">注：真实上游 API 验证（Live Verified）需通过本地环境变量提供凭据运行 <code>scripts/live-verify.sh</code>；未提供凭据的协议保持 <code>Mock Tested</code>。</p>
+      <p class="muted">注：真实上游 API 验证（Live Verified）需通过本地环境变量提供凭据运行 <code>scripts/live-verify.sh</code>；当前记录为 0 项真实验证。</p>
     </section>
   </main>
 </div>

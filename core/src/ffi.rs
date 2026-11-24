@@ -148,3 +148,91 @@ pub extern "C" fn lingxi_string_free(ptr: *mut c_char) {
         }
     }
 }
+
+#[derive(serde::Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct RuntimeRequest {
+    protocol: String,
+    base_url: String,
+    api_key: Option<String>,
+    model: Option<String>,
+    payload: Value,
+    #[serde(default)]
+    headers: std::collections::HashMap<String, String>,
+    timeout_ms: Option<u64>,
+    #[serde(default)]
+    unified: bool,
+    #[serde(default)]
+    stream: bool,
+}
+
+/// Makes a blocking network call. Call from a native thread outside an async runtime.
+#[no_mangle]
+pub extern "C" fn lingxi_runtime_request(request_json_utf8: *const c_char) -> *mut c_char {
+    let err = |message: &str| to_c_json(json!({"ok": false, "error": message}));
+    let Some(raw) = c_str_to_string(request_json_utf8) else {
+        return err("null or invalid runtime request");
+    };
+    let Ok(request) = serde_json::from_str::<RuntimeRequest>(&raw) else {
+        return err("invalid runtime request JSON");
+    };
+    let Some(protocol) = NativeProtocol::parse_str(&request.protocol) else {
+        return err("unknown protocol");
+    };
+    if tokio::runtime::Handle::try_current().is_ok() {
+        return err("blocking C ABI must run outside an async runtime");
+    }
+
+    static RUNTIME: std::sync::OnceLock<std::io::Result<tokio::runtime::Runtime>> = std::sync::OnceLock::new();
+    static NATIVE: std::sync::OnceLock<crate::NativeClient> = std::sync::OnceLock::new();
+    static UNIFIED: std::sync::OnceLock<crate::lmp::UnifiedClient> = std::sync::OnceLock::new();
+    let Ok(runtime) = RUNTIME.get_or_init(|| tokio::runtime::Builder::new_multi_thread()
+        .worker_threads(2).enable_all().build()) else {
+        return err("could not start Rust HTTP runtime");
+    };
+
+    let response = runtime.block_on(async {
+        if request.unified {
+            if !request.headers.is_empty() {
+                return json!({"ok": false, "error": "unified request does not accept custom HTTP headers"});
+            }
+            let Ok(mut payload) = serde_json::from_value::<LmpRequest>(request.payload) else {
+                return json!({"ok": false, "error": "invalid unified request payload"});
+            };
+            payload.timeout_ms = request.timeout_ms.or(payload.timeout_ms);
+            let client = UNIFIED.get_or_init(crate::lmp::UnifiedClient::new);
+            if request.stream {
+                return match client.stream(protocol, &request.base_url, request.api_key, &payload).await {
+                    Ok(events) => json!({"ok": true, "events": events}),
+                    Err(e) => json!({"ok": false, "error": e.to_string()}),
+                };
+            }
+            return match client.complete(protocol, &request.base_url, request.api_key, &payload).await {
+                Ok(response) => json!({"ok": true, "response": response}),
+                Err(e) => json!({"ok": false, "error": e.to_string()}),
+            };
+        }
+        let mut config = crate::NativeRequestConfig::new(request.base_url, request.api_key);
+        config.headers = request.headers;
+        if let Some(timeout) = request.timeout_ms {
+            config.timeout = std::time::Duration::from_millis(timeout);
+        }
+        let client = NATIVE.get_or_init(crate::NativeClient::new);
+        if request.stream {
+            return match client.request_stream(protocol, &config, request.model.as_deref(), &request.payload).await {
+                Ok(events) => json!({"ok": true, "events": events.into_iter().map(|event| json!({
+                    "event": event.event, "data": event.data, "id": event.id
+                })).collect::<Vec<_>>() }),
+                Err(e) => json!({"ok": false, "error": e.to_string()}),
+            };
+        }
+        match client.request_json(protocol, &config, request.model.as_deref(), &request.payload).await {
+            Ok(response) => json!({"ok": true, "status": response.status, "headers": response.headers, "body": response.body, "rawBody": String::from_utf8_lossy(&response.raw_bytes)}),
+            Err(crate::NativeError::HttpStatus { status, headers, body }) => json!({
+                "ok": false, "status": status, "headers": headers, "body": String::from_utf8_lossy(&body)
+            }),
+            Err(e) => json!({"ok": false, "error": e.to_string()}),
+        }
+    });
+    to_c_json(response)
+}

@@ -1,4 +1,5 @@
 pub mod errors;
+mod eventstream;
 pub mod ffi;
 pub mod lmp;
 pub mod native;

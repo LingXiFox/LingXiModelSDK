@@ -1,19 +1,27 @@
 {
   "id": "google-vertex",
   "name": "Google Vertex AI",
-  "protocols": ["google_vertex_ai"],
-  "officialEndpoints": {
-    "google_vertex_ai": "https://us-central1-aiplatform.googleapis.com"
-  },
+  "protocols": [
+    "google_vertex_ai"
+  ],
+  "officialEndpoints": {},
   "auth": {
     "type": "bearer",
-    "env": ["GOOGLE_VERTEX_ACCESS_TOKEN", "GOOGLE_CLOUD_PROJECT", "GOOGLE_CLOUD_LOCATION"]
+    "env": [
+      "GOOGLE_VERTEX_ACCESS_TOKEN",
+      "GOOGLE_CLOUD_PROJECT",
+      "GOOGLE_CLOUD_LOCATION"
+    ]
   },
   "defaultHeaders": {},
   "extraParams": {},
   "thinking": {
     "mode": "effort",
-    "levels": ["low", "medium", "high"]
+    "levels": [
+      "low",
+      "medium",
+      "high"
+    ]
   },
   "modelOverrides": {},
   "verificationStatus": "mock_tested",
@@ -23,7 +31,7 @@
       "level": "mock_tested",
       "suite": "conformance/native",
       "verifiedAt": "2026-11-24",
-      "notes": "Verified Vertex AI generateContent, SSE streaming, embedContent, and thoughtSignature retention against mock HTTP server."
+      "notes": "Status covers generateContent and SSE fixtures. Supply a project- and location-scoped base URL for Vertex."
     }
   ]
 }

@@ -12,3 +12,4 @@ sdk/cpp/build/
 gateway/lingxi-gateway
 __pycache__/
 *.pyc
+sdk/typescript/dist/

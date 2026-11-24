@@ -16,7 +16,7 @@
       "protocols": [],
       "officialEndpoints": {},
       "auth": {
-        "type": "bearer",
+        "type": "unknown",
         "env": [
           "302AI_API_KEY"
         ]
@@ -41,7 +41,7 @@
       "protocols": [],
       "officialEndpoints": {},
       "auth": {
-        "type": "bearer",
+        "type": "unknown",
         "env": [
           "ABACUS_API_KEY"
         ]
@@ -66,7 +66,7 @@
       "protocols": [],
       "officialEndpoints": {},
       "auth": {
-        "type": "bearer",
+        "type": "unknown",
         "env": [
           "ABLITERATEDLLM_API_KEY"
         ]
@@ -91,7 +91,7 @@
       "protocols": [],
       "officialEndpoints": {},
       "auth": {
-        "type": "bearer",
+        "type": "unknown",
         "env": [
           "ABLIT_KEY"
         ]
@@ -116,7 +116,7 @@
       "protocols": [],
       "officialEndpoints": {},
       "auth": {
-        "type": "bearer",
+        "type": "unknown",
         "env": [
           "ABOVE_API_KEY"
         ]
@@ -141,7 +141,7 @@
       "protocols": [],
       "officialEndpoints": {},
       "auth": {
-        "type": "bearer",
+        "type": "unknown",
         "env": [
           "ADAPTION_API_KEY"
         ]
@@ -166,7 +166,7 @@
       "protocols": [],
       "officialEndpoints": {},
       "auth": {
-        "type": "bearer",
+        "type": "unknown",
         "env": [
           "ADZUKI_API_KEY"
         ]
@@ -191,7 +191,7 @@
       "protocols": [],
       "officialEndpoints": {},
       "auth": {
-        "type": "bearer",
+        "type": "unknown",
         "env": [
           "AGENTROUTER_API_KEY"
         ]
@@ -216,7 +216,7 @@
       "protocols": [],
       "officialEndpoints": {},
       "auth": {
-        "type": "bearer",
+        "type": "unknown",
         "env": [
           "AGNES_API_KEY"
         ]
@@ -241,7 +241,7 @@
       "protocols": [],
       "officialEndpoints": {},
       "auth": {
-        "type": "bearer",
+        "type": "unknown",
         "env": [
           "AI_ROUTER_API_KEY"
         ]
@@ -266,7 +266,7 @@
       "protocols": [],
       "officialEndpoints": {},
       "auth": {
-        "type": "bearer",
+        "type": "unknown",
         "env": [
           "AI21_API_KEY"
         ]
@@ -291,7 +291,7 @@
       "protocols": [],
       "officialEndpoints": {},
       "auth": {
-        "type": "bearer",
+        "type": "unknown",
         "env": [
           "AIAND_API_KEY"
         ]
@@ -316,7 +316,7 @@
       "protocols": [],
       "officialEndpoints": {},
       "auth": {
-        "type": "bearer",
+        "type": "unknown",
         "env": [
           "AIGROW_API_KEY"
         ]
@@ -341,7 +341,7 @@
       "protocols": [],
       "officialEndpoints": {},
       "auth": {
-        "type": "bearer",
+        "type": "unknown",
         "env": [
           "AIHUBMIX_API_KEY"
         ]
@@ -365,7 +365,7 @@
       "protocols": [],
       "officialEndpoints": {},
       "auth": {
-        "type": "bearer",
+        "type": "unknown",
         "env": [
           "AIMLAPI_API_KEY"
         ]
@@ -390,7 +390,7 @@
       "protocols": [],
       "officialEndpoints": {},
       "auth": {
-        "type": "bearer",
+        "type": "unknown",
         "env": [
           "AINETCAFE_API_KEY"
         ]
@@ -415,7 +415,7 @@
       "protocols": [],
       "officialEndpoints": {},
       "auth": {
-        "type": "bearer",
+        "type": "unknown",
         "env": [
           "AIPG_API_KEY"
         ]
@@ -440,7 +440,7 @@
       "protocols": [],
       "officialEndpoints": {},
       "auth": {
-        "type": "bearer",
+        "type": "unknown",
         "env": [
           "AISTUPIDLEVEL_API_KEY"
         ]
@@ -465,7 +465,7 @@
       "protocols": [],
       "officialEndpoints": {},
       "auth": {
-        "type": "bearer",
+        "type": "unknown",
         "env": [
           "AIXY_API_KEY"
         ]
@@ -490,7 +490,7 @@
       "protocols": [],
       "officialEndpoints": {},
       "auth": {
-        "type": "bearer",
+        "type": "unknown",
         "env": [
           "AKI_IO_API_KEY"
         ]
@@ -515,7 +515,7 @@
       "protocols": [],
       "officialEndpoints": {},
       "auth": {
-        "type": "bearer",
+        "type": "unknown",
         "env": [
           "DASHSCOPE_API_KEY"
         ]
@@ -540,7 +540,7 @@
       "protocols": [],
       "officialEndpoints": {},
       "auth": {
-        "type": "bearer",
+        "type": "unknown",
         "env": [
           "DASHSCOPE_API_KEY"
         ]
@@ -565,7 +565,7 @@
       "protocols": [],
       "officialEndpoints": {},
       "auth": {
-        "type": "bearer",
+        "type": "unknown",
         "env": [
           "ALIBABA_CODING_PLAN_API_KEY"
         ]
@@ -590,7 +590,7 @@
       "protocols": [],
       "officialEndpoints": {},
       "auth": {
-        "type": "bearer",
+        "type": "unknown",
         "env": [
           "ALIBABA_CODING_PLAN_API_KEY"
         ]
@@ -615,7 +615,7 @@
       "protocols": [],
       "officialEndpoints": {},
       "auth": {
-        "type": "bearer",
+        "type": "unknown",
         "env": [
           "ALIBABA_TOKEN_PLAN_API_KEY"
         ]
@@ -640,7 +640,7 @@
       "protocols": [],
       "officialEndpoints": {},
       "auth": {
-        "type": "bearer",
+        "type": "unknown",
         "env": [
           "ALIBABA_TOKEN_PLAN_API_KEY"
         ]
@@ -690,9 +690,9 @@
         {
           "protocol": "aws_bedrock",
           "level": "mock_tested",
-          "suite": "conformance/native",
+          "suite": "core/tests/agent_scenarios.rs",
           "verifiedAt": "2026-11-24",
-          "notes": "Verified SigV4 signing, Bedrock Converse request/response, NDJSON stream, and toolUse mapping against mock HTTP server."
+          "notes": "Converse JSON and ConverseStream binary event frames exercised with mocked HTTP and SigV4 authentication headers."
         }
       ],
       "discoveryHints": {
@@ -706,7 +706,7 @@
       "protocols": [],
       "officialEndpoints": {},
       "auth": {
-        "type": "bearer",
+        "type": "unknown",
         "env": [
           "AMBIENT_API_KEY"
         ]
@@ -731,7 +731,7 @@
       "protocols": [],
       "officialEndpoints": {},
       "auth": {
-        "type": "bearer",
+        "type": "unknown",
         "env": [
           "AMD_API_KEY"
         ]
@@ -756,7 +756,7 @@
       "protocols": [],
       "officialEndpoints": {},
       "auth": {
-        "type": "bearer",
+        "type": "unknown",
         "env": [
           "ANONROUTER_API_KEY"
         ]
@@ -822,7 +822,7 @@
       "protocols": [],
       "officialEndpoints": {},
       "auth": {
-        "type": "bearer",
+        "type": "unknown",
         "env": [
           "ANYAPI_API_KEY"
         ]
@@ -847,7 +847,7 @@
       "protocols": [],
       "officialEndpoints": {},
       "auth": {
-        "type": "bearer",
+        "type": "unknown",
         "env": [
           "APIKO_API_KEY"
         ]
@@ -872,7 +872,7 @@
       "protocols": [],
       "officialEndpoints": {},
       "auth": {
-        "type": "bearer",
+        "type": "unknown",
         "env": [
           "ARCEE_API_KEY"
         ]
@@ -897,7 +897,7 @@
       "protocols": [],
       "officialEndpoints": {},
       "auth": {
-        "type": "bearer",
+        "type": "unknown",
         "env": [
           "ATOMIC_CHAT_API_KEY"
         ]
@@ -922,7 +922,7 @@
       "protocols": [],
       "officialEndpoints": {},
       "auth": {
-        "type": "bearer",
+        "type": "unknown",
         "env": [
           "AUGURE_API_KEY"
         ]
@@ -947,7 +947,7 @@
       "protocols": [],
       "officialEndpoints": {},
       "auth": {
-        "type": "bearer",
+        "type": "unknown",
         "env": [
           "AURIKO_API_KEY"
         ]
@@ -972,7 +972,7 @@
       "protocols": [],
       "officialEndpoints": {},
       "auth": {
-        "type": "bearer",
+        "type": "unknown",
         "env": [
           "AUTARCHO_API_KEY"
         ]
@@ -997,9 +997,7 @@
       "protocols": [
         "azure_openai"
       ],
-      "officialEndpoints": {
-        "azure_openai": "https://YOUR_RESOURCE.openai.azure.com"
-      },
+      "officialEndpoints": {},
       "auth": {
         "type": "api-key",
         "headerName": "api-key",
@@ -1009,10 +1007,10 @@
           "AZURE_OPENAI_API_VERSION"
         ]
       },
-      "defaultHeaders": {},
-      "extraParams": {
-        "apiVersion": "2024-10-21"
+      "defaultHeaders": {
+        "x-azure-api-version": "2024-10-21"
       },
+      "extraParams": {},
       "thinking": {
         "mode": "effort",
         "levels": [
@@ -1029,7 +1027,7 @@
           "level": "mock_tested",
           "suite": "conformance/native",
           "verifiedAt": "2026-11-24",
-          "notes": "Verified Azure deployment path, api-key header, api-version query param, chat/stream/embeddings against mock HTTP server."
+          "notes": "Deployment-scoped chat calls tested using an explicit Azure resource base URL."
         }
       ],
       "discoveryHints": {
@@ -1043,7 +1041,7 @@
       "protocols": [],
       "officialEndpoints": {},
       "auth": {
-        "type": "bearer",
+        "type": "unknown",
         "env": [
           "AZURE_COGNITIVE_SERVICES_RESOURCE_NAME",
           "AZURE_COGNITIVE_SERVICES_API_KEY"
@@ -1068,7 +1066,7 @@
       "protocols": [],
       "officialEndpoints": {},
       "auth": {
-        "type": "bearer",
+        "type": "unknown",
         "env": [
           "BAILING_API_TOKEN"
         ]
@@ -1093,7 +1091,7 @@
       "protocols": [],
       "officialEndpoints": {},
       "auth": {
-        "type": "bearer",
+        "type": "unknown",
         "env": [
           "BASETEN_API_KEY"
         ]
@@ -1118,7 +1116,7 @@
       "protocols": [],
       "officialEndpoints": {},
       "auth": {
-        "type": "bearer",
+        "type": "unknown",
         "env": [
           "BEE_API_KEY"
         ]
@@ -1143,7 +1141,7 @@
       "protocols": [],
       "officialEndpoints": {},
       "auth": {
-        "type": "bearer",
+        "type": "unknown",
         "env": [
           "BERGET_API_KEY"
         ]
@@ -1168,7 +1166,7 @@
       "protocols": [],
       "officialEndpoints": {},
       "auth": {
-        "type": "bearer",
+        "type": "unknown",
         "env": [
           "BLUECLAW_API_KEY"
         ]
@@ -1193,7 +1191,7 @@
       "protocols": [],
       "officialEndpoints": {},
       "auth": {
-        "type": "bearer",
+        "type": "unknown",
         "env": [
           "BOTHUB_API_KEY"
         ]
@@ -1218,7 +1216,7 @@
       "protocols": [],
       "officialEndpoints": {},
       "auth": {
-        "type": "bearer",
+        "type": "unknown",
         "env": [
           "BOUNDLESS_API_KEY"
         ]
@@ -1243,7 +1241,7 @@
       "protocols": [],
       "officialEndpoints": {},
       "auth": {
-        "type": "bearer",
+        "type": "unknown",
         "env": [
           "BUMO_API_KEY"
         ]
@@ -1268,7 +1266,7 @@
       "protocols": [],
       "officialEndpoints": {},
       "auth": {
-        "type": "bearer",
+        "type": "unknown",
         "env": [
           "BYTEPLUS_API_KEY"
         ]
@@ -1293,7 +1291,7 @@
       "protocols": [],
       "officialEndpoints": {},
       "auth": {
-        "type": "bearer",
+        "type": "unknown",
         "env": [
           "CEDARLLM_API_KEY"
         ]
@@ -1318,7 +1316,7 @@
       "protocols": [],
       "officialEndpoints": {},
       "auth": {
-        "type": "bearer",
+        "type": "unknown",
         "env": [
           "CEREBRAS_API_KEY"
         ]
@@ -1342,7 +1340,7 @@
       "protocols": [],
       "officialEndpoints": {},
       "auth": {
-        "type": "bearer",
+        "type": "unknown",
         "env": [
           "CHEAPAIMODEL_API_KEY"
         ]
@@ -1367,7 +1365,7 @@
       "protocols": [],
       "officialEndpoints": {},
       "auth": {
-        "type": "bearer",
+        "type": "unknown",
         "env": [
           "CHEAPEST_TOKEN_API_KEY"
         ]
@@ -1392,7 +1390,7 @@
       "protocols": [],
       "officialEndpoints": {},
       "auth": {
-        "type": "bearer",
+        "type": "unknown",
         "env": [
           "CHEAPLLM_API_KEY"
         ]
@@ -1417,7 +1415,7 @@
       "protocols": [],
       "officialEndpoints": {},
       "auth": {
-        "type": "bearer",
+        "type": "unknown",
         "env": [
           "CHUTES_API_KEY"
         ]
@@ -1442,7 +1440,7 @@
       "protocols": [],
       "officialEndpoints": {},
       "auth": {
-        "type": "bearer",
+        "type": "unknown",
         "env": [
           "CLARIFAI_PAT"
         ]
@@ -1467,7 +1465,7 @@
       "protocols": [],
       "officialEndpoints": {},
       "auth": {
-        "type": "bearer",
+        "type": "unknown",
         "env": [
           "CLAUDINIO_API_KEY"
         ]
@@ -1492,7 +1490,7 @@
       "protocols": [],
       "officialEndpoints": {},
       "auth": {
-        "type": "bearer",
+        "type": "unknown",
         "env": [
           "CLINE_API_KEY"
         ]
@@ -1517,7 +1515,7 @@
       "protocols": [],
       "officialEndpoints": {},
       "auth": {
-        "type": "bearer",
+        "type": "unknown",
         "env": [
           "CLOUDCODE_API_KEY"
         ]
@@ -1542,7 +1540,7 @@
       "protocols": [],
       "officialEndpoints": {},
       "auth": {
-        "type": "bearer",
+        "type": "unknown",
         "env": [
           "CLOUDFERRO_SHERLOCK_API_KEY"
         ]
@@ -1567,7 +1565,7 @@
       "protocols": [],
       "officialEndpoints": {},
       "auth": {
-        "type": "bearer",
+        "type": "unknown",
         "env": [
           "CLOUDFLARE_API_TOKEN",
           "CLOUDFLARE_ACCOUNT_ID",
@@ -1593,7 +1591,7 @@
       "protocols": [],
       "officialEndpoints": {},
       "auth": {
-        "type": "bearer",
+        "type": "unknown",
         "env": [
           "CLOUDFLARE_ACCOUNT_ID",
           "CLOUDFLARE_API_KEY"
@@ -1655,7 +1653,7 @@
       "protocols": [],
       "officialEndpoints": {},
       "auth": {
-        "type": "bearer",
+        "type": "unknown",
         "env": [
           "CMD_API_KEY"
         ]
@@ -1680,7 +1678,7 @@
       "protocols": [],
       "officialEndpoints": {},
       "auth": {
-        "type": "bearer",
+        "type": "unknown",
         "env": [
           "CONCENTRATE_API_KEY"
         ]
@@ -1705,7 +1703,7 @@
       "protocols": [],
       "officialEndpoints": {},
       "auth": {
-        "type": "bearer",
+        "type": "unknown",
         "env": [
           "CONFIDENTIAL_API_KEY"
         ]
@@ -1730,7 +1728,7 @@
       "protocols": [],
       "officialEndpoints": {},
       "auth": {
-        "type": "bearer",
+        "type": "unknown",
         "env": [
           "CORAL_API_KEY"
         ]
@@ -1755,7 +1753,7 @@
       "protocols": [],
       "officialEndpoints": {},
       "auth": {
-        "type": "bearer",
+        "type": "unknown",
         "env": [
           "CORTECS_API_KEY"
         ]
@@ -1780,7 +1778,7 @@
       "protocols": [],
       "officialEndpoints": {},
       "auth": {
-        "type": "bearer",
+        "type": "unknown",
         "env": [
           "CROSSMODEL_API_KEY"
         ]
@@ -1805,7 +1803,7 @@
       "protocols": [],
       "officialEndpoints": {},
       "auth": {
-        "type": "bearer",
+        "type": "unknown",
         "env": [
           "CRUSOE_API_KEY"
         ]
@@ -1830,7 +1828,7 @@
       "protocols": [],
       "officialEndpoints": {},
       "auth": {
-        "type": "bearer",
+        "type": "unknown",
         "env": [
           "DAOXE_API_KEY"
         ]
@@ -1855,7 +1853,7 @@
       "protocols": [],
       "officialEndpoints": {},
       "auth": {
-        "type": "bearer",
+        "type": "unknown",
         "env": [
           "DATABRICKS_HOST",
           "DATABRICKS_TOKEN"
@@ -1881,7 +1879,7 @@
       "protocols": [],
       "officialEndpoints": {},
       "auth": {
-        "type": "bearer",
+        "type": "unknown",
         "env": [
           "DEEPINFRA_API_KEY"
         ]
@@ -1951,7 +1949,7 @@
       "protocols": [],
       "officialEndpoints": {},
       "auth": {
-        "type": "bearer",
+        "type": "unknown",
         "env": [
           "DIGITALOCEAN_ACCESS_TOKEN"
         ]
@@ -1976,7 +1974,7 @@
       "protocols": [],
       "officialEndpoints": {},
       "auth": {
-        "type": "bearer",
+        "type": "unknown",
         "env": [
           "DINFERENCE_API_KEY"
         ]
@@ -2001,7 +1999,7 @@
       "protocols": [],
       "officialEndpoints": {},
       "auth": {
-        "type": "bearer",
+        "type": "unknown",
         "env": [
           "DOTHOOSH_API_KEY"
         ]
@@ -2026,7 +2024,7 @@
       "protocols": [],
       "officialEndpoints": {},
       "auth": {
-        "type": "bearer",
+        "type": "unknown",
         "env": [
           "DOUBLEWORD_API_KEY"
         ]
@@ -2051,7 +2049,7 @@
       "protocols": [],
       "officialEndpoints": {},
       "auth": {
-        "type": "bearer",
+        "type": "unknown",
         "env": [
           "DRUN_API_KEY"
         ]
@@ -2076,7 +2074,7 @@
       "protocols": [],
       "officialEndpoints": {},
       "auth": {
-        "type": "bearer",
+        "type": "unknown",
         "env": [
           "EBCLOUD_API_KEY"
         ]
@@ -2101,7 +2099,7 @@
       "protocols": [],
       "officialEndpoints": {},
       "auth": {
-        "type": "bearer",
+        "type": "unknown",
         "env": [
           "ECHO_API_KEY"
         ]
@@ -2126,7 +2124,7 @@
       "protocols": [],
       "officialEndpoints": {},
       "auth": {
-        "type": "bearer",
+        "type": "unknown",
         "env": [
           "EDENAI_API_KEY"
         ]
@@ -2151,7 +2149,7 @@
       "protocols": [],
       "officialEndpoints": {},
       "auth": {
-        "type": "bearer",
+        "type": "unknown",
         "env": [
           "EMPIRIOLABS_API_KEY"
         ]
@@ -2176,7 +2174,7 @@
       "protocols": [],
       "officialEndpoints": {},
       "auth": {
-        "type": "bearer",
+        "type": "unknown",
         "env": [
           "ENGY_API_KEY"
         ]
@@ -2201,7 +2199,7 @@
       "protocols": [],
       "officialEndpoints": {},
       "auth": {
-        "type": "bearer",
+        "type": "unknown",
         "env": [
           "ENTRIM_API_KEY"
         ]
@@ -2226,7 +2224,7 @@
       "protocols": [],
       "officialEndpoints": {},
       "auth": {
-        "type": "bearer",
+        "type": "unknown",
         "env": [
           "EVROC_API_KEY"
         ]
@@ -2251,7 +2249,7 @@
       "protocols": [],
       "officialEndpoints": {},
       "auth": {
-        "type": "bearer",
+        "type": "unknown",
         "env": [
           "EZKIELYNA_API_KEY"
         ]
@@ -2276,7 +2274,7 @@
       "protocols": [],
       "officialEndpoints": {},
       "auth": {
-        "type": "bearer",
+        "type": "unknown",
         "env": [
           "FASTROUTER_API_KEY"
         ]
@@ -2301,7 +2299,7 @@
       "protocols": [],
       "officialEndpoints": {},
       "auth": {
-        "type": "bearer",
+        "type": "unknown",
         "env": [
           "FIFTYX_API_KEY"
         ]
@@ -2355,7 +2353,7 @@
       "protocols": [],
       "officialEndpoints": {},
       "auth": {
-        "type": "bearer",
+        "type": "unknown",
         "env": [
           "FORTYTWO_API_KEY"
         ]
@@ -2380,7 +2378,7 @@
       "protocols": [],
       "officialEndpoints": {},
       "auth": {
-        "type": "bearer",
+        "type": "unknown",
         "env": [
           "FREEMODEL_API_KEY"
         ]
@@ -2405,7 +2403,7 @@
       "protocols": [],
       "officialEndpoints": {},
       "auth": {
-        "type": "bearer",
+        "type": "unknown",
         "env": [
           "FREQUENCY_API_KEY"
         ]
@@ -2430,7 +2428,7 @@
       "protocols": [],
       "officialEndpoints": {},
       "auth": {
-        "type": "bearer",
+        "type": "unknown",
         "env": [
           "FRIENDLI_TOKEN"
         ]
@@ -2455,7 +2453,7 @@
       "protocols": [],
       "officialEndpoints": {},
       "auth": {
-        "type": "bearer",
+        "type": "unknown",
         "env": [
           "FROGBOT_API_KEY"
         ]
@@ -2480,7 +2478,7 @@
       "protocols": [],
       "officialEndpoints": {},
       "auth": {
-        "type": "bearer",
+        "type": "unknown",
         "env": [
           "GISOO_API_KEY"
         ]
@@ -2505,7 +2503,7 @@
       "protocols": [],
       "officialEndpoints": {},
       "auth": {
-        "type": "bearer",
+        "type": "unknown",
         "env": [
           "GITHUB_TOKEN"
         ]
@@ -2530,7 +2528,7 @@
       "protocols": [],
       "officialEndpoints": {},
       "auth": {
-        "type": "bearer",
+        "type": "unknown",
         "env": [
           "GITLAB_TOKEN"
         ]
@@ -2554,7 +2552,7 @@
       "protocols": [],
       "officialEndpoints": {},
       "auth": {
-        "type": "bearer",
+        "type": "unknown",
         "env": [
           "GMICLOUD_API_KEY"
         ]
@@ -2623,9 +2621,7 @@
       "protocols": [
         "google_vertex_ai"
       ],
-      "officialEndpoints": {
-        "google_vertex_ai": "https://us-central1-aiplatform.googleapis.com"
-      },
+      "officialEndpoints": {},
       "auth": {
         "type": "bearer",
         "env": [
@@ -2652,7 +2648,7 @@
           "level": "mock_tested",
           "suite": "conformance/native",
           "verifiedAt": "2026-11-24",
-          "notes": "Verified Vertex AI generateContent, SSE streaming, embedContent, and thoughtSignature retention against mock HTTP server."
+          "notes": "Status covers generateContent and SSE fixtures. Supply a project- and location-scoped base URL for Vertex."
         }
       ],
       "discoveryHints": {
@@ -2666,7 +2662,7 @@
       "protocols": [],
       "officialEndpoints": {},
       "auth": {
-        "type": "bearer",
+        "type": "unknown",
         "env": [
           "GOOGLE_VERTEX_PROJECT",
           "GOOGLE_VERTEX_LOCATION",
@@ -2692,7 +2688,7 @@
       "protocols": [],
       "officialEndpoints": {},
       "auth": {
-        "type": "bearer",
+        "type": "unknown",
         "env": [
           "GRAPHN_API_KEY"
         ]
@@ -2717,7 +2713,7 @@
       "protocols": [],
       "officialEndpoints": {},
       "auth": {
-        "type": "bearer",
+        "type": "unknown",
         "env": [
           "GREENPT_API_KEY"
         ]
@@ -2770,7 +2766,7 @@
       "protocols": [],
       "officialEndpoints": {},
       "auth": {
-        "type": "bearer",
+        "type": "unknown",
         "env": [
           "HELICONE_API_KEY"
         ]
@@ -2795,7 +2791,7 @@
       "protocols": [],
       "officialEndpoints": {},
       "auth": {
-        "type": "bearer",
+        "type": "unknown",
         "env": [
           "HETZNER_API_KEY"
         ]
@@ -2820,7 +2816,7 @@
       "protocols": [],
       "officialEndpoints": {},
       "auth": {
-        "type": "bearer",
+        "type": "unknown",
         "env": [
           "HOPPER_API_KEY"
         ]
@@ -2845,7 +2841,7 @@
       "protocols": [],
       "officialEndpoints": {},
       "auth": {
-        "type": "bearer",
+        "type": "unknown",
         "env": [
           "HOSTINGER_ROUTER_API_KEY"
         ]
@@ -2870,7 +2866,7 @@
       "protocols": [],
       "officialEndpoints": {},
       "auth": {
-        "type": "bearer",
+        "type": "unknown",
         "env": [
           "HPC_AI_API_KEY"
         ]
@@ -2895,7 +2891,7 @@
       "protocols": [],
       "officialEndpoints": {},
       "auth": {
-        "type": "bearer",
+        "type": "unknown",
         "env": [
           "MAAS_API_KEY"
         ]
@@ -2920,7 +2916,7 @@
       "protocols": [],
       "officialEndpoints": {},
       "auth": {
-        "type": "bearer",
+        "type": "unknown",
         "env": [
           "HUBRIS_API_KEY"
         ]
@@ -2945,7 +2941,7 @@
       "protocols": [],
       "officialEndpoints": {},
       "auth": {
-        "type": "bearer",
+        "type": "unknown",
         "env": [
           "HF_TOKEN"
         ]
@@ -2970,7 +2966,7 @@
       "protocols": [],
       "officialEndpoints": {},
       "auth": {
-        "type": "bearer",
+        "type": "unknown",
         "env": [
           "HUMAIN_API_KEY"
         ]
@@ -2995,7 +2991,7 @@
       "protocols": [],
       "officialEndpoints": {},
       "auth": {
-        "type": "bearer",
+        "type": "unknown",
         "env": [
           "HYPER_API_KEY"
         ]
@@ -3020,7 +3016,7 @@
       "protocols": [],
       "officialEndpoints": {},
       "auth": {
-        "type": "bearer",
+        "type": "unknown",
         "env": [
           "IMPOSSIBL_API_KEY"
         ]
@@ -3045,7 +3041,7 @@
       "protocols": [],
       "officialEndpoints": {},
       "auth": {
-        "type": "bearer",
+        "type": "unknown",
         "env": [
           "INCEPTION_API_KEY"
         ]
@@ -3070,7 +3066,7 @@
       "protocols": [],
       "officialEndpoints": {},
       "auth": {
-        "type": "bearer",
+        "type": "unknown",
         "env": [
           "INCEPTRON_API_KEY"
         ]
@@ -3095,7 +3091,7 @@
       "protocols": [],
       "officialEndpoints": {},
       "auth": {
-        "type": "bearer",
+        "type": "unknown",
         "env": [
           "INCO_API_KEY"
         ]
@@ -3120,7 +3116,7 @@
       "protocols": [],
       "officialEndpoints": {},
       "auth": {
-        "type": "bearer",
+        "type": "unknown",
         "env": [
           "INFER_API_KEY"
         ]
@@ -3145,7 +3141,7 @@
       "protocols": [],
       "officialEndpoints": {},
       "auth": {
-        "type": "bearer",
+        "type": "unknown",
         "env": [
           "INFERALL_API_KEY"
         ]
@@ -3170,7 +3166,7 @@
       "protocols": [],
       "officialEndpoints": {},
       "auth": {
-        "type": "bearer",
+        "type": "unknown",
         "env": [
           "INFERENCE_API_KEY"
         ]
@@ -3195,7 +3191,7 @@
       "protocols": [],
       "officialEndpoints": {},
       "auth": {
-        "type": "bearer",
+        "type": "unknown",
         "env": [
           "INFERENCE_COOP_API_KEY"
         ]
@@ -3220,7 +3216,7 @@
       "protocols": [],
       "officialEndpoints": {},
       "auth": {
-        "type": "bearer",
+        "type": "unknown",
         "env": [
           "INFERENCEAPIS_API_KEY"
         ]
@@ -3245,7 +3241,7 @@
       "protocols": [],
       "officialEndpoints": {},
       "auth": {
-        "type": "bearer",
+        "type": "unknown",
         "env": [
           "INFERRIS_API_KEY"
         ]
@@ -3270,7 +3266,7 @@
       "protocols": [],
       "officialEndpoints": {},
       "auth": {
-        "type": "bearer",
+        "type": "unknown",
         "env": [
           "INFERSIA_API_KEY"
         ]
@@ -3295,7 +3291,7 @@
       "protocols": [],
       "officialEndpoints": {},
       "auth": {
-        "type": "bearer",
+        "type": "unknown",
         "env": [
           "INFERX_API_KEY"
         ]
@@ -3320,7 +3316,7 @@
       "protocols": [],
       "officialEndpoints": {},
       "auth": {
-        "type": "bearer",
+        "type": "unknown",
         "env": [
           "INFOMANIAK_API_KEY",
           "INFOMANIAK_PRODUCT_ID"
@@ -3346,7 +3342,7 @@
       "protocols": [],
       "officialEndpoints": {},
       "auth": {
-        "type": "bearer",
+        "type": "unknown",
         "env": [
           "IOINTELLIGENCE_API_KEY"
         ]
@@ -3371,7 +3367,7 @@
       "protocols": [],
       "officialEndpoints": {},
       "auth": {
-        "type": "bearer",
+        "type": "unknown",
         "env": [
           "ISOQUANT_API_KEY"
         ]
@@ -3396,7 +3392,7 @@
       "protocols": [],
       "officialEndpoints": {},
       "auth": {
-        "type": "bearer",
+        "type": "unknown",
         "env": [
           "ITERACOMPUTE_API_KEY"
         ]
@@ -3421,7 +3417,7 @@
       "protocols": [],
       "officialEndpoints": {},
       "auth": {
-        "type": "bearer",
+        "type": "unknown",
         "env": [
           "JAD_API_KEY"
         ]
@@ -3446,7 +3442,7 @@
       "protocols": [],
       "officialEndpoints": {},
       "auth": {
-        "type": "bearer",
+        "type": "unknown",
         "env": [
           "JALAPENO_API_KEY"
         ]
@@ -3471,7 +3467,7 @@
       "protocols": [],
       "officialEndpoints": {},
       "auth": {
-        "type": "bearer",
+        "type": "unknown",
         "env": [
           "JIEKOU_API_KEY"
         ]
@@ -3496,7 +3492,7 @@
       "protocols": [],
       "officialEndpoints": {},
       "auth": {
-        "type": "bearer",
+        "type": "unknown",
         "env": [
           "JOINGONKA_API_KEY"
         ]
@@ -3521,7 +3517,7 @@
       "protocols": [],
       "officialEndpoints": {},
       "auth": {
-        "type": "bearer",
+        "type": "unknown",
         "env": [
           "JZSTOKEN_API_KEY"
         ]
@@ -3546,7 +3542,7 @@
       "protocols": [],
       "officialEndpoints": {},
       "auth": {
-        "type": "bearer",
+        "type": "unknown",
         "env": [
           "KELN_API_KEY"
         ]
@@ -3571,7 +3567,7 @@
       "protocols": [],
       "officialEndpoints": {},
       "auth": {
-        "type": "bearer",
+        "type": "unknown",
         "env": [
           "KENARI_API_KEY"
         ]
@@ -3596,7 +3592,7 @@
       "protocols": [],
       "officialEndpoints": {},
       "auth": {
-        "type": "bearer",
+        "type": "unknown",
         "env": [
           "KILO_API_KEY"
         ]
@@ -3621,7 +3617,7 @@
       "protocols": [],
       "officialEndpoints": {},
       "auth": {
-        "type": "bearer",
+        "type": "unknown",
         "env": [
           "KIMI_API_KEY"
         ]
@@ -3646,7 +3642,7 @@
       "protocols": [],
       "officialEndpoints": {},
       "auth": {
-        "type": "bearer",
+        "type": "unknown",
         "env": [
           "KIMI_API_KEY"
         ]
@@ -3671,7 +3667,7 @@
       "protocols": [],
       "officialEndpoints": {},
       "auth": {
-        "type": "bearer",
+        "type": "unknown",
         "env": [
           "KITANI_API_KEY"
         ]
@@ -3696,7 +3692,7 @@
       "protocols": [],
       "officialEndpoints": {},
       "auth": {
-        "type": "bearer",
+        "type": "unknown",
         "env": [
           "KLAVO_API_KEY"
         ]
@@ -3721,7 +3717,7 @@
       "protocols": [],
       "officialEndpoints": {},
       "auth": {
-        "type": "bearer",
+        "type": "unknown",
         "env": [
           "KLOKINTEGRATION_API_KEY"
         ]
@@ -3746,7 +3742,7 @@
       "protocols": [],
       "officialEndpoints": {},
       "auth": {
-        "type": "bearer",
+        "type": "unknown",
         "env": [
           "KOROUTER_API_KEY"
         ]
@@ -3771,7 +3767,7 @@
       "protocols": [],
       "officialEndpoints": {},
       "auth": {
-        "type": "bearer",
+        "type": "unknown",
         "env": [
           "KOSMIK_API_KEY"
         ]
@@ -3796,7 +3792,7 @@
       "protocols": [],
       "officialEndpoints": {},
       "auth": {
-        "type": "bearer",
+        "type": "unknown",
         "env": [
           "KUAE_API_KEY"
         ]
@@ -3821,7 +3817,7 @@
       "protocols": [],
       "officialEndpoints": {},
       "auth": {
-        "type": "bearer",
+        "type": "unknown",
         "env": [
           "KUNAVO_API_KEY"
         ]
@@ -3846,7 +3842,7 @@
       "protocols": [],
       "officialEndpoints": {},
       "auth": {
-        "type": "bearer",
+        "type": "unknown",
         "env": [
           "LIQUID_API_KEY"
         ]
@@ -3871,7 +3867,7 @@
       "protocols": [],
       "officialEndpoints": {},
       "auth": {
-        "type": "bearer",
+        "type": "unknown",
         "env": [
           "LITHOSAI_API_KEY"
         ]
@@ -3896,7 +3892,7 @@
       "protocols": [],
       "officialEndpoints": {},
       "auth": {
-        "type": "bearer",
+        "type": "unknown",
         "env": [
           "LLMGATEWAY_API_KEY"
         ]
@@ -3921,7 +3917,7 @@
       "protocols": [],
       "officialEndpoints": {},
       "auth": {
-        "type": "bearer",
+        "type": "unknown",
         "env": [
           "LLMGATEWAY_API_KEY"
         ]
@@ -3946,7 +3942,7 @@
       "protocols": [],
       "officialEndpoints": {},
       "auth": {
-        "type": "bearer",
+        "type": "unknown",
         "env": [
           "LLMTECH_API_KEY"
         ]
@@ -3971,7 +3967,7 @@
       "protocols": [],
       "officialEndpoints": {},
       "auth": {
-        "type": "bearer",
+        "type": "unknown",
         "env": [
           "LLMTR_API_KEY"
         ]
@@ -3996,7 +3992,7 @@
       "protocols": [],
       "officialEndpoints": {},
       "auth": {
-        "type": "bearer",
+        "type": "unknown",
         "env": [
           "LMSTUDIO_API_KEY"
         ]
@@ -4021,7 +4017,7 @@
       "protocols": [],
       "officialEndpoints": {},
       "auth": {
-        "type": "bearer",
+        "type": "unknown",
         "env": [
           "LOGITS_API_KEY"
         ]
@@ -4046,7 +4042,7 @@
       "protocols": [],
       "officialEndpoints": {},
       "auth": {
-        "type": "bearer",
+        "type": "unknown",
         "env": [
           "LONGCAT_API_KEY"
         ]
@@ -4071,7 +4067,7 @@
       "protocols": [],
       "officialEndpoints": {},
       "auth": {
-        "type": "bearer",
+        "type": "unknown",
         "env": [
           "LOWROUTER_API_KEY"
         ]
@@ -4096,7 +4092,7 @@
       "protocols": [],
       "officialEndpoints": {},
       "auth": {
-        "type": "bearer",
+        "type": "unknown",
         "env": [
           "LUCIDQUERY_API_KEY"
         ]
@@ -4121,7 +4117,7 @@
       "protocols": [],
       "officialEndpoints": {},
       "auth": {
-        "type": "bearer",
+        "type": "unknown",
         "env": [
           "LYCEUM_API_KEY"
         ]
@@ -4146,7 +4142,7 @@
       "protocols": [],
       "officialEndpoints": {},
       "auth": {
-        "type": "bearer",
+        "type": "unknown",
         "env": [
           "LYNKR_API_KEY"
         ]
@@ -4171,7 +4167,7 @@
       "protocols": [],
       "officialEndpoints": {},
       "auth": {
-        "type": "bearer",
+        "type": "unknown",
         "env": [
           "MALLARD_API_KEY"
         ]
@@ -4196,7 +4192,7 @@
       "protocols": [],
       "officialEndpoints": {},
       "auth": {
-        "type": "bearer",
+        "type": "unknown",
         "env": [
           "MEGANOVA_API_KEY"
         ]
@@ -4221,7 +4217,7 @@
       "protocols": [],
       "officialEndpoints": {},
       "auth": {
-        "type": "bearer",
+        "type": "unknown",
         "env": [
           "MELIOUS_API_KEY"
         ]
@@ -4246,7 +4242,7 @@
       "protocols": [],
       "officialEndpoints": {},
       "auth": {
-        "type": "bearer",
+        "type": "unknown",
         "env": [
           "MERAGPT_API_KEY"
         ]
@@ -4271,7 +4267,7 @@
       "protocols": [],
       "officialEndpoints": {},
       "auth": {
-        "type": "bearer",
+        "type": "unknown",
         "env": [
           "MERGE_GATEWAY_API_KEY"
         ]
@@ -4296,7 +4292,7 @@
       "protocols": [],
       "officialEndpoints": {},
       "auth": {
-        "type": "bearer",
+        "type": "unknown",
         "env": [
           "META_MODEL_API_KEY"
         ]
@@ -4321,7 +4317,7 @@
       "protocols": [],
       "officialEndpoints": {},
       "auth": {
-        "type": "bearer",
+        "type": "unknown",
         "env": [
           "MINIMAX_API_KEY"
         ]
@@ -4346,7 +4342,7 @@
       "protocols": [],
       "officialEndpoints": {},
       "auth": {
-        "type": "bearer",
+        "type": "unknown",
         "env": [
           "MINIMAX_API_KEY"
         ]
@@ -4371,7 +4367,7 @@
       "protocols": [],
       "officialEndpoints": {},
       "auth": {
-        "type": "bearer",
+        "type": "unknown",
         "env": [
           "MINIMAX_API_KEY"
         ]
@@ -4396,7 +4392,7 @@
       "protocols": [],
       "officialEndpoints": {},
       "auth": {
-        "type": "bearer",
+        "type": "unknown",
         "env": [
           "MINIMAX_API_KEY"
         ]
@@ -4449,7 +4445,7 @@
       "protocols": [],
       "officialEndpoints": {},
       "auth": {
-        "type": "bearer",
+        "type": "unknown",
         "env": [
           "MIXLAYER_API_KEY"
         ]
@@ -4474,7 +4470,7 @@
       "protocols": [],
       "officialEndpoints": {},
       "auth": {
-        "type": "bearer",
+        "type": "unknown",
         "env": [
           "MOARK_API_KEY"
         ]
@@ -4499,7 +4495,7 @@
       "protocols": [],
       "officialEndpoints": {},
       "auth": {
-        "type": "bearer",
+        "type": "unknown",
         "env": [
           "MODAL_PROXY_TOKEN"
         ]
@@ -4524,7 +4520,7 @@
       "protocols": [],
       "officialEndpoints": {},
       "auth": {
-        "type": "bearer",
+        "type": "unknown",
         "env": [
           "MODEL_ORACLE_API_KEY"
         ]
@@ -4549,7 +4545,7 @@
       "protocols": [],
       "officialEndpoints": {},
       "auth": {
-        "type": "bearer",
+        "type": "unknown",
         "env": [
           "MODELIS_API_KEY"
         ]
@@ -4574,7 +4570,7 @@
       "protocols": [],
       "officialEndpoints": {},
       "auth": {
-        "type": "bearer",
+        "type": "unknown",
         "env": [
           "MODELSCOPE_API_KEY"
         ]
@@ -4599,7 +4595,7 @@
       "protocols": [],
       "officialEndpoints": {},
       "auth": {
-        "type": "bearer",
+        "type": "unknown",
         "env": [
           "MODULAR_API_KEY"
         ]
@@ -4624,7 +4620,7 @@
       "protocols": [],
       "officialEndpoints": {},
       "auth": {
-        "type": "bearer",
+        "type": "unknown",
         "env": [
           "MONEO_API_KEY"
         ]
@@ -4678,7 +4674,7 @@
       "protocols": [],
       "officialEndpoints": {},
       "auth": {
-        "type": "bearer",
+        "type": "unknown",
         "env": [
           "MOONSHOT_API_KEY"
         ]
@@ -4703,7 +4699,7 @@
       "protocols": [],
       "officialEndpoints": {},
       "auth": {
-        "type": "bearer",
+        "type": "unknown",
         "env": [
           "MORPH_API_KEY"
         ]
@@ -4728,7 +4724,7 @@
       "protocols": [],
       "officialEndpoints": {},
       "auth": {
-        "type": "bearer",
+        "type": "unknown",
         "env": [
           "MUNITO_API_KEY"
         ]
@@ -4753,7 +4749,7 @@
       "protocols": [],
       "officialEndpoints": {},
       "auth": {
-        "type": "bearer",
+        "type": "unknown",
         "env": [
           "MUNITO_API_KEY"
         ]
@@ -4778,7 +4774,7 @@
       "protocols": [],
       "officialEndpoints": {},
       "auth": {
-        "type": "bearer",
+        "type": "unknown",
         "env": [
           "NAN_API_KEY"
         ]
@@ -4803,7 +4799,7 @@
       "protocols": [],
       "officialEndpoints": {},
       "auth": {
-        "type": "bearer",
+        "type": "unknown",
         "env": [
           "NANO_GPT_API_KEY"
         ]
@@ -4828,7 +4824,7 @@
       "protocols": [],
       "officialEndpoints": {},
       "auth": {
-        "type": "bearer",
+        "type": "unknown",
         "env": [
           "NEARAI_API_KEY"
         ]
@@ -4853,7 +4849,7 @@
       "protocols": [],
       "officialEndpoints": {},
       "auth": {
-        "type": "bearer",
+        "type": "unknown",
         "env": [
           "NEBIUS_API_KEY"
         ]
@@ -4878,7 +4874,7 @@
       "protocols": [],
       "officialEndpoints": {},
       "auth": {
-        "type": "bearer",
+        "type": "unknown",
         "env": [
           "NEON_AI_GATEWAY_BASE_URL",
           "NEON_AI_GATEWAY_TOKEN"
@@ -4904,7 +4900,7 @@
       "protocols": [],
       "officialEndpoints": {},
       "auth": {
-        "type": "bearer",
+        "type": "unknown",
         "env": [
           "NEOSMITH_API_KEY"
         ]
@@ -4929,7 +4925,7 @@
       "protocols": [],
       "officialEndpoints": {},
       "auth": {
-        "type": "bearer",
+        "type": "unknown",
         "env": [
           "NEURALWATT_API_KEY"
         ]
@@ -4954,7 +4950,7 @@
       "protocols": [],
       "officialEndpoints": {},
       "auth": {
-        "type": "bearer",
+        "type": "unknown",
         "env": [
           "NODECODE_API_KEY"
         ]
@@ -4979,7 +4975,7 @@
       "protocols": [],
       "officialEndpoints": {},
       "auth": {
-        "type": "bearer",
+        "type": "unknown",
         "env": [
           "NOKEEP_API_KEY"
         ]
@@ -5004,7 +5000,7 @@
       "protocols": [],
       "officialEndpoints": {},
       "auth": {
-        "type": "bearer",
+        "type": "unknown",
         "env": [
           "NOVA_API_KEY"
         ]
@@ -5029,7 +5025,7 @@
       "protocols": [],
       "officialEndpoints": {},
       "auth": {
-        "type": "bearer",
+        "type": "unknown",
         "env": [
           "NOVITA_API_KEY"
         ]
@@ -5054,7 +5050,7 @@
       "protocols": [],
       "officialEndpoints": {},
       "auth": {
-        "type": "bearer",
+        "type": "unknown",
         "env": [
           "NVIDIA_API_KEY"
         ]
@@ -5079,7 +5075,7 @@
       "protocols": [],
       "officialEndpoints": {},
       "auth": {
-        "type": "bearer",
+        "type": "unknown",
         "env": [
           "OATHBREAKER_API_KEY"
         ]
@@ -5104,7 +5100,7 @@
       "protocols": [],
       "officialEndpoints": {},
       "auth": {
-        "type": "bearer",
+        "type": "unknown",
         "env": [
           "OBSCURIFY_API_KEY"
         ]
@@ -5129,7 +5125,7 @@
       "protocols": [],
       "officialEndpoints": {},
       "auth": {
-        "type": "bearer",
+        "type": "unknown",
         "env": [
           "OCI_GENAI_API_KEY"
         ]
@@ -5154,7 +5150,7 @@
       "protocols": [],
       "officialEndpoints": {},
       "auth": {
-        "type": "bearer",
+        "type": "unknown",
         "env": [
           "OFOX_API_KEY"
         ]
@@ -5213,7 +5209,7 @@
       "protocols": [],
       "officialEndpoints": {},
       "auth": {
-        "type": "bearer",
+        "type": "unknown",
         "env": [
           "OLLAMA_API_KEY"
         ]
@@ -5289,7 +5285,7 @@
       "protocols": [],
       "officialEndpoints": {},
       "auth": {
-        "type": "bearer",
+        "type": "unknown",
         "env": [
           "OPENCODE_API_KEY"
         ]
@@ -5314,7 +5310,7 @@
       "protocols": [],
       "officialEndpoints": {},
       "auth": {
-        "type": "bearer",
+        "type": "unknown",
         "env": [
           "OPENCODE_API_KEY"
         ]
@@ -5339,7 +5335,7 @@
       "protocols": [],
       "officialEndpoints": {},
       "auth": {
-        "type": "bearer",
+        "type": "unknown",
         "env": [
           "OPENREASON_API_KEY"
         ]
@@ -5398,7 +5394,7 @@
       "protocols": [],
       "officialEndpoints": {},
       "auth": {
-        "type": "bearer",
+        "type": "unknown",
         "env": [
           "OPPER_API_KEY"
         ]
@@ -5423,7 +5419,7 @@
       "protocols": [],
       "officialEndpoints": {},
       "auth": {
-        "type": "bearer",
+        "type": "unknown",
         "env": [
           "ORCAROUTER_API_KEY"
         ]
@@ -5448,7 +5444,7 @@
       "protocols": [],
       "officialEndpoints": {},
       "auth": {
-        "type": "bearer",
+        "type": "unknown",
         "env": [
           "OUTERLABS_API_KEY"
         ]
@@ -5473,7 +5469,7 @@
       "protocols": [],
       "officialEndpoints": {},
       "auth": {
-        "type": "bearer",
+        "type": "unknown",
         "env": [
           "OVHCLOUD_API_KEY"
         ]
@@ -5498,7 +5494,7 @@
       "protocols": [],
       "officialEndpoints": {},
       "auth": {
-        "type": "bearer",
+        "type": "unknown",
         "env": [
           "PARALONCLOUD_API_KEY"
         ]
@@ -5523,7 +5519,7 @@
       "protocols": [],
       "officialEndpoints": {},
       "auth": {
-        "type": "bearer",
+        "type": "unknown",
         "env": [
           "PARETO_API_KEY"
         ]
@@ -5548,7 +5544,7 @@
       "protocols": [],
       "officialEndpoints": {},
       "auth": {
-        "type": "bearer",
+        "type": "unknown",
         "env": [
           "PENDRA_API_KEY"
         ]
@@ -5573,7 +5569,7 @@
       "protocols": [],
       "officialEndpoints": {},
       "auth": {
-        "type": "bearer",
+        "type": "unknown",
         "env": [
           "PERPLEXITY_API_KEY"
         ]
@@ -5597,7 +5593,7 @@
       "protocols": [],
       "officialEndpoints": {},
       "auth": {
-        "type": "bearer",
+        "type": "unknown",
         "env": [
           "PERPLEXITY_API_KEY"
         ]
@@ -5622,7 +5618,7 @@
       "protocols": [],
       "officialEndpoints": {},
       "auth": {
-        "type": "bearer",
+        "type": "unknown",
         "env": [
           "PHALA_AI_API_KEY"
         ]
@@ -5647,7 +5643,7 @@
       "protocols": [],
       "officialEndpoints": {},
       "auth": {
-        "type": "bearer",
+        "type": "unknown",
         "env": [
           "PHASE_API_KEY"
         ]
@@ -5672,7 +5668,7 @@
       "protocols": [],
       "officialEndpoints": {},
       "auth": {
-        "type": "bearer",
+        "type": "unknown",
         "env": [
           "PIONEER_API_KEY"
         ]
@@ -5697,7 +5693,7 @@
       "protocols": [],
       "officialEndpoints": {},
       "auth": {
-        "type": "bearer",
+        "type": "unknown",
         "env": [
           "POE_API_KEY"
         ]
@@ -5722,7 +5718,7 @@
       "protocols": [],
       "officialEndpoints": {},
       "auth": {
-        "type": "bearer",
+        "type": "unknown",
         "env": [
           "POOLSIDE_API_KEY"
         ]
@@ -5747,7 +5743,7 @@
       "protocols": [],
       "officialEndpoints": {},
       "auth": {
-        "type": "bearer",
+        "type": "unknown",
         "env": [
           "POWERSPRING_API_KEY"
         ]
@@ -5772,7 +5768,7 @@
       "protocols": [],
       "officialEndpoints": {},
       "auth": {
-        "type": "bearer",
+        "type": "unknown",
         "env": [
           "PRIMALABS_API_KEY"
         ]
@@ -5797,7 +5793,7 @@
       "protocols": [],
       "officialEndpoints": {},
       "auth": {
-        "type": "bearer",
+        "type": "unknown",
         "env": [
           "PRIME_API_KEY"
         ]
@@ -5822,7 +5818,7 @@
       "protocols": [],
       "officialEndpoints": {},
       "auth": {
-        "type": "bearer",
+        "type": "unknown",
         "env": [
           "PRIVATEMODE_API_KEY"
         ]
@@ -5847,7 +5843,7 @@
       "protocols": [],
       "officialEndpoints": {},
       "auth": {
-        "type": "bearer",
+        "type": "unknown",
         "env": [
           "RELAY_API_KEY"
         ]
@@ -5872,7 +5868,7 @@
       "protocols": [],
       "officialEndpoints": {},
       "auth": {
-        "type": "bearer",
+        "type": "unknown",
         "env": [
           "QIHANG_API_KEY"
         ]
@@ -5897,7 +5893,7 @@
       "protocols": [],
       "officialEndpoints": {},
       "auth": {
-        "type": "bearer",
+        "type": "unknown",
         "env": [
           "QINIU_API_KEY"
         ]
@@ -5922,7 +5918,7 @@
       "protocols": [],
       "officialEndpoints": {},
       "auth": {
-        "type": "bearer",
+        "type": "unknown",
         "env": [
           "QVAC_API_KEY"
         ]
@@ -5946,7 +5942,7 @@
       "protocols": [],
       "officialEndpoints": {},
       "auth": {
-        "type": "bearer",
+        "type": "unknown",
         "env": [
           "RAYLINE_API_KEY"
         ]
@@ -5971,7 +5967,7 @@
       "protocols": [],
       "officialEndpoints": {},
       "auth": {
-        "type": "bearer",
+        "type": "unknown",
         "env": [
           "REFLECTION_API_KEY"
         ]
@@ -5996,7 +5992,7 @@
       "protocols": [],
       "officialEndpoints": {},
       "auth": {
-        "type": "bearer",
+        "type": "unknown",
         "env": [
           "REFUSELESS_API_KEY"
         ]
@@ -6021,7 +6017,7 @@
       "protocols": [],
       "officialEndpoints": {},
       "auth": {
-        "type": "bearer",
+        "type": "unknown",
         "env": [
           "REGOLO_API_KEY"
         ]
@@ -6046,7 +6042,7 @@
       "protocols": [],
       "officialEndpoints": {},
       "auth": {
-        "type": "bearer",
+        "type": "unknown",
         "env": [
           "REQUESTY_API_KEY"
         ]
@@ -6071,7 +6067,7 @@
       "protocols": [],
       "officialEndpoints": {},
       "auth": {
-        "type": "bearer",
+        "type": "unknown",
         "env": [
           "ROUTING_RUN_API_KEY"
         ]
@@ -6096,7 +6092,7 @@
       "protocols": [],
       "officialEndpoints": {},
       "auth": {
-        "type": "bearer",
+        "type": "unknown",
         "env": [
           "RUAPI_API_KEY"
         ]
@@ -6121,7 +6117,7 @@
       "protocols": [],
       "officialEndpoints": {},
       "auth": {
-        "type": "bearer",
+        "type": "unknown",
         "env": [
           "RUNCRATE_API_KEY"
         ]
@@ -6146,7 +6142,7 @@
       "protocols": [],
       "officialEndpoints": {},
       "auth": {
-        "type": "bearer",
+        "type": "unknown",
         "env": [
           "RUNINFRA_GATEWAY_KEY"
         ]
@@ -6171,7 +6167,7 @@
       "protocols": [],
       "officialEndpoints": {},
       "auth": {
-        "type": "bearer",
+        "type": "unknown",
         "env": [
           "SAGG_API_KEY"
         ]
@@ -6196,7 +6192,7 @@
       "protocols": [],
       "officialEndpoints": {},
       "auth": {
-        "type": "bearer",
+        "type": "unknown",
         "env": [
           "SAKANA_API_KEY"
         ]
@@ -6221,7 +6217,7 @@
       "protocols": [],
       "officialEndpoints": {},
       "auth": {
-        "type": "bearer",
+        "type": "unknown",
         "env": [
           "SALAD_CLOUD_API_KEY"
         ]
@@ -6245,7 +6241,7 @@
       "protocols": [],
       "officialEndpoints": {},
       "auth": {
-        "type": "bearer",
+        "type": "unknown",
         "env": [
           "SAMBANOVA_API_KEY"
         ]
@@ -6270,7 +6266,7 @@
       "protocols": [],
       "officialEndpoints": {},
       "auth": {
-        "type": "bearer",
+        "type": "unknown",
         "env": [
           "SANDBASE_API_KEY"
         ]
@@ -6295,7 +6291,7 @@
       "protocols": [],
       "officialEndpoints": {},
       "auth": {
-        "type": "bearer",
+        "type": "unknown",
         "env": [
           "AICORE_SERVICE_KEY"
         ]
@@ -6319,7 +6315,7 @@
       "protocols": [],
       "officialEndpoints": {},
       "auth": {
-        "type": "bearer",
+        "type": "unknown",
         "env": [
           "SARVAM_API_KEY"
         ]
@@ -6344,7 +6340,7 @@
       "protocols": [],
       "officialEndpoints": {},
       "auth": {
-        "type": "bearer",
+        "type": "unknown",
         "env": [
           "SCALEWAY_API_KEY"
         ]
@@ -6369,7 +6365,7 @@
       "protocols": [],
       "officialEndpoints": {},
       "auth": {
-        "type": "bearer",
+        "type": "unknown",
         "env": [
           "SCNET_API_KEY"
         ]
@@ -6394,7 +6390,7 @@
       "protocols": [],
       "officialEndpoints": {},
       "auth": {
-        "type": "bearer",
+        "type": "unknown",
         "env": [
           "SCX_API_KEY"
         ]
@@ -6419,7 +6415,7 @@
       "protocols": [],
       "officialEndpoints": {},
       "auth": {
-        "type": "bearer",
+        "type": "unknown",
         "env": [
           "SENSENOVA_API_KEY"
         ]
@@ -6473,7 +6469,7 @@
       "protocols": [],
       "officialEndpoints": {},
       "auth": {
-        "type": "bearer",
+        "type": "unknown",
         "env": [
           "SILICONFLOW_CN_API_KEY"
         ]
@@ -6498,7 +6494,7 @@
       "protocols": [],
       "officialEndpoints": {},
       "auth": {
-        "type": "bearer",
+        "type": "unknown",
         "env": [
           "SNOWFLAKE_ACCOUNT",
           "SNOWFLAKE_CORTEX_PAT"
@@ -6524,7 +6520,7 @@
       "protocols": [],
       "officialEndpoints": {},
       "auth": {
-        "type": "bearer",
+        "type": "unknown",
         "env": [
           "SOKKAN_API_KEY"
         ]
@@ -6549,7 +6545,7 @@
       "protocols": [],
       "officialEndpoints": {},
       "auth": {
-        "type": "bearer",
+        "type": "unknown",
         "env": [
           "SPARROWCODES_API_KEY"
         ]
@@ -6574,7 +6570,7 @@
       "protocols": [],
       "officialEndpoints": {},
       "auth": {
-        "type": "bearer",
+        "type": "unknown",
         "env": [
           "STACKIT_API_KEY"
         ]
@@ -6599,7 +6595,7 @@
       "protocols": [],
       "officialEndpoints": {},
       "auth": {
-        "type": "bearer",
+        "type": "unknown",
         "env": [
           "STANDARDCOMPUTE_API_KEY"
         ]
@@ -6624,7 +6620,7 @@
       "protocols": [],
       "officialEndpoints": {},
       "auth": {
-        "type": "bearer",
+        "type": "unknown",
         "env": [
           "STEADYROUTER_API_KEY"
         ]
@@ -6649,7 +6645,7 @@
       "protocols": [],
       "officialEndpoints": {},
       "auth": {
-        "type": "bearer",
+        "type": "unknown",
         "env": [
           "STEPFUN_API_KEY"
         ]
@@ -6674,7 +6670,7 @@
       "protocols": [],
       "officialEndpoints": {},
       "auth": {
-        "type": "bearer",
+        "type": "unknown",
         "env": [
           "STEPFUN_API_KEY"
         ]
@@ -6699,7 +6695,7 @@
       "protocols": [],
       "officialEndpoints": {},
       "auth": {
-        "type": "bearer",
+        "type": "unknown",
         "env": [
           "STEPFUN_API_KEY"
         ]
@@ -6724,7 +6720,7 @@
       "protocols": [],
       "officialEndpoints": {},
       "auth": {
-        "type": "bearer",
+        "type": "unknown",
         "env": [
           "STEPFUN_API_KEY"
         ]
@@ -6749,7 +6745,7 @@
       "protocols": [],
       "officialEndpoints": {},
       "auth": {
-        "type": "bearer",
+        "type": "unknown",
         "env": [
           "STONEY_API_KEY"
         ]
@@ -6774,7 +6770,7 @@
       "protocols": [],
       "officialEndpoints": {},
       "auth": {
-        "type": "bearer",
+        "type": "unknown",
         "env": [
           "SUBCONSCIOUS_API_KEY"
         ]
@@ -6799,7 +6795,7 @@
       "protocols": [],
       "officialEndpoints": {},
       "auth": {
-        "type": "bearer",
+        "type": "unknown",
         "env": [
           "SUBMODEL_INSTAGEN_ACCESS_KEY"
         ]
@@ -6824,7 +6820,7 @@
       "protocols": [],
       "officialEndpoints": {},
       "auth": {
-        "type": "bearer",
+        "type": "unknown",
         "env": [
           "SUPERBOT_API_KEY"
         ]
@@ -6849,7 +6845,7 @@
       "protocols": [],
       "officialEndpoints": {},
       "auth": {
-        "type": "bearer",
+        "type": "unknown",
         "env": [
           "SYNTHETIC_API_KEY"
         ]
@@ -6874,7 +6870,7 @@
       "protocols": [],
       "officialEndpoints": {},
       "auth": {
-        "type": "bearer",
+        "type": "unknown",
         "env": [
           "SYNTHORAI_API_KEY"
         ]
@@ -6899,7 +6895,7 @@
       "protocols": [],
       "officialEndpoints": {},
       "auth": {
-        "type": "bearer",
+        "type": "unknown",
         "env": [
           "TEAMOROUTER_API_KEY"
         ]
@@ -6924,7 +6920,7 @@
       "protocols": [],
       "officialEndpoints": {},
       "auth": {
-        "type": "bearer",
+        "type": "unknown",
         "env": [
           "TEAPOT_ROUTER_API_KEY"
         ]
@@ -6949,7 +6945,7 @@
       "protocols": [],
       "officialEndpoints": {},
       "auth": {
-        "type": "bearer",
+        "type": "unknown",
         "env": [
           "TENCENT_CODING_PLAN_API_KEY"
         ]
@@ -6974,7 +6970,7 @@
       "protocols": [],
       "officialEndpoints": {},
       "auth": {
-        "type": "bearer",
+        "type": "unknown",
         "env": [
           "TENCENT_TOKEN_PLAN_API_KEY"
         ]
@@ -6999,7 +6995,7 @@
       "protocols": [],
       "officialEndpoints": {},
       "auth": {
-        "type": "bearer",
+        "type": "unknown",
         "env": [
           "TENCENT_TOKENHUB_API_KEY"
         ]
@@ -7024,7 +7020,7 @@
       "protocols": [],
       "officialEndpoints": {},
       "auth": {
-        "type": "bearer",
+        "type": "unknown",
         "env": [
           "TENSORX_API_KEY"
         ]
@@ -7049,7 +7045,7 @@
       "protocols": [],
       "officialEndpoints": {},
       "auth": {
-        "type": "bearer",
+        "type": "unknown",
         "env": [
           "TENSTORRENT_API_KEY"
         ]
@@ -7074,7 +7070,7 @@
       "protocols": [],
       "officialEndpoints": {},
       "auth": {
-        "type": "bearer",
+        "type": "unknown",
         "env": [
           "THEGRID_API_KEY"
         ]
@@ -7099,7 +7095,7 @@
       "protocols": [],
       "officialEndpoints": {},
       "auth": {
-        "type": "bearer",
+        "type": "unknown",
         "env": [
           "THEROUTER_API_KEY"
         ]
@@ -7124,7 +7120,7 @@
       "protocols": [],
       "officialEndpoints": {},
       "auth": {
-        "type": "bearer",
+        "type": "unknown",
         "env": [
           "TINKER_API_KEY"
         ]
@@ -7149,7 +7145,7 @@
       "protocols": [],
       "officialEndpoints": {},
       "auth": {
-        "type": "bearer",
+        "type": "unknown",
         "env": [
           "TINFOIL_API_KEY"
         ]
@@ -7174,7 +7170,7 @@
       "protocols": [],
       "officialEndpoints": {},
       "auth": {
-        "type": "bearer",
+        "type": "unknown",
         "env": [
           "TOAPIS_API_KEY"
         ]
@@ -7227,7 +7223,7 @@
       "protocols": [],
       "officialEndpoints": {},
       "auth": {
-        "type": "bearer",
+        "type": "unknown",
         "env": [
           "TOKENGO_API_KEY"
         ]
@@ -7252,7 +7248,7 @@
       "protocols": [],
       "officialEndpoints": {},
       "auth": {
-        "type": "bearer",
+        "type": "unknown",
         "env": [
           "TOKENIFY_API_KEY"
         ]
@@ -7277,7 +7273,7 @@
       "protocols": [],
       "officialEndpoints": {},
       "auth": {
-        "type": "bearer",
+        "type": "unknown",
         "env": [
           "TOKENLAB_API_KEY"
         ]
@@ -7302,7 +7298,7 @@
       "protocols": [],
       "officialEndpoints": {},
       "auth": {
-        "type": "bearer",
+        "type": "unknown",
         "env": [
           "TOKENROUTER_API_KEY"
         ]
@@ -7327,7 +7323,7 @@
       "protocols": [],
       "officialEndpoints": {},
       "auth": {
-        "type": "bearer",
+        "type": "unknown",
         "env": [
           "TOKENWATT_API_KEY"
         ]
@@ -7352,7 +7348,7 @@
       "protocols": [],
       "officialEndpoints": {},
       "auth": {
-        "type": "bearer",
+        "type": "unknown",
         "env": [
           "TRUSTEDROUTER_API_KEY"
         ]
@@ -7377,7 +7373,7 @@
       "protocols": [],
       "officialEndpoints": {},
       "auth": {
-        "type": "bearer",
+        "type": "unknown",
         "env": [
           "TRUSTEDTOKENS_API_KEY"
         ]
@@ -7402,7 +7398,7 @@
       "protocols": [],
       "officialEndpoints": {},
       "auth": {
-        "type": "bearer",
+        "type": "unknown",
         "env": [
           "UMANS_AI_API_KEY"
         ]
@@ -7427,7 +7423,7 @@
       "protocols": [],
       "officialEndpoints": {},
       "auth": {
-        "type": "bearer",
+        "type": "unknown",
         "env": [
           "UMANS_AI_CODING_PLAN_API_KEY"
         ]
@@ -7452,7 +7448,7 @@
       "protocols": [],
       "officialEndpoints": {},
       "auth": {
-        "type": "bearer",
+        "type": "unknown",
         "env": [
           "UNBIASED_API_KEY"
         ]
@@ -7477,7 +7473,7 @@
       "protocols": [],
       "officialEndpoints": {},
       "auth": {
-        "type": "bearer",
+        "type": "unknown",
         "env": [
           "UNCENSURED_API_KEY"
         ]
@@ -7502,7 +7498,7 @@
       "protocols": [],
       "officialEndpoints": {},
       "auth": {
-        "type": "bearer",
+        "type": "unknown",
         "env": [
           "UNOROUTER_API_KEY"
         ]
@@ -7527,7 +7523,7 @@
       "protocols": [],
       "officialEndpoints": {},
       "auth": {
-        "type": "bearer",
+        "type": "unknown",
         "env": [
           "UNRESTRICTED_API_KEY"
         ]
@@ -7552,7 +7548,7 @@
       "protocols": [],
       "officialEndpoints": {},
       "auth": {
-        "type": "bearer",
+        "type": "unknown",
         "env": [
           "UPLINKSWITCH_API_KEY"
         ]
@@ -7577,7 +7573,7 @@
       "protocols": [],
       "officialEndpoints": {},
       "auth": {
-        "type": "bearer",
+        "type": "unknown",
         "env": [
           "UPSTAGE_API_KEY"
         ]
@@ -7602,7 +7598,7 @@
       "protocols": [],
       "officialEndpoints": {},
       "auth": {
-        "type": "bearer",
+        "type": "unknown",
         "env": [
           "VANCINE_API_KEY"
         ]
@@ -7627,7 +7623,7 @@
       "protocols": [],
       "officialEndpoints": {},
       "auth": {
-        "type": "bearer",
+        "type": "unknown",
         "env": [
           "VENICE_API_KEY"
         ]
@@ -7651,7 +7647,7 @@
       "protocols": [],
       "officialEndpoints": {},
       "auth": {
-        "type": "bearer",
+        "type": "unknown",
         "env": [
           "AI_GATEWAY_API_KEY"
         ]
@@ -7675,7 +7671,7 @@
       "protocols": [],
       "officialEndpoints": {},
       "auth": {
-        "type": "bearer",
+        "type": "unknown",
         "env": [
           "VERDA_INFERENCE_API_KEY"
         ]
@@ -7700,7 +7696,7 @@
       "protocols": [],
       "officialEndpoints": {},
       "auth": {
-        "type": "bearer",
+        "type": "unknown",
         "env": [
           "VISPARK_LAB_API_KEY"
         ]
@@ -7725,7 +7721,7 @@
       "protocols": [],
       "officialEndpoints": {},
       "auth": {
-        "type": "bearer",
+        "type": "unknown",
         "env": [
           "VIVGRID_API_KEY"
         ]
@@ -7750,7 +7746,7 @@
       "protocols": [],
       "officialEndpoints": {},
       "auth": {
-        "type": "bearer",
+        "type": "unknown",
         "env": [
           "ARK_API_KEY"
         ]
@@ -7775,7 +7771,7 @@
       "protocols": [],
       "officialEndpoints": {},
       "auth": {
-        "type": "bearer",
+        "type": "unknown",
         "env": [
           "ARK_CODING_PLAN_API_KEY"
         ]
@@ -7800,7 +7796,7 @@
       "protocols": [],
       "officialEndpoints": {},
       "auth": {
-        "type": "bearer",
+        "type": "unknown",
         "env": [
           "VULTR_API_KEY"
         ]
@@ -7825,7 +7821,7 @@
       "protocols": [],
       "officialEndpoints": {},
       "auth": {
-        "type": "bearer",
+        "type": "unknown",
         "env": [
           "WAFER_API_KEY"
         ]
@@ -7850,7 +7846,7 @@
       "protocols": [],
       "officialEndpoints": {},
       "auth": {
-        "type": "bearer",
+        "type": "unknown",
         "env": [
           "WALLABY_API_KEY"
         ]
@@ -7875,7 +7871,7 @@
       "protocols": [],
       "officialEndpoints": {},
       "auth": {
-        "type": "bearer",
+        "type": "unknown",
         "env": [
           "WALLY_API_KEY"
         ]
@@ -7900,7 +7896,7 @@
       "protocols": [],
       "officialEndpoints": {},
       "auth": {
-        "type": "bearer",
+        "type": "unknown",
         "env": [
           "WANDB_API_KEY"
         ]
@@ -7925,7 +7921,7 @@
       "protocols": [],
       "officialEndpoints": {},
       "auth": {
-        "type": "bearer",
+        "type": "unknown",
         "env": [
           "WATSONX_AI_APIKEY",
           "WATSONX_AI_PROJECT_ID"
@@ -7950,7 +7946,7 @@
       "protocols": [],
       "officialEndpoints": {},
       "auth": {
-        "type": "bearer",
+        "type": "unknown",
         "env": [
           "WATT_API_KEY"
         ]
@@ -8009,7 +8005,7 @@
       "protocols": [],
       "officialEndpoints": {},
       "auth": {
-        "type": "bearer",
+        "type": "unknown",
         "env": [
           "XIAOMI_API_KEY"
         ]
@@ -8034,7 +8030,7 @@
       "protocols": [],
       "officialEndpoints": {},
       "auth": {
-        "type": "bearer",
+        "type": "unknown",
         "env": [
           "XIAOMI_API_KEY"
         ]
@@ -8059,7 +8055,7 @@
       "protocols": [],
       "officialEndpoints": {},
       "auth": {
-        "type": "bearer",
+        "type": "unknown",
         "env": [
           "XIAOMI_API_KEY"
         ]
@@ -8084,7 +8080,7 @@
       "protocols": [],
       "officialEndpoints": {},
       "auth": {
-        "type": "bearer",
+        "type": "unknown",
         "env": [
           "XIAOMI_API_KEY"
         ]
@@ -8109,7 +8105,7 @@
       "protocols": [],
       "officialEndpoints": {},
       "auth": {
-        "type": "bearer",
+        "type": "unknown",
         "env": [
           "XPERSONA_API_KEY"
         ]
@@ -8134,7 +8130,7 @@
       "protocols": [],
       "officialEndpoints": {},
       "auth": {
-        "type": "bearer",
+        "type": "unknown",
         "env": [
           "XXAPI_API_KEY"
         ]
@@ -8159,7 +8155,7 @@
       "protocols": [],
       "officialEndpoints": {},
       "auth": {
-        "type": "bearer",
+        "type": "unknown",
         "env": [
           "ZHIPU_API_KEY"
         ]
@@ -8184,7 +8180,7 @@
       "protocols": [],
       "officialEndpoints": {},
       "auth": {
-        "type": "bearer",
+        "type": "unknown",
         "env": [
           "ZHIPU_API_KEY"
         ]
@@ -8209,7 +8205,7 @@
       "protocols": [],
       "officialEndpoints": {},
       "auth": {
-        "type": "bearer",
+        "type": "unknown",
         "env": [
           "ZELDOC_API_KEY"
         ]
@@ -8234,7 +8230,7 @@
       "protocols": [],
       "officialEndpoints": {},
       "auth": {
-        "type": "bearer",
+        "type": "unknown",
         "env": [
           "ZENIFRA_AI_API_KEY",
           "ZENIFRA_AI_KEY"
@@ -8260,7 +8256,7 @@
       "protocols": [],
       "officialEndpoints": {},
       "auth": {
-        "type": "bearer",
+        "type": "unknown",
         "env": [
           "ZENMUX_API_KEY"
         ]
@@ -8285,7 +8281,7 @@
       "protocols": [],
       "officialEndpoints": {},
       "auth": {
-        "type": "bearer",
+        "type": "unknown",
         "env": [
           "ZEROGPU_API_KEY"
         ]
@@ -8339,7 +8335,7 @@
       "protocols": [],
       "officialEndpoints": {},
       "auth": {
-        "type": "bearer",
+        "type": "unknown",
         "env": [
           "ZHIPU_API_KEY"
         ]
@@ -8364,7 +8360,7 @@
       "protocols": [],
       "officialEndpoints": {},
       "auth": {
-        "type": "bearer",
+        "type": "unknown",
         "env": [
           "ZRO_API_KEY"
         ]

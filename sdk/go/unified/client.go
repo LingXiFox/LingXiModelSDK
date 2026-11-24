@@ -125,12 +125,18 @@ func (c *Client) Embed(ctx context.Context, proto native.Protocol, baseURL, apiK
 		payload = map[string]any{"input": req.Input}
 	case native.ProtocolGoogleGemini:
 		headers["x-goog-api-key"] = apiKey
-		url = fmt.Sprintf("%s/v1beta/models/%s:embedContent", base, req.Model)
-		payload = map[string]any{"content": map[string]any{"parts": []map[string]any{{"text": req.Input[0]}}}}
-	case native.ProtocolGoogleVertexAI:
-		headers["Authorization"] = "Bearer " + apiKey
-		url = fmt.Sprintf("%s/v1/publishers/google/models/%s:embedContent", base, req.Model)
-		payload = map[string]any{"content": map[string]any{"parts": []map[string]any{{"text": req.Input[0]}}}}
+		model := "models/" + strings.TrimPrefix(req.Model, "models/")
+		url = fmt.Sprintf("%s/v1beta/%s:embedContent", base, model)
+		if len(req.Input) == 1 {
+			payload = map[string]any{"content": map[string]any{"parts": []map[string]any{{"text": req.Input[0]}}}}
+		} else {
+			url = fmt.Sprintf("%s/v1beta/%s:batchEmbedContents", base, model)
+			requests := make([]map[string]any, 0, len(req.Input))
+			for _, input := range req.Input {
+				requests = append(requests, map[string]any{"model": model, "content": map[string]any{"parts": []map[string]any{{"text": input}}}})
+			}
+			payload = map[string]any{"requests": requests}
+		}
 	case native.ProtocolOllama:
 		url = base + "/api/embed"
 		payload = map[string]any{"model": req.Model, "input": req.Input}
@@ -146,7 +152,11 @@ func (c *Client) Embed(ctx context.Context, proto native.Protocol, baseURL, apiK
 	if err != nil {
 		return nil, err
 	}
-	return normalizeEmbeddingResponse(proto, resp.Body)
+	out, err := normalizeEmbeddingResponse(proto, resp.Body)
+	if err == nil && proto == native.ProtocolGoogleGemini && len(out.Embeddings) != len(req.Input) {
+		return nil, fmt.Errorf("embedding count does not match request")
+	}
+	return out, err
 }
 
 func (c *Client) Rerank(ctx context.Context, proto native.Protocol, baseURL, apiKey string, req RerankRequest) (*RerankResponse, error) {
@@ -182,9 +192,19 @@ func normalizeEmbeddingResponse(proto native.Protocol, raw map[string]any) (*Emb
 			m, _ := item.(map[string]any)
 			embeddings = append(embeddings, floatSlice(m["embedding"]))
 		}
-	case native.ProtocolGoogleGemini, native.ProtocolGoogleVertexAI:
-		if emb, ok := raw["embedding"].(map[string]any); ok {
-			embeddings = append(embeddings, floatSlice(emb["values"]))
+	case native.ProtocolGoogleGemini:
+		rows, ok := raw["embeddings"].([]any)
+		if !ok {
+			rows = []any{raw["embedding"]}
+		}
+		for _, row := range rows {
+			emb, _ := row.(map[string]any)
+			values, _ := emb["values"].([]any)
+			vector := floatSlice(values)
+			if len(vector) == 0 || len(vector) != len(values) {
+				return nil, fmt.Errorf("invalid embedding.values")
+			}
+			embeddings = append(embeddings, vector)
 		}
 	case native.ProtocolOllama:
 		rows, _ := raw["embeddings"].([]any)

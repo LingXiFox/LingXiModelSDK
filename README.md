@@ -14,16 +14,16 @@ LingXiModelSDK provides three independent, parallel entry points:
    Read-only model and provider metadata: identity, context/output limits, capabilities, pricing, and freshness. Requires no API keys or inference runtime.
    - Specification & Schemas: [specs/catalog-v2.md](specs/catalog-v2.md), [schemas/](schemas/catalog-v2.schema.json)
    - Language SDKs: [Swift](Sources/LingXiModelSDK/), [Rust](sdk/rust/), [Go](sdk/go/), [TypeScript/JS](sdk/typescript/), [Python](sdk/python/), [Java](sdk/java/), [C++](sdk/cpp/), [C#](sdk/csharp/), [Kotlin](sdk/kotlin/), [Dart](sdk/dart/)
-2. **Native Provider** *(9 protocols `Mock Tested` across all 10 languages)*
-   Direct upstream communication using each provider's native protocol, request/response types, AWS SigV4 signing, and SSE/NDJSON streaming without forcing a unified abstraction.
+2. **Native Provider** *(nine protocols with core mock evidence)*
+   Direct upstream communication using each provider's native protocol, request/response types, AWS SigV4 signing, and SSE, NDJSON and Amazon Event Stream without forcing a unified abstraction.
    - Declarative Registry (327 providers): [registry/registry.json](registry/registry.json), [specs/provider-registry-v1.md](specs/provider-registry-v1.md)
    - Protocols: OpenAI Chat Completions, OpenAI Responses, Anthropic Messages, Google Gemini, AWS Bedrock, Google Vertex AI, Azure OpenAI, Ollama, Cohere ([docs/feature-matrix.md](docs/feature-matrix.md))
-3. **Unified Provider** *(Opt-in LMP across all 10 languages, incl. `embed` & `rerank`)*
-   Normalized LingXi Model Protocol (LMP) across providers, with explicit unsupported-feature errors and no silent downgrades.
+3. **Unified Provider** *(opt-in LMP and language-specific alpha coverage)*
+   Normalized LingXi Model Protocol (LMP) across providers. See the [feature matrix](docs/feature-matrix.md) for tested paths and incomplete mappings.
    - Optional HTTP Gateway: [gateway/](gateway/README.md), [specs/gateway-v1.md](specs/gateway-v1.md)
    - Benchmarks & Security Audit: [docs/performance-security-audit.md](docs/performance-security-audit.md)
    - Support Evidence Matrix: [docs/support-matrix.md](docs/support-matrix.md)
-   - Run full local verification: `./scripts/test-all.sh`
+   - Local verification: `./scripts/test-all.sh` and [Phase 7 audit](docs/phase-7-audit.md)
 
 See [ROADMAP.md](ROADMAP.md) and [specs/architecture-v2.md](specs/architecture-v2.md) for full details.
 

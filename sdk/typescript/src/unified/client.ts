@@ -127,16 +127,16 @@ export class UnifiedClient {
         url = `${base}/openai/deployments/${req.model}/embeddings?api-version=2024-10-21`;
         payload = { input: req.input };
         break;
-      case "google_gemini":
+      case "google_gemini": {
         headers = { "x-goog-api-key": apiKey };
-        url = `${base}/v1beta/models/${req.model}:embedContent`;
-        payload = { content: { parts: [{ text: req.input[0] }] } };
+        const model = `models/${req.model.replace(/^models\//, "")}`;
+        const content = (text: string) => ({ parts: [{ text }] });
+        url = `${base}/v1beta/${model}:${req.input.length === 1 ? "embedContent" : "batchEmbedContents"}`;
+        payload = req.input.length === 1
+          ? { content: content(req.input[0]) }
+          : { requests: req.input.map((text) => ({ model, content: content(text) })) };
         break;
-      case "google_vertex_ai":
-        headers = { Authorization: `Bearer ${apiKey}` };
-        url = `${base}/v1/publishers/google/models/${req.model}:embedContent`;
-        payload = { content: { parts: [{ text: req.input[0] }] } };
-        break;
+      }
       case "ollama":
         url = `${base}/api/embed`;
         payload = { model: req.model, input: req.input };
@@ -153,9 +153,16 @@ export class UnifiedClient {
     let embeddings: number[][] = [];
     if (protocol === "openai_chat_completions" || protocol === "azure_openai") {
       embeddings = ((raw.data as Array<{ embedding?: number[] }>) ?? []).map((d) => d.embedding ?? []);
-    } else if (protocol === "google_gemini" || protocol === "google_vertex_ai") {
-      const vals = (raw.embedding as { values?: number[] } | undefined)?.values ?? [];
-      embeddings = [vals];
+    } else if (protocol === "google_gemini") {
+      const rows = (Array.isArray(raw.embeddings) ? raw.embeddings : [raw.embedding]) as Array<{ values?: number[] } | undefined>;
+      if (rows.length !== req.input.length) throw new Error("embedding count does not match request");
+      embeddings = rows.map((row) => {
+        const values = row?.values;
+        if (!Array.isArray(values) || !values.length || !values.every(Number.isFinite)) {
+          throw new Error("invalid embedding.values");
+        }
+        return values;
+      });
     } else if (protocol === "ollama") {
       embeddings = (raw.embeddings as number[][]) ?? [];
     } else if (protocol === "cohere") {

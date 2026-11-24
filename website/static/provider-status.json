@@ -1,78 +1,126 @@
 {
   "amazon-bedrock": {
+    "endpoints": [
+      "https://bedrock-runtime.us-east-1.amazonaws.com"
+    ],
+    "name": "Amazon Bedrock",
     "protocols": [
       "aws_bedrock"
     ],
     "status": "mock_tested"
   },
   "anthropic": {
+    "endpoints": [
+      "https://api.anthropic.com"
+    ],
+    "name": "Anthropic",
     "protocols": [
       "anthropic_messages"
     ],
     "status": "mock_tested"
   },
   "azure": {
+    "endpoints": [],
+    "name": "Azure OpenAI",
     "protocols": [
       "azure_openai"
     ],
     "status": "mock_tested"
   },
   "cohere": {
+    "endpoints": [
+      "https://api.cohere.com"
+    ],
+    "name": "Cohere",
     "protocols": [
       "cohere"
     ],
     "status": "mock_tested"
   },
   "deepseek": {
+    "endpoints": [
+      "https://api.deepseek.com"
+    ],
+    "name": "DeepSeek",
     "protocols": [
       "openai_chat_completions"
     ],
     "status": "mock_tested"
   },
   "fireworks-ai": {
+    "endpoints": [
+      "https://api.fireworks.ai/inference/v1"
+    ],
+    "name": "Fireworks AI",
     "protocols": [
       "openai_chat_completions"
     ],
     "status": "compatible"
   },
   "google": {
+    "endpoints": [
+      "https://generativelanguage.googleapis.com"
+    ],
+    "name": "Google",
     "protocols": [
       "google_gemini"
     ],
     "status": "mock_tested"
   },
   "google-vertex": {
+    "endpoints": [],
+    "name": "Google Vertex AI",
     "protocols": [
       "google_vertex_ai"
     ],
     "status": "mock_tested"
   },
   "groq": {
+    "endpoints": [
+      "https://api.groq.com/openai/v1"
+    ],
+    "name": "Groq",
     "protocols": [
       "openai_chat_completions"
     ],
     "status": "compatible"
   },
   "mistral": {
+    "endpoints": [
+      "https://api.mistral.ai/v1"
+    ],
+    "name": "Mistral",
     "protocols": [
       "openai_chat_completions"
     ],
     "status": "compatible"
   },
   "moonshotai": {
+    "endpoints": [
+      "https://api.moonshot.ai/v1"
+    ],
+    "name": "Moonshot AI",
     "protocols": [
       "openai_chat_completions"
     ],
     "status": "compatible"
   },
   "ollama": {
+    "endpoints": [
+      "http://127.0.0.1:11434",
+      "http://127.0.0.1:11434/v1"
+    ],
+    "name": "Ollama",
     "protocols": [
-      "ollama",
-      "openai_chat_completions"
+      "ollama"
     ],
     "status": "mock_tested"
   },
   "openai": {
+    "endpoints": [
+      "https://api.openai.com/v1"
+    ],
+    "name": "OpenAI",
     "protocols": [
       "openai_responses",
       "openai_chat_completions"
@@ -80,24 +128,40 @@
     "status": "mock_tested"
   },
   "openrouter": {
+    "endpoints": [
+      "https://openrouter.ai/api/v1"
+    ],
+    "name": "OpenRouter",
     "protocols": [
       "openai_chat_completions"
     ],
     "status": "compatible"
   },
   "siliconflow": {
+    "endpoints": [
+      "https://api.siliconflow.cn/v1"
+    ],
+    "name": "SiliconFlow",
     "protocols": [
       "openai_chat_completions"
     ],
     "status": "compatible"
   },
   "togetherai": {
+    "endpoints": [
+      "https://api.together.xyz/v1"
+    ],
+    "name": "Together AI",
     "protocols": [
       "openai_chat_completions"
     ],
     "status": "compatible"
   },
   "xai": {
+    "endpoints": [
+      "https://api.x.ai/v1"
+    ],
+    "name": "xAI",
     "protocols": [
       "openai_chat_completions",
       "openai_responses"
@@ -105,6 +169,10 @@
     "status": "compatible"
   },
   "zhipuai": {
+    "endpoints": [
+      "https://open.bigmodel.cn/api/paas/v4"
+    ],
+    "name": "Zhipu AI",
     "protocols": [
       "openai_chat_completions"
     ],

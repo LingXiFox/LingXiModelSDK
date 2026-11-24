@@ -19,7 +19,7 @@ func TranslateRequest(proto native.Protocol, req Request) (map[string]any, error
 	case native.ProtocolAnthropicMessages:
 		payload, err = toAnthropicMessages(req)
 	case native.ProtocolGoogleGemini, native.ProtocolGoogleVertexAI:
-		payload, err = toGoogleGemini(req)
+		payload, err = toGoogleGemini(proto, req)
 	case native.ProtocolAWSBedrock:
 		payload, err = toAWSBedrock(req)
 	case native.ProtocolOllama:
@@ -172,10 +172,33 @@ func NormalizeStreamEvent(proto native.Protocol, ev native.SSEEvent) ([]StreamEv
 						out = append(out, StreamEvent{Type: "thinking_delta", Delta: txt})
 					}
 				}
+				if tool, ok := d["toolUse"].(map[string]any); ok {
+					index := int(int64Field(cb, "contentBlockIndex"))
+					args, _ := tool["input"].(string)
+					out = append(out, StreamEvent{Type: "tool_call_delta", Index: &index, ArgumentsDelta: args})
+				}
+			}
+		} else if cb, ok := val["contentBlockStart"].(map[string]any); ok {
+			start, _ := cb["start"].(map[string]any)
+			if tool, ok := start["toolUse"].(map[string]any); ok {
+				index := int(int64Field(cb, "contentBlockIndex"))
+				id, _ := tool["toolUseId"].(string)
+				name, _ := tool["name"].(string)
+				out = append(out, StreamEvent{Type: "tool_call_delta", Index: &index, ID: id, Name: name})
 			}
 		} else if ms, ok := val["messageStop"].(map[string]any); ok {
 			sr, _ := ms["stopReason"].(string)
 			out = append(out, StreamEvent{Type: "message_end", FinishReason: sr})
+		} else if metadata, ok := val["metadata"].(map[string]any); ok {
+			if usage, ok := metadata["usage"].(map[string]any); ok {
+				out = append(out, StreamEvent{Type: "usage", Usage: &Usage{
+					InputTokens:      int64Field(usage, "inputTokens"),
+					OutputTokens:     int64Field(usage, "outputTokens"),
+					TotalTokens:      int64Field(usage, "totalTokens"),
+					CacheReadTokens:  optInt64Field(usage, "cacheReadInputTokens"),
+					CacheWriteTokens: optInt64Field(usage, "cacheWriteInputTokens"),
+				}})
+			}
 		}
 	case native.ProtocolOllama:
 		if msg, ok := val["message"].(map[string]any); ok {
@@ -354,25 +377,134 @@ func toAnthropicMessages(req Request) (map[string]any, error) {
 	return out, nil
 }
 
-func toGoogleGemini(req Request) (map[string]any, error) {
+func toGoogleGemini(proto native.Protocol, req Request) (map[string]any, error) {
+	unsupported := func(feature string) (map[string]any, error) {
+		return nil, &UnsupportedFeatureError{Protocol: string(proto), Feature: feature}
+	}
 	contents := make([]map[string]any, 0, len(req.Messages))
-	for _, m := range req.Messages {
-		if m.Role == "system" {
+	var system []map[string]any
+	type callRef struct {
+		name   string
+		wireID bool
+	}
+	calls := make(map[string]callRef)
+	previousRole := ""
+	for _, message := range req.Messages {
+		if message.Role == "system" {
+			for _, block := range message.Content {
+				if block.Type != "text" || block.Signature != "" {
+					return unsupported("system_content")
+				}
+				system = append(system, map[string]any{"text": block.Text})
+			}
 			continue
 		}
 		role := "user"
-		if m.Role == "assistant" {
+		if message.Role == "assistant" {
+			clear(calls)
 			role = "model"
 		}
-		parts := make([]map[string]any, 0, len(m.Content))
-		for _, b := range m.Content {
-			if b.Type == "text" {
-				parts = append(parts, map[string]any{"text": b.Text})
+		parts := make([]map[string]any, 0, len(message.Content))
+		for _, block := range message.Content {
+			var part map[string]any
+			switch block.Type {
+			case "text":
+				part = map[string]any{"text": block.Text}
+			case "thinking":
+				part = map[string]any{"thought": true, "text": block.Thinking}
+			case "image_base64", "audio":
+				part = map[string]any{"inlineData": map[string]any{"mimeType": block.MediaType, "data": block.Data}}
+			case "tool_call":
+				if _, exists := calls[block.ID]; exists {
+					return unsupported("duplicate_tool_call_id")
+				}
+				wireID := block.ID != "" && block.ID != block.Name && !strings.HasPrefix(block.ID, "gemini-part:")
+				calls[block.ID] = callRef{block.Name, wireID}
+				call := map[string]any{"name": block.Name, "args": block.Arguments}
+				if wireID {
+					call["id"] = block.ID
+				}
+				part = map[string]any{"functionCall": call}
+			case "tool_result":
+				ref, ok := calls[block.ToolCallID]
+				if !ok {
+					return unsupported("unmatched_tool_result")
+				}
+				key := "content"
+				if block.IsError {
+					key = "error"
+				}
+				response := map[string]any{"name": ref.name, "response": map[string]any{key: block.Content}}
+				if ref.wireID {
+					response["id"] = block.ToolCallID
+				}
+				part = map[string]any{"functionResponse": response}
+			default:
+				return unsupported(block.Type)
 			}
+			if block.Signature != "" {
+				part["thoughtSignature"] = block.Signature
+			}
+			parts = append(parts, part)
 		}
-		contents = append(contents, map[string]any{"role": role, "parts": parts})
+		if message.Role == "tool" && previousRole == "tool" {
+			last := contents[len(contents)-1]
+			last["parts"] = append(last["parts"].([]map[string]any), parts...)
+		} else {
+			contents = append(contents, map[string]any{"role": role, "parts": parts})
+		}
+		previousRole = message.Role
 	}
-	return map[string]any{"contents": contents}, nil
+	body := map[string]any{"contents": contents}
+	if len(system) != 0 {
+		body["systemInstruction"] = map[string]any{"parts": system}
+	}
+	generation := map[string]any{}
+	if req.MaxTokens > 0 {
+		generation["maxOutputTokens"] = req.MaxTokens
+	}
+	if req.Temperature != nil {
+		generation["temperature"] = *req.Temperature
+	}
+	if req.ResponseFormat != nil {
+		switch req.ResponseFormat.Type {
+		case "text":
+		case "json_object":
+			generation["responseMimeType"] = "application/json"
+		case "json_schema":
+			generation["responseMimeType"] = "application/json"
+			generation["responseSchema"] = req.ResponseFormat.Schema
+		default:
+			return unsupported("response_format")
+		}
+	}
+	if req.Thinking != nil {
+		effort, budget := req.Thinking.Effort, req.Thinking.BudgetTokens
+		switch {
+		case effort != "" && budget != 0:
+			return unsupported("thinking_budget_and_effort")
+		case budget != 0:
+			generation["thinkingConfig"] = map[string]any{"thinkingBudget": budget, "includeThoughts": true}
+		case effort == "minimal" || effort == "low" || effort == "medium" || effort == "high":
+			generation["thinkingConfig"] = map[string]any{"thinkingLevel": strings.ToUpper(effort), "includeThoughts": true}
+		case effort != "":
+			return unsupported("thinking_effort")
+		}
+	}
+	if len(generation) != 0 {
+		body["generationConfig"] = generation
+	}
+	if len(req.Tools) != 0 {
+		declarations := make([]map[string]any, 0, len(req.Tools))
+		for _, tool := range req.Tools {
+			declarations = append(declarations, map[string]any{"name": tool.Name, "description": tool.Description, "parameters": tool.Parameters})
+		}
+		body["tools"] = []map[string]any{{"functionDeclarations": declarations}}
+	}
+	if req.ToolChoice != nil {
+		return unsupported("tool_choice")
+	}
+	return body, nil
 }
 
 func int64Field(m map[string]any, key string) int64 {
@@ -517,15 +649,31 @@ func fromGoogleGemini(raw map[string]any) (*Response, error) {
 	cm, _ := c0["content"].(map[string]any)
 	var content []ContentBlock
 	if parts, ok := cm["parts"].([]any); ok {
-		for _, pRaw := range parts {
-			p, _ := pRaw.(map[string]any)
-			if txt, _ := p["text"].(string); txt != "" {
-				if th, _ := p["thought"].(bool); th {
-					sig, _ := p["thoughtSignature"].(string)
-					content = append(content, ContentBlock{Type: "thinking", Thinking: txt, Signature: sig})
+		for index, raw := range parts {
+			part, _ := raw.(map[string]any)
+			signature, _ := part["thoughtSignature"].(string)
+			if text, ok := part["text"].(string); ok {
+				if part["thought"] == true {
+					content = append(content, ContentBlock{Type: "thinking", Thinking: text, Signature: signature})
 				} else {
-					content = append(content, ContentBlock{Type: "text", Text: txt})
+					content = append(content, ContentBlock{Type: "text", Text: text, Signature: signature})
 				}
+			} else if call, ok := part["functionCall"].(map[string]any); ok {
+				name, _ := call["name"].(string)
+				if name == "" {
+					return nil, fmt.Errorf("functionCall missing name")
+				}
+				id, _ := call["id"].(string)
+				if id == "" {
+					id = fmt.Sprintf("gemini-part:%d:%s", index, name)
+				}
+				args, _ := call["args"].(map[string]any)
+				if args == nil {
+					args = map[string]any{}
+				}
+				content = append(content, ContentBlock{Type: "tool_call", ID: id, Name: name, Arguments: args, Signature: signature})
+			} else if signature != "" {
+				return nil, fmt.Errorf("Gemini returned a signature on an unsupported part")
 			}
 		}
 	}

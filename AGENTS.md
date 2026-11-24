@@ -14,14 +14,14 @@ All three entry points must remain independently usable. By default, SDKs run in
 
 ## Directory Layout
 
-- `Sources/`, `Tests/`, `Package.swift`: existing Swift Catalog SDK (must remain backward compatible).
+- `Sources/`, `Tests/`, `Package.swift`: Swift Catalog, Provider Registry, Native Provider and Unified Provider targets. Preserve standalone Catalog and its existing API.
 - `website/`: Go 1.23+ standalone catalog website (`models.lingxifox.cn`) with `go:embed` assets and atomic upstream sync.
 - `specs/`, `schemas/`: language-neutral specifications and JSON schemas.
-- `sdk/`, `core/`, `registry/`, `gateway/`, `codegen/`, `conformance/`, `scripts/`, `docs/`: staged 2.0 directories (see `ROADMAP.md`).
+- `sdk/`, `core/`, `registry/`, `gateway/`, `conformance/`, `scripts/`, `docs/`: 2.0 SDKs, infrastructure, and evidence (see `ROADMAP.md`).
 
 ## Verification Commands
 
-- **All Phases (1–6)**:
+- **Local Phase 1–7 suites**:
   ```sh
   ./scripts/test-all.sh
   ```
@@ -33,6 +33,9 @@ All three entry points must remain independently usable. By default, SDKs run in
   ```sh
   swift test
   ```
+
+- **Cross-language CI**: `.github/workflows/all-sdks.yml` includes the C#, Kotlin and Dart jobs. Read [the feature matrix](docs/feature-matrix.md) for test coverage.
+- **Evidence and release**: `python3 scripts/generate-support-report.py --check` verifies registry evidence. The release workflow stages an artifact and records its commit and checksums.
 
 ## Strict Engineering Rules
 

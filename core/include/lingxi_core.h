@@ -20,6 +20,11 @@ char *lingxi_registry_resolve_endpoint(
     const char *provider_id_utf8,
     const char *protocol_utf8);
 
+/* Blocking HTTP: protocol, baseUrl, optional apiKey/model/timeoutMs, payload,
+ * optional native headers, unified (default false), stream (buffered).
+ * Returns a JSON result envelope. Call off the application's async event loop. */
+char *lingxi_runtime_request(const char *request_json_utf8);
+
 /* Frees a string allocated by lingxi_core. Safe on NULL. */
 void lingxi_string_free(char *ptr);
 

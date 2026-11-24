@@ -67,7 +67,7 @@ def build_registry(
             "name": cat_entry.get("name") if isinstance(cat_entry.get("name"), str) and cat_entry["name"] else pid,
             "protocols": [],
             "officialEndpoints": {},
-            "auth": {"type": "bearer" if env_strs else "none", "env": env_strs},
+            "auth": {"type": "unknown", "env": env_strs},
             "defaultHeaders": {},
             "extraParams": {},
             "thinking": {"mode": "none"},

@@ -2,7 +2,7 @@
 {"contentBlockDelta":{"contentBlockIndex":0,"delta":{"reasoningContent":{"text":"Step 1"}}}}
 {"contentBlockDelta":{"contentBlockIndex":1,"delta":{"text":"Hello "}}}
 {"contentBlockStart":{"contentBlockIndex":2,"start":{"toolUse":{"toolUseId":"tooluse_1","name":"get_weather"}}}}
-{"contentBlockDelta":{"contentBlockIndex":2,"delta":{"toolUse":{"input":"{\"city\":\"Tokyo\"}"}}}}
+{"contentBlockDelta":{"contentBlockIndex":2,"delta":{"toolUse":{"input":"{\"city\":\"東京\"}"}}}}
 {"contentBlockStop":{"contentBlockIndex":2}}
 {"messageStop":{"stopReason":"tool_use"}}
 {"metadata":{"usage":{"inputTokens":24,"outputTokens":12,"totalTokens":36}}}

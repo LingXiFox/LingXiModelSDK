@@ -15,15 +15,19 @@ pub enum Role {
 pub enum ContentBlock {
     Text {
         text: String,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        signature: Option<String>,
     },
     ImageUrl {
         url: String,
     },
     ImageBase64 {
+        #[serde(rename = "mediaType", alias = "media_type")]
         media_type: String,
         data: String,
     },
     Audio {
+        #[serde(rename = "mediaType", alias = "media_type")]
         media_type: String,
         data: String,
     },
@@ -36,11 +40,14 @@ pub enum ContentBlock {
         id: String,
         name: String,
         arguments: Value,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        signature: Option<String>,
     },
     ToolResult {
+        #[serde(rename = "toolCallId", alias = "tool_call_id", alias = "toolCallID")]
         tool_call_id: String,
         content: String,
-        #[serde(default)]
+        #[serde(default, rename = "isError", alias = "is_error")]
         is_error: bool,
     },
 }
@@ -143,7 +150,7 @@ impl LmpResponse {
         self.content
             .iter()
             .filter_map(|b| match b {
-                ContentBlock::Text { text } => Some(text.as_str()),
+                ContentBlock::Text { text, .. } => Some(text.as_str()),
                 _ => None,
             })
             .collect::<Vec<_>>()

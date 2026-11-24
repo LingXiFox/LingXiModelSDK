@@ -1,32 +1,34 @@
-# LingXiModelSDK 2.0 Feature Coverage Matrix
+# LingXiModelSDK 2.0 Alpha Coverage
 
-## 1. Ten-Language SDK Matrix
+The workflow builds and tests ten language SDKs. Entries describe the tested surface. The three entry points can be used without running the Gateway. The Catalog targets below are independent of the inference runtime.
 
-All 10 languages maintain three independent entry points (**Model Catalog** has zero inference runtime dependencies):
+| Language | Model Catalog | Provider Registry | Native Provider | Unified Provider |
+| --- | --- | --- | --- | --- |
+| Swift | `LingXiModelSDK`, catalog fixture conformance and cache tests | `LingXiProviderRegistry` | `LingXiNativeProvider`, JSON and buffered stream interfaces | `LingXiUnifiedProvider`, selected typed completion and rerank mappings |
+| Rust | `sdk/rust` catalog fixture conformance | `lingxi_core::registry` | `lingxi_core::NativeClient`, nine adapters and buffered events | `lingxi_core::lmp`, nine adapters, buffered events, selected embed and rerank |
+| Go | `sdk/go` catalog fixture conformance | `native.Registry` | `native.Client`, nine adapters and incremental events | `unified.Client`, nine adapters, incremental events, selected embed and rerank |
+| TypeScript / JavaScript | Root import, catalog fixture conformance | `./registry` | `./native`, nine adapters and event generators. SigV4 uses Node crypto. | `./unified`, nine adapters, buffered and incremental interfaces, selected embed and rerank |
+| Python | `lingxi_model_sdk` catalog fixture conformance | `.registry` | `.native`, stdlib HTTP, JSON and text event helpers | `.unified`, Rust adapter through ctypes, including buffered Bedrock streaming |
+| Java | `LingXiModelCatalog`, fixture and loader tests | `ProviderRegistry` | `NativeClient`, HTTP and auth helpers | `UnifiedClient.completeText` and `rerank` return provider JSON. Full LMP parity remains open. |
+| C# | `Catalog`, decode smoke test | `Registry` | `NativeClient`, HTTP and auth helpers | `CompleteTextAsync` and `RerankAsync` return provider JSON. Full LMP parity remains open. |
+| Kotlin | `ModelCatalog`, decode smoke test | `ProviderRegistry` | `NativeClient`, HTTP and auth helpers | `completeText` and `rerank` return provider JSON. Full LMP parity remains open. |
+| C++20 | `lingxi/catalog.hpp`, raw JSON and limited provider lookup | `lingxi/registry.hpp`, C ABI | `lingxi/native.hpp`, direct Rust runtime through the C ABI | Rust translation and blocking HTTP via the C ABI, with buffered events |
+| Dart 3 | `lib/catalog.dart`, decode smoke test | `lib/registry.dart` | `lib/native.dart`, HTTP and auth helpers | `completeText` and `rerank` return provider JSON. Full LMP parity remains open. |
 
-| Language | Catalog | Provider Registry | Native Provider | Unified Provider (LMP) | Test / CI Verification |
-| --- | --- | --- | --- | --- | --- |
-| **Swift** | `LingXiModelSDK` | `LingXiProviderRegistry` | `LingXiNativeProvider` | `LingXiUnifiedProvider` | `swift test` (macOS + Linux CI) |
-| **Rust** | `sdk/rust` | `core::registry` | `core::native` (9 protocols + SigV4) | `core::lmp` + `core::ffi` (C ABI) | `cargo test` |
-| **Go** | `sdk/go` | `sdk/go/native` | `sdk/go/native` (9 protocols + `StreamEach`) | `sdk/go/unified` (9 protocols + `Embed`/`Rerank`) | `go test -race ./...` |
-| **TypeScript / JS** | `sdk/typescript` (`.`) | `./registry` | `./native` (9 protocols + SigV4) | `./unified` (9 protocols + `embed`/`rerank`) | `node --test tests/*.test.ts` |
-| **Python** | `lingxi_model_sdk.catalog` | `.registry` | `.native` (9 protocols + SigV4) | `.unified` (`ctypes` -> `liblingxi_core`) | `unittest` (host + CI) |
-| **Java** | `LingXiModelCatalog` | `ProviderRegistry` | `NativeClient` (9 protocols + SigV4) | `UnifiedClient` | `javac` + `java` (host + CI) |
-| **C++20** | `lingxi/catalog.hpp` | `lingxi/registry.hpp` | `lingxi/native.hpp` | `lingxi/unified.hpp` (Rust C ABI) | `clang++ -std=c++20` (host + CI) |
-| **C# (.NET 8)** | `LingXiModelSDK.Catalog` | `.Registry` | `.Native` (9 protocols + SigV4) | `.Unified` | `dotnet run` (CI) |
-| **Kotlin (JVM)** | `ModelCatalog` | `ProviderRegistry` | `NativeClient` (9 protocols + SigV4) | `UnifiedClient` | `kotlinc` + `java` (CI) |
-| **Dart 3** | `lib/catalog.dart` | `lib/registry.dart` | `lib/native.dart` | `lib/unified.dart` | `dart run test/sdk_test.dart` (CI) |
+## Protocol coverage
 
-## 2. Nine-Protocol Capability Matrix
+Status is based on repository mock tests for the listed runtime paths. No entry has credentialed upstream evidence in this candidate. Language and model capabilities vary.
 
-| Protocol | Auth | Chat & Stream | Tools & Parallel Calls | Thinking & Signature | Prompt Cache | Embed / Rerank | Status |
-| --- | --- | --- | --- | --- | --- | --- | --- |
-| `openai_chat_completions` | Bearer | SSE | Yes | `reasoning_effort` (`budget_tokens` -> explicit error) | `cached_tokens` | Embed: Yes / Rerank: Unsupported | `mock_tested` |
-| `openai_responses` | Bearer | SSE | Yes | `reasoning.summary` (`budget_tokens` -> explicit error) | `cached_tokens` | Unsupported | `mock_tested` |
-| `anthropic_messages` | `x-api-key` | SSE | Yes | `budget_tokens` + `signature` (`json_schema` -> explicit error) | `cache_read` / `cache_creation` | Unsupported | `mock_tested` |
-| `google_gemini` | `x-goog-api-key` | SSE | Yes | `thought` + `thoughtSignature` | `cachedContentTokenCount` | Embed: Yes / Rerank: Unsupported | `mock_tested` |
-| `aws_bedrock` | AWS SigV4 | NDJSON | `toolUse` / `toolResult` | `budget_tokens` + `signature` | `cacheRead` / `cacheWrite` | Unsupported | `mock_tested` |
-| `google_vertex_ai` | Bearer | SSE | Yes | `thought` + `thoughtSignature` | `cachedContentTokenCount` | Embed: Yes / Rerank: Unsupported | `mock_tested` |
-| `azure_openai` | `api-key` | SSE | Yes | `reasoning_effort` | `cached_tokens` | Embed: Yes / Rerank: Unsupported | `mock_tested` |
-| `ollama` | None | NDJSON | Text/Vision | `think: true` (`json_schema` -> explicit error) | — | Embed: Yes / Rerank: Unsupported | `mock_tested` |
-| `cohere` | Bearer | SSE | Text/Thinking | `token_budget` | — | Embed: Yes / Rerank: **Yes** (`/v2/rerank`) | `mock_tested` |
+| Protocol | Core test coverage | Remaining limits |
+| --- | --- | --- |
+| OpenAI Chat Completions | Bearer JSON and SSE, basic text and reasoning responses, usage, selected embedding tests | Full parallel tool and multimodal parity |
+| OpenAI Responses | Bearer JSON and typed SSE, reasoning summary examples | Encrypted reasoning state and follow-up tool parity |
+| Anthropic Messages | API key, JSON and SSE, thinking and cache usage, explicit structured-output errors | Streamed tool arguments and signature replay parity |
+| Google Gemini | API key, JSON and SSE, signed text and parallel tool replay, inline image, cached-content forwarding, usage, batch embeddings in Rust/Go/TS | Streamed tool and signature parity, model-specific thinking constraints, browser runtime verification |
+| AWS Bedrock | SigV4 headers and Converse JSON, binary Amazon Event Stream in Rust/Go/TS and Rust-backed Python/C++, checksums, framing errors, selected normalized tool deltas and usage | Upstream SigV4 validation and model-specific reasoning support |
+| Google Vertex AI | Bearer JSON and SSE fixtures, shared Gemini adapters, configured resource path | Dedicated Vertex embeddings are explicitly unsupported; live project routing remains unverified |
+| Azure OpenAI | Deployment-scoped mock chat and API-key routing | Live resource and API-version verification |
+| Ollama | Local chat and NDJSON fixtures, explicit unsupported structured-output behavior | Upstream local installation and OpenAI compatibility route validation |
+| Cohere | Bearer chat, SSE fixtures and v2 rerank example | Provider-specific tool and usage parity |
+
+The registry-level results and evidence are generated in [support-matrix.md](support-matrix.md).

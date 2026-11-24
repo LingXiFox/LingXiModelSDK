@@ -4,6 +4,7 @@ import http from "node:http";
 import path from "node:path";
 import test from "node:test";
 import { UnifiedClient, LmpUnsupportedFeatureError } from "../src/unified/index.ts";
+import { parseAmazonEventStream } from "../src/native/eventstream.ts";
 import { ProviderRegistry } from "../src/registry/index.ts";
 
 const FIXTURES = path.resolve("..", "..", "conformance", "native");
@@ -38,7 +39,7 @@ test("registry standalone export loads 327 providers", () => {
 test("tier-2 protocols, embed, rerank, redirect error, and unsupported feature", async () => {
   const client = new UnifiedClient();
   const bedrockResp = readFixture("aws_bedrock_response.json");
-  const bedrockStream = readFixture("aws_bedrock_stream.ndjson");
+  const bedrockStream = fs.readFileSync(path.join(FIXTURES, "aws_bedrock_stream.eventstream"));
   const vertexResp = readFixture("google_vertex_response.json");
   const azureResp = readFixture("azure_openai_response.json");
   const ollamaResp = readFixture("ollama_chat_response.json");
@@ -50,7 +51,7 @@ test("tier-2 protocols, embed, rerank, redirect error, and unsupported feature",
     const url = req.url ?? "";
     if (url.includes("converse-stream")) {
       assert.ok((req.headers.authorization ?? "").startsWith("AWS4-HMAC-SHA256"));
-      res.writeHead(200, { "Content-Type": "application/x-ndjson" });
+      res.writeHead(200, { "Content-Type": "application/vnd.amazon.eventstream" });
       res.end(bedrockStream);
     } else if (url.includes("converse")) {
       assert.ok((req.headers.authorization ?? "").startsWith("AWS4-HMAC-SHA256"));
@@ -159,5 +160,88 @@ test("tier-2 protocols, embed, rerank, redirect error, and unsupported feature",
     );
   } finally {
     await srv.close();
+  }
+});
+
+test("Bedrock binary framing survives fragmentation and surfaces stream errors", async () => {
+  const fixture = fs.readFileSync(path.join(FIXTURES, "aws_bedrock_stream.eventstream"));
+  async function read(data: Uint8Array) {
+    const stream = new ReadableStream<Uint8Array>({
+      start(controller) {
+        for (let i = 0; i < data.length; i += 3) controller.enqueue(data.subarray(i, i + 3));
+        controller.close();
+      },
+    });
+    const events = [];
+    for await (const event of parseAmazonEventStream(stream)) events.push(event);
+    return events;
+  }
+  const events = await read(fixture);
+  assert.equal(events.length, 8);
+  assert.match(events[4].data, /東京/);
+  await assert.rejects(read(fixture.subarray(0, -1)), /truncated/);
+  const corrupt = Buffer.from(fixture);
+  corrupt[corrupt.length - 1] ^= 1;
+  await assert.rejects(read(corrupt), /checksum/);
+  await assert.rejects(read(fs.readFileSync(path.join(FIXTURES, "aws_bedrock_error.eventstream"))), /error frame/);
+});
+
+test("Gemini replays signed parts and same-name parallel tool calls", async () => {
+  const fixture = JSON.parse(fs.readFileSync(path.join(FIXTURES, "..", "agent", "gemini-tool-loop.json"), "utf8"));
+  const seen: Record<string, unknown>[] = [];
+  const upstream = await withServer(async (req, res) => {
+    const chunks = [];
+    for await (const chunk of req) chunks.push(chunk);
+    const payload = JSON.parse(Buffer.concat(chunks).toString());
+    seen.push(payload);
+    res.end(JSON.stringify(seen.length === 1 ? fixture.firstResponse : fixture.finalResponse));
+  });
+  try {
+    const client = new UnifiedClient();
+    const first = await client.complete("google_gemini", upstream.url, "fixture", fixture.request);
+    assert.equal(first.usage.cacheReadTokens, 0);
+    assert.equal(first.usage.reasoningTokens, 5);
+    const tools = first.content.filter((b) => b.type === "tool_call");
+    assert.equal(tools.length, 2);
+    const final = await client.complete("google_gemini", upstream.url, "fixture", {
+      ...fixture.request,
+      messages: [
+        ...fixture.request.messages,
+        { role: "assistant", content: first.content },
+        ...tools.map((tool) => ({
+          role: "tool",
+          content: [{ type: "tool_result", toolCallId: tool.id, content: tool.arguments.city === "東京" ? "18 C" : "21 C" }],
+        })),
+      ],
+    });
+    assert.deepEqual(final.content, [{ type: "text", text: "Osaka is 3 C warmer.", signature: undefined }]);
+    assert.equal(final.usage.cacheReadTokens, 25);
+    const [firstWire, lastWire] = seen as any[];
+    assert.equal(firstWire.cachedContent, "cachedContents/mock-1");
+    assert.deepEqual(firstWire.generationConfig.thinkingConfig, { thinkingLevel: "LOW", includeThoughts: true });
+    assert.equal(firstWire.contents[0].parts[1].inlineData.mimeType, "image/png");
+    assert.deepEqual(lastWire.contents[1], fixture.firstResponse.candidates[0].content);
+    assert.deepEqual(lastWire.contents[2].parts, fixture.expectedToolResponses);
+  } finally {
+    await upstream.close();
+  }
+});
+
+test("Gemini sends each batch embedding input and returns both vectors", async () => {
+  const upstream = await withServer(async (req, res) => {
+    assert.equal(req.url, "/v1beta/models/mock:batchEmbedContents");
+    const chunks = [];
+    for await (const chunk of req) chunks.push(chunk);
+    const body = JSON.parse(Buffer.concat(chunks).toString());
+    assert.deepEqual(body.requests.map((request: any) => request.content.parts[0].text), ["first", "second"]);
+    res.end('{"embeddings":[{"values":[0.1]},{"values":[0.2]}]}');
+  });
+  try {
+    const response = await new UnifiedClient().embed("google_gemini", upstream.url, "fixture", {
+      model: "models/mock", input: ["first", "second"],
+    });
+    assert.deepEqual(response.embeddings, [[0.1], [0.2]]);
+  } finally {
+    await upstream.close();
   }
 });
