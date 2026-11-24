@@ -1,4 +1,6 @@
 pub mod errors;
+pub mod ffi;
+pub mod lmp;
 pub mod native;
 pub mod registry;
 pub mod sse;

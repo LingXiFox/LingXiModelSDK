@@ -1,0 +1,68 @@
+name: Unified LMP
+
+on:
+  push:
+    branches: [main, 'rewrite/2.0']
+    paths:
+      - 'core/**'
+      - 'conformance/lmp/**'
+      - 'conformance/native/**'
+      - 'schemas/lmp-v1.schema.json'
+      - 'specs/lmp-v1.md'
+      - 'sdk/go/unified/**'
+      - 'sdk/typescript/src/unified/**'
+      - 'sdk/typescript/tests/unified.test.ts'
+      - 'scripts/test-unified-lmp.sh'
+      - '.github/workflows/unified-lmp.yml'
+  pull_request:
+    paths:
+      - 'core/**'
+      - 'conformance/lmp/**'
+      - 'conformance/native/**'
+      - 'schemas/lmp-v1.schema.json'
+      - 'specs/lmp-v1.md'
+      - 'sdk/go/unified/**'
+      - 'sdk/typescript/src/unified/**'
+      - 'sdk/typescript/tests/unified.test.ts'
+      - 'scripts/test-unified-lmp.sh'
+      - '.github/workflows/unified-lmp.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  rust-lmp:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: core
+    steps:
+      - uses: actions/checkout@v4
+      - run: cargo test
+
+  go-unified:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: sdk/go
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: sdk/go/go.mod
+          cache: false
+      - run: go vet ./...
+      - run: go test -race -v ./unified
+
+  ts-unified:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: sdk/typescript
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - run: node --test tests/unified.test.ts

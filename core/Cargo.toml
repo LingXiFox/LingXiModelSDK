@@ -5,6 +5,9 @@ edition = "2021"
 license = "MIT"
 description = "Core provider registry and native protocol runtime for LingXiModelSDK"
 
+[lib]
+crate-type = ["rlib", "cdylib", "staticlib"]
+
 [dependencies]
 reqwest = { version = "0.12", default-features = false, features = ["rustls-tls", "gzip"] }
 serde = { version = "1.0", features = ["derive"] }

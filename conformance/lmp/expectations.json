@@ -1,0 +1,51 @@
+{
+  "schemaVersion": "1.0",
+  "nonStreaming": {
+    "openai_chat_completions": {
+      "text": "Hello from chat completions",
+      "thinking": "step-by-step",
+      "finishReason": "stop",
+      "inputTokens": 12,
+      "outputTokens": 6,
+      "totalTokens": 18
+    },
+    "openai_responses": {
+      "text": "Hello from responses",
+      "thinking": "Brief thought",
+      "finishReason": "completed",
+      "inputTokens": 15,
+      "outputTokens": 8,
+      "totalTokens": 23
+    },
+    "anthropic_messages": {
+      "text": "Hello from Anthropic",
+      "thinking": "Considering options",
+      "finishReason": "end_turn",
+      "inputTokens": 20,
+      "outputTokens": 11,
+      "cacheReadTokens": 5
+    },
+    "google_gemini": {
+      "text": "Hello from Gemini",
+      "thinking": "Gemini thinking",
+      "finishReason": "STOP",
+      "inputTokens": 14,
+      "outputTokens": 9,
+      "totalTokens": 23
+    }
+  },
+  "streamingText": {
+    "openai_chat_completions": "Hello world",
+    "openai_responses": "Hello responses",
+    "anthropic_messages": "Hello Anthropic",
+    "google_gemini": "Hello Gemini"
+  },
+  "unsupportedCases": [
+    { "protocol": "anthropic_messages", "feature": "json_schema" },
+    { "protocol": "anthropic_messages", "feature": "embed" },
+    { "protocol": "anthropic_messages", "feature": "rerank" },
+    { "protocol": "openai_chat_completions", "feature": "budget_tokens" },
+    { "protocol": "openai_chat_completions", "feature": "rerank" },
+    { "protocol": "google_gemini", "feature": "rerank" }
+  ]
+}

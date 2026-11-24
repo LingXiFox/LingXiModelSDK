@@ -40,12 +40,11 @@ LingXiModelSDK 2.0 evolves the repository from a single-language Swift model cat
   - OpenAI Chat Completions, OpenAI Responses, Anthropic Messages, Google Gemini (all `Mock Tested` via `conformance/native/`).
 - **Tier 2 protocols** (pending): AWS Bedrock, Google Vertex AI, Azure OpenAI, Ollama, Cohere.
 
-## Phase 4: Unified Protocol Abstraction (`core/`, `specs/`, `conformance/`)
+## Phase 4: Unified Protocol Abstraction (`core/`, `specs/`, `conformance/`) — Implemented (Mock Tested)
 
-- Define **LingXi Model Protocol (LMP)** covering requests/responses, multi-turn & multimodal messages, streaming events, thinking content & levels, tool definitions/calls/results, structured outputs, token usage, prompt cache, typed errors, timeouts/cancellation, connection pooling, embeddings, and reranking.
-- Evaluate Rust shared protocol core + language bindings (C ABI / UniFFI / WASM / native) per target ecosystem (server, mobile, browser).
-- Preserve native escape hatches; return explicit unsupported errors where semantic mapping does not exist.
-- Leave session state, tool execution, permission approval, context compaction, and workflow orchestration to the consuming Agent.
+- Froze **LingXi Model Protocol (LMP v1.0)** specification & schema (`specs/lmp-v1.md`, `schemas/lmp-v1.schema.json`) and evaluated multi-language bindings (`docs/bindings-evaluation.md`).
+- Implemented bidirectional LMP adapters, explicit `UnsupportedFeature` guards, prompt cache/reasoning usage extraction, streaming normalization, and C ABI (`core/src/lmp/`, `core/src/ffi.rs`, `core/include/lingxi_core.h`).
+- Implemented parallel native Go (`sdk/go/unified/`) and browser/Node TypeScript (`@lingxifox/model-sdk/unified`) clients verified against `conformance/lmp/expectations.json`.
 
 ## Phase 5: Optional Unified HTTP Gateway (`gateway/`)
 
