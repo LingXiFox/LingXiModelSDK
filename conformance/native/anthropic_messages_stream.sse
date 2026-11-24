@@ -1,0 +1,12 @@
+event: message_start
+data: {"type":"message_start","message":{"id":"msg_stream_1","role":"assistant"}}
+
+event: content_block_delta
+data: {"type":"content_block_delta","index":0,"delta":{"type":"thinking_delta","thinking":"Thinking..."}}
+
+event: content_block_delta
+data: {"type":"content_block_delta","index":1,"delta":{"type":"text_delta","text":"Hello Anthropic"}}
+
+event: message_stop
+data: {"type":"message_stop"}
+

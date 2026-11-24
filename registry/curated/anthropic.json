@@ -1,0 +1,33 @@
+{
+  "id": "anthropic",
+  "name": "Anthropic",
+  "protocols": ["anthropic_messages"],
+  "officialEndpoints": {
+    "anthropic_messages": "https://api.anthropic.com"
+  },
+  "auth": {
+    "type": "x-api-key",
+    "headerName": "x-api-key",
+    "env": ["ANTHROPIC_API_KEY"]
+  },
+  "defaultHeaders": {
+    "anthropic-version": "2023-06-01"
+  },
+  "extraParams": {},
+  "thinking": {
+    "mode": "budget_tokens",
+    "minBudgetTokens": 1024,
+    "maxBudgetTokens": 128000
+  },
+  "modelOverrides": {},
+  "verificationStatus": "mock_tested",
+  "verificationEvidence": [
+    {
+      "protocol": "anthropic_messages",
+      "level": "mock_tested",
+      "suite": "conformance/native",
+      "verifiedAt": "2026-11-24",
+      "notes": "Verified against local mock HTTP server for Messages API and thinking_delta SSE."
+    }
+  ]
+}

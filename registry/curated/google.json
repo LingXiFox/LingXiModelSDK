@@ -1,0 +1,30 @@
+{
+  "id": "google",
+  "name": "Google",
+  "protocols": ["google_gemini"],
+  "officialEndpoints": {
+    "google_gemini": "https://generativelanguage.googleapis.com"
+  },
+  "auth": {
+    "type": "x-goog-api-key",
+    "headerName": "x-goog-api-key",
+    "env": ["GEMINI_API_KEY", "GOOGLE_GENERATIVE_AI_API_KEY"]
+  },
+  "defaultHeaders": {},
+  "extraParams": {},
+  "thinking": {
+    "mode": "gemini_thinking_config",
+    "effortLevels": ["minimal", "low", "medium", "high"]
+  },
+  "modelOverrides": {},
+  "verificationStatus": "mock_tested",
+  "verificationEvidence": [
+    {
+      "protocol": "google_gemini",
+      "level": "mock_tested",
+      "suite": "conformance/native",
+      "verifiedAt": "2026-11-24",
+      "notes": "Verified against local mock HTTP server for generateContent and streamGenerateContent?alt=sse."
+    }
+  ]
+}

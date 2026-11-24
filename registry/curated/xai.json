@@ -1,0 +1,16 @@
+{
+  "id": "xai",
+  "name": "xAI",
+  "protocols": ["openai_chat_completions", "openai_responses"],
+  "officialEndpoints": {
+    "openai_chat_completions": "https://api.x.ai/v1",
+    "openai_responses": "https://api.x.ai/v1"
+  },
+  "auth": { "type": "bearer", "env": ["XAI_API_KEY"] },
+  "defaultHeaders": {},
+  "extraParams": {},
+  "thinking": { "mode": "effort", "effortLevels": ["low", "high"] },
+  "modelOverrides": {},
+  "verificationStatus": "compatible",
+  "verificationEvidence": []
+}

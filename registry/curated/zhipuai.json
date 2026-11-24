@@ -1,0 +1,15 @@
+{
+  "id": "zhipuai",
+  "name": "Zhipu AI",
+  "protocols": ["openai_chat_completions"],
+  "officialEndpoints": {
+    "openai_chat_completions": "https://open.bigmodel.cn/api/paas/v4"
+  },
+  "auth": { "type": "bearer", "env": ["ZHIPU_API_KEY"] },
+  "defaultHeaders": {},
+  "extraParams": {},
+  "thinking": { "mode": "none" },
+  "modelOverrides": {},
+  "verificationStatus": "compatible",
+  "verificationEvidence": []
+}

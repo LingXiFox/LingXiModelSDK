@@ -1,0 +1,15 @@
+{
+  "id": "openrouter",
+  "name": "OpenRouter",
+  "protocols": ["openai_chat_completions"],
+  "officialEndpoints": {
+    "openai_chat_completions": "https://openrouter.ai/api/v1"
+  },
+  "auth": { "type": "bearer", "env": ["OPENROUTER_API_KEY"] },
+  "defaultHeaders": {},
+  "extraParams": {},
+  "thinking": { "mode": "effort", "effortLevels": ["low", "medium", "high"] },
+  "modelOverrides": {},
+  "verificationStatus": "compatible",
+  "verificationEvidence": []
+}

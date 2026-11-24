@@ -1,0 +1,35 @@
+{
+  "id": "deepseek",
+  "name": "DeepSeek",
+  "protocols": ["openai_chat_completions"],
+  "officialEndpoints": {
+    "openai_chat_completions": "https://api.deepseek.com"
+  },
+  "auth": {
+    "type": "bearer",
+    "env": ["DEEPSEEK_API_KEY"]
+  },
+  "defaultHeaders": {},
+  "extraParams": {},
+  "thinking": {
+    "mode": "none"
+  },
+  "modelOverrides": {
+    "deepseek-reasoner": {
+      "thinking": {
+        "mode": "effort",
+        "effortLevels": ["medium"]
+      }
+    }
+  },
+  "verificationStatus": "mock_tested",
+  "verificationEvidence": [
+    {
+      "protocol": "openai_chat_completions",
+      "level": "mock_tested",
+      "suite": "conformance/native",
+      "verifiedAt": "2026-11-24",
+      "notes": "Declarative OpenAI Chat Completions dispatch verified via local mock server."
+    }
+  ]
+}

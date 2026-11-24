@@ -1,0 +1,15 @@
+{
+  "id": "mistral",
+  "name": "Mistral",
+  "protocols": ["openai_chat_completions"],
+  "officialEndpoints": {
+    "openai_chat_completions": "https://api.mistral.ai/v1"
+  },
+  "auth": { "type": "bearer", "env": ["MISTRAL_API_KEY"] },
+  "defaultHeaders": {},
+  "extraParams": {},
+  "thinking": { "mode": "none" },
+  "modelOverrides": {},
+  "verificationStatus": "compatible",
+  "verificationEvidence": []
+}

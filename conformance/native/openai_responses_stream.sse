@@ -1,0 +1,11 @@
+event: response.created
+data: {"type":"response.created","response":{"id":"resp-stream-1","status":"in_progress"}}
+
+event: response.output_text.delta
+data: {"type":"response.output_text.delta","delta":"Hello responses"}
+
+event: response.completed
+data: {"type":"response.completed","response":{"id":"resp-stream-1","status":"completed"}}
+
+data: [DONE]
+

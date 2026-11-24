@@ -1,0 +1,24 @@
+{
+  "id": "resp-mock-1",
+  "object": "response",
+  "status": "completed",
+  "model": "gpt-5",
+  "output": [
+    {
+      "type": "reasoning",
+      "id": "rs_1",
+      "summary": [{ "type": "summary_text", "text": "Brief thought" }]
+    },
+    {
+      "type": "message",
+      "id": "msg_1",
+      "role": "assistant",
+      "content": [{ "type": "output_text", "text": "Hello from responses" }]
+    }
+  ],
+  "usage": {
+    "input_tokens": 15,
+    "output_tokens": 8,
+    "total_tokens": 23
+  }
+}

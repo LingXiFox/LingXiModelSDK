@@ -15,8 +15,11 @@ LingXiModelSDK provides three independent, parallel entry points:
    - Specification & Schemas: [specs/catalog-v2.md](specs/catalog-v2.md), [schemas/](schemas/catalog-v2.schema.json)
    - Language SDKs: [Swift](Sources/LingXiModelSDK/), [Go](sdk/go/), [Python](sdk/python/), [TypeScript/JS](sdk/typescript/), [Rust](sdk/rust/), [Java](sdk/java/)
    - Run all 6 conformance suites: `./scripts/test-catalog-sdks.sh`
-2. **Native Provider** *(Planned — Phase 3)*
-   Direct upstream communication using each provider's native protocol, request/response types, and streaming events without forcing a unified abstraction.
+2. **Native Provider** *(Mock-tested Tier 1: Rust `core/`, Go `sdk/go/native`, TS `@lingxifox/model-sdk/native`)*
+   Direct upstream communication using each provider's native protocol, request/response types, and SSE streaming events without forcing a unified abstraction.
+   - Declarative Registry (326 providers): [registry/registry.json](registry/registry.json), [specs/provider-registry-v1.md](specs/provider-registry-v1.md)
+   - Tier-1 Protocols: OpenAI Chat Completions, OpenAI Responses, Anthropic Messages, Google Gemini ([specs/native-provider-v1.md](specs/native-provider-v1.md))
+   - Run all native provider suites: `./scripts/test-native-providers.sh`
 3. **Unified Provider** *(Planned — Phase 4)*
    Opt-in normalized LingXi Model Protocol (LMP) across providers, with explicit unsupported-feature errors and no silent downgrades. An optional self-hosted HTTP Gateway is planned in Phase 5.
 

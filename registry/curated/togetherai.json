@@ -1,0 +1,15 @@
+{
+  "id": "togetherai",
+  "name": "Together AI",
+  "protocols": ["openai_chat_completions"],
+  "officialEndpoints": {
+    "openai_chat_completions": "https://api.together.xyz/v1"
+  },
+  "auth": { "type": "bearer", "env": ["TOGETHER_API_KEY"] },
+  "defaultHeaders": {},
+  "extraParams": {},
+  "thinking": { "mode": "none" },
+  "modelOverrides": {},
+  "verificationStatus": "compatible",
+  "verificationEvidence": []
+}

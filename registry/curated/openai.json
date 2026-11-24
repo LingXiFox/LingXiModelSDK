@@ -1,0 +1,37 @@
+{
+  "id": "openai",
+  "name": "OpenAI",
+  "protocols": ["openai_responses", "openai_chat_completions"],
+  "officialEndpoints": {
+    "openai_responses": "https://api.openai.com/v1",
+    "openai_chat_completions": "https://api.openai.com/v1"
+  },
+  "auth": {
+    "type": "bearer",
+    "env": ["OPENAI_API_KEY"]
+  },
+  "defaultHeaders": {},
+  "extraParams": {},
+  "thinking": {
+    "mode": "effort",
+    "effortLevels": ["minimal", "low", "medium", "high"]
+  },
+  "modelOverrides": {},
+  "verificationStatus": "mock_tested",
+  "verificationEvidence": [
+    {
+      "protocol": "openai_chat_completions",
+      "level": "mock_tested",
+      "suite": "conformance/native",
+      "verifiedAt": "2026-11-24",
+      "notes": "Verified against local mock HTTP server for non-streaming and SSE streaming."
+    },
+    {
+      "protocol": "openai_responses",
+      "level": "mock_tested",
+      "suite": "conformance/native",
+      "verifiedAt": "2026-11-24",
+      "notes": "Verified against local mock HTTP server for non-streaming and typed SSE events."
+    }
+  ]
+}

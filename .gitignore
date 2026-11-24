@@ -4,6 +4,7 @@ Package.resolved
 *.xcodeproj
 .swiftpm/xcode/
 sdk/rust/target/
+core/target/
 sdk/java/build/
 __pycache__/
 *.pyc

@@ -1,0 +1,58 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://models.lingxifox.cn/schemas/provider-registry-v1.schema.json",
+  "title": "LingXi Provider Registry v1.0",
+  "type": "object",
+  "required": ["schemaVersion", "generatedAt", "summary", "providers"],
+  "additionalProperties": true,
+  "properties": {
+    "schemaVersion": { "type": "string", "const": "1.0" },
+    "generatedAt": { "type": "string" },
+    "summary": {
+      "type": "object",
+      "required": ["totalProviders", "discovered", "compatible", "mock_tested", "live_verified", "full_support"],
+      "properties": {
+        "totalProviders": { "type": "integer", "minimum": 0 },
+        "discovered": { "type": "integer", "minimum": 0 },
+        "compatible": { "type": "integer", "minimum": 0 },
+        "mock_tested": { "type": "integer", "minimum": 0 },
+        "live_verified": { "type": "integer", "minimum": 0 },
+        "full_support": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "providers": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "object",
+        "required": ["id", "name", "protocols", "officialEndpoints", "auth", "verificationStatus"],
+        "additionalProperties": true,
+        "properties": {
+          "id": { "type": "string", "minLength": 1 },
+          "name": { "type": "string", "minLength": 1 },
+          "protocols": { "type": "array", "items": { "type": "string" } },
+          "officialEndpoints": { "type": "object", "additionalProperties": { "type": "string" } },
+          "auth": {
+            "type": "object",
+            "required": ["type"],
+            "properties": {
+              "type": { "type": "string", "enum": ["bearer", "x-api-key", "x-goog-api-key", "query_param", "custom_header", "none"] },
+              "headerName": { "type": "string" },
+              "prefix": { "type": "string" },
+              "queryParam": { "type": "string" },
+              "env": { "type": "array", "items": { "type": "string" } }
+            }
+          },
+          "defaultHeaders": { "type": "object", "additionalProperties": { "type": "string" } },
+          "extraParams": { "type": "object", "additionalProperties": true },
+          "thinking": { "type": "object", "additionalProperties": true },
+          "modelOverrides": { "type": "object", "additionalProperties": true },
+          "verificationStatus": {
+            "type": "string",
+            "enum": ["discovered", "compatible", "mock_tested", "live_verified", "full_support"]
+          },
+          "verificationEvidence": { "type": "array", "items": { "type": "object" } }
+        }
+      }
+    }
+  }
+}

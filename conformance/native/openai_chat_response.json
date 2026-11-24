@@ -1,0 +1,21 @@
+{
+  "id": "chatcmpl-mock-1",
+  "object": "chat.completion",
+  "model": "gpt-5-mini",
+  "choices": [
+    {
+      "index": 0,
+      "message": {
+        "role": "assistant",
+        "content": "Hello from chat completions",
+        "reasoning_content": "step-by-step"
+      },
+      "finish_reason": "stop"
+    }
+  ],
+  "usage": {
+    "prompt_tokens": 12,
+    "completion_tokens": 6,
+    "total_tokens": 18
+  }
+}

@@ -1,0 +1,15 @@
+{
+  "id": "groq",
+  "name": "Groq",
+  "protocols": ["openai_chat_completions"],
+  "officialEndpoints": {
+    "openai_chat_completions": "https://api.groq.com/openai/v1"
+  },
+  "auth": { "type": "bearer", "env": ["GROQ_API_KEY"] },
+  "defaultHeaders": {},
+  "extraParams": {},
+  "thinking": { "mode": "none" },
+  "modelOverrides": {},
+  "verificationStatus": "compatible",
+  "verificationEvidence": []
+}

@@ -32,13 +32,13 @@ LingXiModelSDK 2.0 evolves the repository from a single-language Swift model cat
   - **Java** (`sdk/java/`, zero external dependencies, JDK 17+)
 - **Tier 2** (pending): C#, Kotlin, C++, Dart.
 
-## Phase 3: Provider Registry & Native Provider Clients (`registry/`, `core/`, `sdk/`)
+## Phase 3: Provider Registry & Native Provider Clients (`registry/`, `core/`, `sdk/`) — Tier 1 Implemented
 
-- Build declarative `registry/` describing Provider ID, official endpoints, supported protocols, auth schemes, custom headers/params, thinking levels/budgets, model overrides, and verification status.
-- Implement **Native Provider** clients preserving native request/response/SSE payloads and extensions:
-  - **Tier 1 protocols**: OpenAI Chat Completions, OpenAI Responses, Anthropic Messages, Google Gemini.
-  - **Tier 2 protocols**: AWS Bedrock, Google Vertex AI, Azure OpenAI, Ollama, Cohere.
-- Establish automated classification & declarative onboarding for 300+ catalog providers without conflating discovery with verification.
+- Defined declarative registry & native wire specifications (`specs/provider-registry-v1.md`, `specs/native-provider-v1.md`, `schemas/provider-registry-v1.schema.json`).
+- Built declarative registry (`registry/curated/*.json`, `registry/scripts/classify_catalog.py`, `registry/registry.json`) covering 326 catalog providers without ever inferring protocol compatibility from upstream `npm` package names.
+- Implemented Native Provider clients (`core/` Rust, `sdk/go/native/`, `sdk/typescript/src/native/`) preserving native payloads, extensions, error bodies, and raw SSE events for all 4 Tier-1 protocols:
+  - OpenAI Chat Completions, OpenAI Responses, Anthropic Messages, Google Gemini (all `Mock Tested` via `conformance/native/`).
+- **Tier 2 protocols** (pending): AWS Bedrock, Google Vertex AI, Azure OpenAI, Ollama, Cohere.
 
 ## Phase 4: Unified Protocol Abstraction (`core/`, `specs/`, `conformance/`)
 

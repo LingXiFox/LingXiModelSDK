@@ -1,0 +1,16 @@
+{
+  "id": "msg_mock_1",
+  "type": "message",
+  "role": "assistant",
+  "model": "claude-sonnet-4-5",
+  "content": [
+    { "type": "thinking", "thinking": "Considering options", "signature": "sig_abc" },
+    { "type": "text", "text": "Hello from Anthropic" }
+  ],
+  "stop_reason": "end_turn",
+  "usage": {
+    "input_tokens": 20,
+    "output_tokens": 11,
+    "cache_read_input_tokens": 5
+  }
+}
