@@ -13,20 +13,24 @@ LingXiModelSDK 2.0 evolves the repository from a single-language Swift model cat
 
 ---
 
-## Phase 1: Go Website Refactor (`website/`) — In Progress / Current Target
+## Phase 1: Go Website Refactor (`website/`) — Completed (on `rewrite/2.0`)
 
 - Replace static HTML + Tailwind CDN + Python `sync-models.py` with a single-binary Go 1.23+ server (`CGO_ENABLED=0`, stdlib only, `go:embed`).
 - Preserve `/models.json`, `/publication.json`, schema `2.0`, ETag/`Last-Modified` conditional requests, CORS, ICP/MPS filing numbers, links, and original `beian-icon.png`.
 - Add `/healthz`, `/sdk`, `/protocols`, `/providers`, modular templates, minimalist line-art UI, persistent atomic sync, shrink guard, `-check`, `-sync-once`, `SIGHUP` reload, and optional loopback admin sync.
 - Provide systemd & Caddy snippet deployment templates (`website/deploy/`). Production switch requires explicit approval.
 
-## Phase 2: Multi-Language Model Catalog SDK (`sdk/`, `schemas/`, `conformance/`)
+## Phase 2: Multi-Language Model Catalog SDK (`sdk/`, `schemas/`, `conformance/`) — Tier 1 Implemented
 
-- Freeze language-neutral catalog schema (`2.0`) and shared conformance test fixtures.
-- Implement lightweight native Catalog SDKs (zero FFI requirement) using each ecosystem's native networking & async primitives:
-  - **Tier 1**: Swift (preserve root `Package.swift` & public API), Rust, TypeScript/JavaScript, Python, Go, Java.
-  - **Tier 2**: C#, Kotlin, C++, Dart.
-- Enforce cross-language parity: lookup, search, capability filters, ETag/conditional fetch, offline cache fallback, unknown-field preservation, `null` vs `0` vs `false`, deterministic `ModelCatalogOrdering`, provenance & freshness.
+- Froze language-neutral catalog specification (`specs/catalog-v2.md`), JSON Schemas (`schemas/catalog-v2.schema.json`, `schemas/publication-v2.schema.json`), and shared conformance fixtures (`conformance/catalog/`).
+- Implemented and conformance-tested all 6 Tier-1 native Catalog SDKs:
+  - **Swift** (`Sources/LingXiModelSDK/`, root `Package.swift` backward-compatible)
+  - **Go** (`sdk/go/`, zero external dependencies)
+  - **Python** (`sdk/python/`, zero external dependencies)
+  - **TypeScript / JavaScript** (`sdk/typescript/`, zero external dependencies)
+  - **Rust** (`sdk/rust/`, minimal `serde`/`serde_json`/`reqwest` deps)
+  - **Java** (`sdk/java/`, zero external dependencies, JDK 17+)
+- **Tier 2** (pending): C#, Kotlin, C++, Dart.
 
 ## Phase 3: Provider Registry & Native Provider Clients (`registry/`, `core/`, `sdk/`)
 

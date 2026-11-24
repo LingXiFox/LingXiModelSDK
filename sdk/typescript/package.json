@@ -1,0 +1,17 @@
+{
+  "name": "@lingxifox/model-sdk",
+  "version": "2.0.0-alpha.1",
+  "description": "Zero-dependency TypeScript/JavaScript SDK for the LingXi public model catalog",
+  "license": "MIT",
+  "type": "module",
+  "main": "./src/index.ts",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "test": "node --test tests/*.test.ts"
+  }
+}

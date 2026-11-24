@@ -10,8 +10,11 @@ MIT License · Monorepo · In-process by default.
 
 LingXiModelSDK provides three independent, parallel entry points:
 
-1. **Model Catalog** *(Shipped: Swift · Planned: Rust, TS/JS, Python, Go, Java, C#, Kotlin, C++, Dart)*
+1. **Model Catalog** *(Conformance-tested: Swift, Rust, TS/JS, Python, Go, Java · Planned Tier 2: C#, Kotlin, C++, Dart)*
    Read-only model and provider metadata: identity, context/output limits, capabilities, pricing, and freshness. Requires no API keys or inference runtime.
+   - Specification & Schemas: [specs/catalog-v2.md](specs/catalog-v2.md), [schemas/](schemas/catalog-v2.schema.json)
+   - Language SDKs: [Swift](Sources/LingXiModelSDK/), [Go](sdk/go/), [Python](sdk/python/), [TypeScript/JS](sdk/typescript/), [Rust](sdk/rust/), [Java](sdk/java/)
+   - Run all 6 conformance suites: `./scripts/test-catalog-sdks.sh`
 2. **Native Provider** *(Planned — Phase 3)*
    Direct upstream communication using each provider's native protocol, request/response types, and streaming events without forcing a unified abstraction.
 3. **Unified Provider** *(Planned — Phase 4)*

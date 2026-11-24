@@ -1,0 +1,21 @@
+{
+  "version": "1.0",
+  "updatedAt": "2026-09-12T08:11:58Z",
+  "totalProviders": 1,
+  "totalModels": 1,
+  "providers": {
+    "ollama": {
+      "id": "ollama",
+      "name": "Ollama",
+      "baseURL": "http://localhost:11434",
+      "env": [],
+      "models": {
+        "llama3": {
+          "id": "llama3",
+          "name": "Llama 3",
+          "limit": { "context": 8192, "output": 2048 }
+        }
+      }
+    }
+  }
+}

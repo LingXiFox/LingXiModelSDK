@@ -1,0 +1,21 @@
+{
+  "schemaVersion": "2.0",
+  "catalogRevision": "malformed-test",
+  "providers": {
+    "p": {
+      "id": "p",
+      "name": "P",
+      "models": {
+        "published-key": {
+          "id": "internal-id",
+          "name": "Published Key Model",
+          "limit": { "context": 100, "output": 10 }
+        },
+        "bad-entry": "not-an-object",
+        "": {
+          "name": "No Identity"
+        }
+      }
+    }
+  }
+}

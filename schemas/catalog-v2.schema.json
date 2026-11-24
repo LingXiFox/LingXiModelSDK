@@ -1,0 +1,83 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://models.lingxifox.cn/schemas/catalog-v2.schema.json",
+  "title": "LingXi Model Catalog v2.0",
+  "type": "object",
+  "required": ["schemaVersion", "catalogRevision", "providers"],
+  "additionalProperties": true,
+  "properties": {
+    "schemaVersion": { "type": "string", "pattern": "^2\\." },
+    "catalogRevision": { "type": "string", "minLength": 1 },
+    "catalogHash": { "type": ["string", "null"] },
+    "generatedAt": { "type": ["string", "null"] },
+    "source": { "type": ["string", "null"] },
+    "sourceURL": { "type": ["string", "null"] },
+    "sourceFetchedAt": { "type": ["string", "null"] },
+    "sourceHash": { "type": ["string", "null"] },
+    "totalProviders": { "type": "integer", "minimum": 1 },
+    "totalModels": { "type": "integer", "minimum": 1 },
+    "providers": {
+      "type": "object",
+      "minProperties": 1,
+      "additionalProperties": {
+        "type": "object",
+        "required": ["models"],
+        "additionalProperties": true,
+        "properties": {
+          "id": { "type": ["string", "null"] },
+          "name": { "type": ["string", "null"] },
+          "api": { "type": ["string", "null"] },
+          "baseURL": { "type": ["string", "null"] },
+          "doc": { "type": ["string", "null"] },
+          "env": { "type": "array", "items": { "type": "string" } },
+          "modelCount": { "type": "integer", "minimum": 0 },
+          "models": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "object",
+              "additionalProperties": true,
+              "properties": {
+                "id": { "type": ["string", "null"] },
+                "name": { "type": ["string", "null"] },
+                "family": { "type": ["string", "null"] },
+                "description": { "type": ["string", "null"] },
+                "release_date": { "type": ["string", "null"] },
+                "last_updated": { "type": ["string", "null"] },
+                "knowledge": { "type": ["string", "null"] },
+                "canonical_model_id": { "type": ["string", "null"] },
+                "status": { "type": ["string", "null"] },
+                "reasoning": { "type": ["boolean", "null"] },
+                "attachment": { "type": ["boolean", "null"] },
+                "tool_call": { "type": ["boolean", "null"] },
+                "structured_output": { "type": ["boolean", "null"] },
+                "open_weights": { "type": ["boolean", "null"] },
+                "temperature": { "type": ["boolean", "null"] },
+                "limit": {
+                  "type": ["object", "null"],
+                  "additionalProperties": true,
+                  "properties": {
+                    "context": { "type": ["integer", "null"], "minimum": 0 },
+                    "input": { "type": ["integer", "null"], "minimum": 0 },
+                    "output": { "type": ["integer", "null"], "minimum": 0 }
+                  }
+                },
+                "cost": {
+                  "type": ["object", "null"],
+                  "additionalProperties": { "type": ["number", "null"] }
+                },
+                "modalities": {
+                  "type": ["object", "null"],
+                  "additionalProperties": true,
+                  "properties": {
+                    "input": { "type": ["array", "null"], "items": { "type": "string" } },
+                    "output": { "type": ["array", "null"], "items": { "type": "string" } }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

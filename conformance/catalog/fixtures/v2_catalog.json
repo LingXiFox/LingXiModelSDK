@@ -1,0 +1,93 @@
+{
+  "schemaVersion": "2.0",
+  "catalogRevision": "conf-rev-001",
+  "catalogHash": "sha256:confhash001",
+  "generatedAt": "2026-10-01T12:00:00Z",
+  "source": "models.dev",
+  "sourceURL": "https://models.dev/api.json",
+  "sourceFetchedAt": "2026-10-01T11:59:58Z",
+  "sourceHash": "sha256:sourcehash001",
+  "totalProviders": 3,
+  "totalModels": 5,
+  "providers": {
+    "prov10": {
+      "id": "prov10",
+      "name": "Provider 10",
+      "api": "https://api.prov10.example/v1",
+      "baseURL": "https://api.prov10.example/v1",
+      "doc": "https://docs.prov10.example",
+      "env": ["PROV10_API_KEY"],
+      "customProviderField": { "tier": "standard" },
+      "models": {
+        "gpt-10": {
+          "id": "gpt-10",
+          "name": "GPT-10",
+          "family": "gpt",
+          "description": "Next generation model",
+          "release_date": "2026-05-01",
+          "last_updated": "2026-05-02",
+          "reasoning": true,
+          "reasoning_options": [{ "type": "effort", "values": ["low", "medium", "high"] }],
+          "tool_call": true,
+          "structured_output": true,
+          "attachment": true,
+          "temperature": false,
+          "open_weights": false,
+          "modalities": { "input": ["text", "image", "audio"], "output": ["text", "audio"] },
+          "limit": { "context": 400000, "input": 272000, "output": 128000 },
+          "cost": { "input": 0.0, "output": 0.4, "cache_read": 0.005 },
+          "experimental": { "warmup": true }
+        },
+        "gpt-5": {
+          "id": "gpt-5",
+          "name": "GPT-5",
+          "family": "gpt",
+          "release_date": "2026-05-01",
+          "reasoning": true,
+          "tool_call": true,
+          "structured_output": false,
+          "modalities": { "input": ["text"], "output": ["text"] },
+          "limit": { "context": 0, "output": 64000 }
+        }
+      }
+    },
+    "prov2": {
+      "id": "prov2",
+      "name": "Provider 2",
+      "env": ["PROV2_KEY"],
+      "models": {
+        "alpha-beta": {
+          "id": "alpha-beta",
+          "name": "Alpha Beta",
+          "status": "beta",
+          "limit": { "context": 200000 }
+        }
+      }
+    },
+    "deepseek": {
+      "id": "deepseek",
+      "name": "DeepSeek",
+      "env": ["DEEPSEEK_API_KEY"],
+      "models": {
+        "deepseek-v4": {
+          "id": "deepseek-v4",
+          "name": "DeepSeek V4",
+          "family": "deepseek",
+          "release_date": "2026-03-01",
+          "tool_call": true,
+          "open_weights": true,
+          "modalities": { "input": ["text"], "output": ["text"] },
+          "limit": { "context": 128000, "output": 8000 },
+          "cost": { "input": 0.14, "output": 0.28 }
+        },
+        "deepseek-v3": {
+          "id": "deepseek-v3",
+          "name": "DeepSeek V3",
+          "status": "deprecated",
+          "limit": { "context": 64000, "output": 8000 },
+          "cost": { "input": 0.14, "output": 0.28 }
+        }
+      }
+    }
+  }
+}

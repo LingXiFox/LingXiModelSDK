@@ -1,0 +1,31 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://models.lingxifox.cn/schemas/publication-v2.schema.json",
+  "title": "LingXi Model Catalog Publication Manifest v2.0",
+  "type": "object",
+  "required": [
+    "schemaVersion",
+    "catalogRevision",
+    "catalogHash",
+    "generatedAt",
+    "providers",
+    "models",
+    "bytes",
+    "sha256",
+    "publishedAt"
+  ],
+  "additionalProperties": true,
+  "properties": {
+    "schemaVersion": { "type": "string" },
+    "catalogRevision": { "type": "string" },
+    "catalogHash": { "type": "string" },
+    "generatedAt": { "type": "string" },
+    "sourceFetchedAt": { "type": "string" },
+    "sourceHash": { "type": "string" },
+    "providers": { "type": "integer", "minimum": 1 },
+    "models": { "type": "integer", "minimum": 1 },
+    "bytes": { "type": "integer", "minimum": 1 },
+    "sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+    "publishedAt": { "type": "string" }
+  }
+}

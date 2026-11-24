@@ -1,0 +1,13 @@
+{
+  "schemaVersion": "3.0",
+  "catalogRevision": "future",
+  "providers": {
+    "p": {
+      "id": "p",
+      "name": "P",
+      "models": {
+        "m": { "id": "m", "name": "M" }
+      }
+    }
+  }
+}

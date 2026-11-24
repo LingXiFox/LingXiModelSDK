@@ -1,0 +1,15 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "lingxi-model-sdk"
+version = "2.0.0a1"
+description = "Zero-dependency Python SDK for the LingXi public model catalog"
+readme = "README.md"
+requires-python = ">=3.10"
+license = { text = "MIT" }
+dependencies = []
+
+[tool.setuptools.packages.find]
+where = ["src"]

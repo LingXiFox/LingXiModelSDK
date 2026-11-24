@@ -1,0 +1,30 @@
+{
+  "schemaVersion": "2.0",
+  "catalogRevision": "conf-rev-001",
+  "totalProviders": 3,
+  "totalModels": 5,
+  "providerOrder": ["deepseek", "prov2", "prov10"],
+  "featuredProviderOrder": {
+    "featured": ["prov10"],
+    "expected": ["prov10", "deepseek", "prov2"]
+  },
+  "prov10ModelOrder": ["gpt-5", "gpt-10"],
+  "deepseekModelOrder": ["deepseek-v4", "deepseek-v3"],
+  "allModelQualifiedOrder": [
+    "deepseek/deepseek-v4",
+    "deepseek/deepseek-v3",
+    "prov2/alpha-beta",
+    "prov10/gpt-5",
+    "prov10/gpt-10"
+  ],
+  "search": {
+    "gptLimit1": ["prov10/gpt-5"],
+    "deepseek": ["deepseek/deepseek-v4", "deepseek/deepseek-v3"]
+  },
+  "filters": {
+    "vision": ["prov10/gpt-10"],
+    "minContext200k": ["prov2/alpha-beta", "prov10/gpt-10"],
+    "deepseekDefault": ["deepseek/deepseek-v4"],
+    "deepseekIncludeDeprecated": ["deepseek/deepseek-v4", "deepseek/deepseek-v3"]
+  }
+}

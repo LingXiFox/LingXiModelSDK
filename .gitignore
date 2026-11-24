@@ -3,3 +3,7 @@ Package.resolved
 .DS_Store
 *.xcodeproj
 .swiftpm/xcode/
+sdk/rust/target/
+sdk/java/build/
+__pycache__/
+*.pyc

@@ -130,7 +130,7 @@ public struct LingXiModelCatalog: Sendable, Equatable {
         models.sorted { lhs, rhs in
             let byDate = compareDescending(lhs.releaseDate, rhs.releaseDate)
             if byDate != .orderedSame { return byDate == .orderedAscending }
-            let byFamily = ModelCatalogOrdering.displayName(lhs.family ?? "", lhs.id, rhs.family ?? "", rhs.id)
+            let byFamily = ModelCatalogOrdering.compare(lhs.family ?? "", rhs.family ?? "")
             if byFamily != .orderedSame { return byFamily == .orderedAscending }
             let byName = ModelCatalogOrdering.displayName(lhs.name, lhs.id, rhs.name, rhs.id)
             if byName != .orderedSame { return byName == .orderedAscending }
