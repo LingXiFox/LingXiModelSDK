@@ -1,0 +1,52 @@
+name: Website
+on:
+  push:
+    branches: [main, 'rewrite/2.0']
+    paths: ['website/**', '.github/workflows/website.yml']
+  pull_request:
+    paths: ['website/**', '.github/workflows/website.yml']
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  test:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    defaults:
+      run:
+        working-directory: website
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: website/go.mod
+          cache: false
+      - run: go test ./...
+      - run: go vet ./...
+      - run: go build ./...
+  linux:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: website
+    strategy:
+      matrix:
+        arch: [amd64, arm64]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: website/go.mod
+          cache: false
+      - run: go build -trimpath -ldflags="-s -w" -o lingxi-models .
+        env:
+          CGO_ENABLED: '0'
+          GOOS: linux
+          GOARCH: ${{ matrix.arch }}
+      - uses: actions/upload-artifact@v4
+        with:
+          name: lingxi-models-linux-${{ matrix.arch }}
+          path: website/lingxi-models
