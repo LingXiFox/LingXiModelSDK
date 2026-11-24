@@ -15,7 +15,7 @@ jobs:
       - name: Test Rust Core (9 protocols + Agent scenarios)
         run: cd core && cargo build && cargo test
       - name: Test Python SDK (Catalog + Registry + Native + Unified + Rust FFI)
-        run: PYTHONPATH=sdk/python/src python3 -m unittest discover -s sdk/python/tests
+        run: LINGXI_REQUIRE_FFI=1 PYTHONPATH=sdk/python/src python3 -m unittest discover -s sdk/python/tests
       - name: Test C++ SDK (C++20 + Rust C ABI)
         run: |
           cd sdk/cpp
@@ -54,7 +54,7 @@ jobs:
         run: |
           cd sdk/java
           mkdir -p build/classes
-          javac -d build/classes src/main/java/cn/lingxifox/modelsdk/*.java
+          javac -d build/classes src/main/java/cn/lingxifox/modelsdk/*.java src/test/java/cn/lingxifox/modelsdk/*.java
           java -cp build/classes cn.lingxifox.modelsdk.CatalogTestRunner
           java -cp build/classes cn.lingxifox.modelsdk.ProviderTestRunner
       - name: Install and Test Kotlin SDK (4 modules)
@@ -88,11 +88,8 @@ jobs:
         run: cd sdk/dart && dart run test/sdk_test.dart
 
   swift-sdk:
-    runs-on: ubuntu-latest
+    runs-on: macos-15
     steps:
       - uses: actions/checkout@v4
-      - uses: swift-actions/setup-swift@v2
-        with:
-          swift-version: "6.0"
       - name: Test Swift SDK (Catalog + Registry + Native + Unified)
         run: swift test
