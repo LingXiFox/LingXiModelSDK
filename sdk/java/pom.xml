@@ -6,7 +6,7 @@
   <artifactId>lingxi-model-sdk</artifactId>
   <version>2.0.0-alpha.1</version>
   <name>LingXiModelSDK</name>
-  <description>Zero-dependency Java 17+ SDK for the LingXi public model catalog</description>
+  <description>Zero-dependency Java 22+ SDK for the LingXi model catalog, registry, native and unified providers</description>
   <licenses>
     <license>
       <name>MIT License</name>
@@ -14,8 +14,8 @@
     </license>
   </licenses>
   <properties>
-    <maven.compiler.source>17</maven.compiler.source>
-    <maven.compiler.target>17</maven.compiler.target>
+    <maven.compiler.source>22</maven.compiler.source>
+    <maven.compiler.target>22</maven.compiler.target>
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
   </properties>
 </project>

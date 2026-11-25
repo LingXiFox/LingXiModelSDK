@@ -29,7 +29,7 @@ LingXiModelSDK 2.0 evolves the repository from a single-language Swift model cat
   - **Python** (`sdk/python/`, zero external dependencies)
   - **TypeScript / JavaScript** (`sdk/typescript/`, zero external dependencies)
   - **Rust** (`sdk/rust/`, minimal `serde`/`serde_json`/`reqwest` deps)
-  - **Java** (`sdk/java/`, zero external dependencies, JDK 17+)
+  - **Java** (`sdk/java/`, zero external dependencies, JDK 22+ for the FFM bridge)
 - **Tier 2** (pending): C#, Kotlin, C++, Dart.
 
 ## Phase 3: Provider Registry & Native Provider Clients (`registry/`, `core/`, `sdk/`) — Tier 1 Implemented
