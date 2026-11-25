@@ -151,6 +151,183 @@ pub extern "C" fn lingxi_string_free(ptr: *mut c_char) {
 
 #[derive(serde::Deserialize)]
 #[serde(rename_all = "camelCase")]
+struct EmbedRequest {
+    protocol: String,
+    base_url: String,
+    api_key: Option<String>,
+    model: String,
+    input: Vec<String>,
+}
+
+#[derive(serde::Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct RerankRequestWire {
+    protocol: String,
+    base_url: String,
+    api_key: Option<String>,
+    model: String,
+    query: String,
+    documents: Vec<String>,
+    top_n: Option<usize>,
+}
+
+fn shared_runtime() -> Result<&'static tokio::runtime::Runtime, String> {
+    static RUNTIME: std::sync::OnceLock<std::io::Result<tokio::runtime::Runtime>> =
+        std::sync::OnceLock::new();
+    RUNTIME
+        .get_or_init(|| {
+            tokio::runtime::Builder::new_multi_thread()
+                .worker_threads(2)
+                .enable_all()
+                .build()
+        })
+        .as_ref()
+        .map_err(|e| format!("could not start Rust HTTP runtime: {e}"))
+}
+
+/// Normalized embedding through the Rust core.
+#[no_mangle]
+pub extern "C" fn lingxi_unified_embed(request_json_utf8: *const c_char) -> *mut c_char {
+    let Some(raw) = c_str_to_string(request_json_utf8) else {
+        return to_c_json(json!({"ok": false, "error": "null embed request"}));
+    };
+    let Ok(request) = serde_json::from_str::<EmbedRequest>(&raw) else {
+        return to_c_json(json!({"ok": false, "error": "invalid embed request JSON"}));
+    };
+    let Some(protocol) = NativeProtocol::parse_str(&request.protocol) else {
+        return to_c_json(json!({"ok": false, "error": "unknown protocol"}));
+    };
+    if tokio::runtime::Handle::try_current().is_ok() {
+        return to_c_json(json!({"ok": false, "error": "blocking C ABI must run outside an async runtime"}));
+    }
+    let Ok(runtime) = shared_runtime() else {
+        return to_c_json(json!({"ok": false, "error": "could not start Rust HTTP runtime"}));
+    };
+    let result = runtime.block_on(async {
+        static UNIFIED: std::sync::OnceLock<crate::lmp::UnifiedClient> = std::sync::OnceLock::new();
+        let client = UNIFIED.get_or_init(crate::lmp::UnifiedClient::new);
+        let req = crate::lmp::EmbeddingRequest {
+            model: request.model,
+            input: request.input,
+        };
+        client
+            .embed(protocol, &request.base_url, request.api_key, &req)
+            .await
+    });
+    match result {
+        Ok(response) => to_c_json(json!({"ok": true, "response": response})),
+        Err(e) => to_c_json(json!({"ok": false, "code": e.code(), "error": e.to_string()})),
+    }
+}
+
+/// Normalized rerank through the Rust core.
+#[no_mangle]
+pub extern "C" fn lingxi_unified_rerank(request_json_utf8: *const c_char) -> *mut c_char {
+    let Some(raw) = c_str_to_string(request_json_utf8) else {
+        return to_c_json(json!({"ok": false, "error": "null rerank request"}));
+    };
+    let Ok(request) = serde_json::from_str::<RerankRequestWire>(&raw) else {
+        return to_c_json(json!({"ok": false, "error": "invalid rerank request JSON"}));
+    };
+    let Some(protocol) = NativeProtocol::parse_str(&request.protocol) else {
+        return to_c_json(json!({"ok": false, "error": "unknown protocol"}));
+    };
+    if tokio::runtime::Handle::try_current().is_ok() {
+        return to_c_json(json!({"ok": false, "error": "blocking C ABI must run outside an async runtime"}));
+    }
+    let Ok(runtime) = shared_runtime() else {
+        return to_c_json(json!({"ok": false, "error": "could not start Rust HTTP runtime"}));
+    };
+    let result = runtime.block_on(async {
+        static UNIFIED: std::sync::OnceLock<crate::lmp::UnifiedClient> = std::sync::OnceLock::new();
+        let client = UNIFIED.get_or_init(crate::lmp::UnifiedClient::new);
+        let req = crate::lmp::RerankRequest {
+            model: request.model,
+            query: request.query,
+            documents: request.documents,
+            top_n: request.top_n,
+        };
+        client
+            .rerank(protocol, &request.base_url, request.api_key, &req)
+            .await
+    });
+    match result {
+        Ok(response) => to_c_json(json!({"ok": true, "response": response})),
+        Err(e) => to_c_json(json!({"ok": false, "code": e.code(), "error": e.to_string()})),
+    }
+}
+
+
+#[derive(serde::Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct PrepareRequest {
+    protocol: String,
+    base_url: String,
+    api_key: Option<String>,
+    model: Option<String>,
+    payload: Value,
+    #[serde(default)]
+    headers: std::collections::HashMap<String, String>,
+    timeout_ms: Option<u64>,
+    idle_timeout_ms: Option<u64>,
+    #[serde(default)]
+    allow_insecure_http: bool,
+    #[serde(default)]
+    stream: bool,
+}
+
+/// Resolves the final URL, auth headers, request body and wire framing for one
+/// native request. Foreign SDKs use this instead of re-implementing endpoint
+/// joining, protocol auth headers or AWS SigV4. No network I/O happens here, so
+/// it is safe to call from any thread, including inside a host async loop.
+#[no_mangle]
+pub extern "C" fn lingxi_native_prepare(request_json_utf8: *const c_char) -> *mut c_char {
+    let Some(raw) = c_str_to_string(request_json_utf8) else {
+        return to_c_json(json!({"ok": false, "code": "invalid_request", "error": "null prepare request"}));
+    };
+    let Ok(request) = serde_json::from_str::<PrepareRequest>(&raw) else {
+        return to_c_json(json!({"ok": false, "code": "invalid_request", "error": "invalid prepare request JSON"}));
+    };
+    let Some(protocol) = NativeProtocol::parse_str(&request.protocol) else {
+        return to_c_json(json!({"ok": false, "code": "unsupported_protocol", "error": format!("unknown protocol: {}", request.protocol)}));
+    };
+    let mut config = crate::NativeRequestConfig::new(request.base_url, request.api_key);
+    config.headers = request.headers;
+    config.allow_insecure_http = request.allow_insecure_http;
+    if let Some(timeout) = request.timeout_ms {
+        config.timeout = std::time::Duration::from_millis(timeout);
+    }
+    if let Some(idle) = request.idle_timeout_ms {
+        config.stream_idle_timeout = std::time::Duration::from_millis(idle);
+    }
+    match crate::native::prepare_target(
+        protocol,
+        &config,
+        request.model.as_deref(),
+        &request.payload,
+        request.stream,
+    ) {
+        Ok(target) => to_c_json(json!({
+            "ok": true,
+            "url": target.url,
+            "headers": target.headers,
+            "body": target.body,
+            "framing": target.framing.as_str(),
+        })),
+        Err(e) => {
+            let code = match &e {
+                crate::NativeError::Registry(_) => "registry",
+                crate::NativeError::InvalidEndpoint(_) => "invalid_endpoint",
+                crate::NativeError::AuthMissing(_) => "auth_missing",
+                _ => "invalid_request",
+            };
+            to_c_json(json!({"ok": false, "code": code, "error": e.to_string()}))
+        }
+    }
+}
+
+#[derive(serde::Deserialize)]
+#[serde(rename_all = "camelCase")]
 struct RuntimeRequest {
     protocol: String,
     base_url: String,
@@ -164,6 +341,86 @@ struct RuntimeRequest {
     unified: bool,
     #[serde(default)]
     stream: bool,
+}
+
+
+#[derive(serde::Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct UnifiedPrepareRequest {
+    protocol: String,
+    base_url: String,
+    api_key: Option<String>,
+    model: Option<String>,
+    request: Value,
+    #[serde(default)]
+    headers: std::collections::HashMap<String, String>,
+    timeout_ms: Option<u64>,
+    idle_timeout_ms: Option<u64>,
+    #[serde(default)]
+    allow_insecure_http: bool,
+    #[serde(default)]
+    stream: bool,
+}
+
+/// One-call LMP -> wire translation for foreign SDKs: turns an LMP request into
+/// the final URL, auth headers, provider-native body and framing. No network
+/// I/O, so calling it from a host thread is always safe.
+#[no_mangle]
+pub extern "C" fn lingxi_unified_prepare(request_json_utf8: *const c_char) -> *mut c_char {
+    let Some(raw) = c_str_to_string(request_json_utf8) else {
+        return to_c_json(json!({"ok": false, "code": "invalid_request", "error": "null unified prepare request"}));
+    };
+    let Ok(request) = serde_json::from_str::<UnifiedPrepareRequest>(&raw) else {
+        return to_c_json(json!({"ok": false, "code": "invalid_request", "error": "invalid unified prepare request JSON"}));
+    };
+    let Some(protocol) = NativeProtocol::parse_str(&request.protocol) else {
+        return to_c_json(json!({"ok": false, "code": "unsupported_protocol", "error": format!("unknown protocol: {}", request.protocol)}));
+    };
+    let Ok(mut lmp) = serde_json::from_value::<LmpRequest>(request.request) else {
+        return to_c_json(json!({"ok": false, "code": "invalid_request", "error": "invalid LMP request payload"}));
+    };
+    if let Some(timeout) = request.timeout_ms {
+        lmp.timeout_ms = Some(timeout);
+    }
+    let payload = match crate::lmp::translate_request(protocol, &lmp) {
+        Ok(payload) => payload,
+        Err(e) => return to_c_json(json!({"ok": false, "code": e.code(), "error": e.to_string()})),
+    };
+    let model = request.model.clone().or_else(|| Some(lmp.model.clone()));
+    let mut config = crate::NativeRequestConfig::new(request.base_url, request.api_key);
+    config.headers = request.headers;
+    config.allow_insecure_http = request.allow_insecure_http;
+    if let Some(timeout) = request.timeout_ms {
+        config.timeout = std::time::Duration::from_millis(timeout);
+    }
+    if let Some(idle) = request.idle_timeout_ms {
+        config.stream_idle_timeout = std::time::Duration::from_millis(idle);
+    }
+    match crate::native::prepare_target(
+        protocol,
+        &config,
+        model.as_deref(),
+        &payload,
+        request.stream,
+    ) {
+        Ok(target) => to_c_json(json!({
+            "ok": true,
+            "protocol": protocol.as_str(),
+            "url": target.url,
+            "headers": target.headers,
+            "body": target.body,
+            "framing": target.framing.as_str(),
+        })),
+        Err(e) => {
+            let code = match &e {
+                crate::NativeError::Registry(_) => "registry",
+                crate::NativeError::InvalidEndpoint(_) => "invalid_endpoint",
+                crate::NativeError::AuthMissing(_) => "auth_missing",
+                _ => "invalid_request",
+            };
+            to_c_json(json!({"ok": false, "code": code, "error": e.to_string()}))
+        }
+    }
 }
 
 /// Makes a blocking network call. Call from a native thread outside an async runtime.
@@ -204,12 +461,12 @@ pub extern "C" fn lingxi_runtime_request(request_json_utf8: *const c_char) -> *m
             if request.stream {
                 return match client.stream(protocol, &request.base_url, request.api_key, &payload).await {
                     Ok(events) => json!({"ok": true, "events": events}),
-                    Err(e) => json!({"ok": false, "error": e.to_string()}),
+                    Err(e) => json!({"ok": false, "code": e.code(), "error": e.to_string()}),
                 };
             }
             return match client.complete(protocol, &request.base_url, request.api_key, &payload).await {
                 Ok(response) => json!({"ok": true, "response": response}),
-                Err(e) => json!({"ok": false, "error": e.to_string()}),
+                Err(e) => json!({"ok": false, "code": e.code(), "error": e.to_string()}),
             };
         }
         let mut config = crate::NativeRequestConfig::new(request.base_url, request.api_key);

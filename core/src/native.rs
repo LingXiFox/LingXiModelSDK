@@ -755,7 +755,7 @@ pub(crate) enum StreamFraming {
 /// Resolves the streaming URL, auth headers, request body and framing for a
 /// protocol. Single source of truth for both the incremental handle and the
 /// buffered wrappers, so the two can never drift apart.
-fn stream_target(
+pub(crate) fn stream_target(
     protocol: NativeProtocol,
     cfg: &NativeRequestConfig,
     model_id: Option<&str>,
@@ -853,3 +853,157 @@ fn stream_target(
     Ok((url, headers, body, framing))
 }
 
+
+/// Resolved wire target for one native request: where to send it, with which
+/// headers, and which framing the response uses.
+pub(crate) struct PreparedTarget {
+    pub url: String,
+    pub headers: HashMap<String, String>,
+    pub body: Value,
+    pub framing: StreamFraming,
+}
+
+impl StreamFraming {
+    /// Stable wire name handed to foreign-language SDKs.
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Self::Sse => "sse",
+            Self::Ndjson => "ndjson",
+            Self::AmazonEventStream => "amazon_event_stream",
+        }
+    }
+}
+
+/// Single source of truth for non-streaming URL, auth headers and body per
+/// protocol. Foreign SDKs reach this through lingxi_native_prepare, so they
+/// never re-implement endpoint joining or AWS SigV4.
+pub(crate) fn native_target(
+    protocol: NativeProtocol,
+    cfg: &NativeRequestConfig,
+    model_id: Option<&str>,
+    payload: &Value,
+) -> Result<PreparedTarget, NativeError> {
+    let require_model = |what: &str| {
+        model_id.map(str::to_string).ok_or_else(|| {
+            NativeError::Registry(format!("{} requires a {what}", protocol.as_str()))
+        })
+    };
+    let mut headers = cfg.headers.clone();
+    let (url, body, framing);
+    match protocol {
+        NativeProtocol::OpenaiChatCompletions => {
+            apply_bearer(&mut headers, cfg.api_key.as_deref())?;
+            url = join_path(&cfg.base_url, "/chat/completions");
+            body = payload.clone();
+            framing = StreamFraming::Sse;
+        }
+        NativeProtocol::OpenaiResponses => {
+            apply_bearer(&mut headers, cfg.api_key.as_deref())?;
+            url = join_path(&cfg.base_url, "/responses");
+            body = payload.clone();
+            framing = StreamFraming::Sse;
+        }
+        NativeProtocol::AnthropicMessages => {
+            apply_header_auth(&mut headers, "x-api-key", cfg.api_key.as_deref())?;
+            headers
+                .entry("anthropic-version".to_string())
+                .or_insert_with(|| "2023-06-01".to_string());
+            url = join_anthropic_messages(&cfg.base_url);
+            body = payload.clone();
+            framing = StreamFraming::Sse;
+        }
+        NativeProtocol::GoogleGemini => {
+            let model = require_model("model_id")?;
+            apply_header_auth(&mut headers, "x-goog-api-key", cfg.api_key.as_deref())?;
+            url = format!(
+                "{}/v1beta/models/{}:generateContent",
+                cfg.base_url.trim_end_matches('/'),
+                model
+            );
+            body = payload.clone();
+            framing = StreamFraming::Sse;
+        }
+        NativeProtocol::AwsBedrock => {
+            let model = require_model("model_id")?;
+            let uri = format!("/model/{}/converse", aws_encode_path(&model, false));
+            url = format!("{}{uri}", cfg.base_url.trim_end_matches('/'));
+            apply_bedrock_auth(&url, payload, cfg.api_key.as_deref(), &mut headers)?;
+            body = payload.clone();
+            framing = StreamFraming::AmazonEventStream;
+        }
+        NativeProtocol::GoogleVertexAi => {
+            let model = require_model("model_id")?;
+            let base = cfg.base_url.trim_end_matches('/');
+            url = if base.contains("/models") {
+                format!("{base}/{model}:generateContent")
+            } else {
+                format!("{base}/v1/publishers/google/models/{model}:generateContent")
+            };
+            apply_bearer(&mut headers, cfg.api_key.as_deref())?;
+            body = payload.clone();
+            framing = StreamFraming::Sse;
+        }
+        NativeProtocol::AzureOpenai => {
+            let deployment = require_model("deployment")?;
+            let api_version = cfg
+                .headers
+                .get("x-azure-api-version")
+                .map(String::as_str)
+                .unwrap_or("2024-10-21");
+            url = format!(
+                "{}/openai/deployments/{deployment}/chat/completions?api-version={api_version}",
+                cfg.base_url.trim_end_matches('/')
+            );
+            apply_header_auth(&mut headers, "api-key", cfg.api_key.as_deref())?;
+            body = payload.clone();
+            framing = StreamFraming::Sse;
+        }
+        NativeProtocol::Ollama => {
+            url = join_path(&cfg.base_url, "/api/chat");
+            let mut body_value = payload.clone();
+            if let Some(obj) = body_value.as_object_mut() {
+                obj.entry("stream".to_string()).or_insert(Value::Bool(false));
+            }
+            body = body_value;
+            framing = StreamFraming::Ndjson;
+        }
+        NativeProtocol::Cohere => {
+            apply_bearer(&mut headers, cfg.api_key.as_deref())?;
+            url = join_path(&cfg.base_url, "/v2/chat");
+            body = payload.clone();
+            framing = StreamFraming::Sse;
+        }
+    }
+    Ok(PreparedTarget {
+        url,
+        headers,
+        body,
+        framing,
+    })
+}
+
+/// Resolves the wire target for a native request, either streaming or not.
+/// Foreign SDKs call this through the C ABI so endpoint joining, auth header
+/// construction and Bedrock SigV4 signing live in exactly one place.
+pub(crate) fn prepare_target(
+    protocol: NativeProtocol,
+    cfg: &NativeRequestConfig,
+    model_id: Option<&str>,
+    payload: &Value,
+    stream: bool,
+) -> Result<PreparedTarget, NativeError> {
+    if stream {
+        let (url, headers, body, framing) = stream_target(protocol, cfg, model_id, payload)?;
+        validate_endpoint_url(&url, cfg.allow_insecure_http)?;
+        Ok(PreparedTarget {
+            url,
+            headers,
+            body,
+            framing,
+        })
+    } else {
+        let target = native_target(protocol, cfg, model_id, payload)?;
+        validate_endpoint_url(&target.url, cfg.allow_insecure_http)?;
+        Ok(target)
+    }
+}

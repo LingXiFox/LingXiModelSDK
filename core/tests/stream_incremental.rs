@@ -441,7 +441,7 @@ fn ffi_unified_stream_emits_lmp_events() {
         let event = &envelope["event"];
         match event["type"].as_str().unwrap() {
             "text_delta" => text.push_str(event["delta"].as_str().unwrap()),
-            "message_end" => finish = event["finish_reason"].as_str().map(ToString::to_string),
+            "message_end" => finish = event["finishReason"].as_str().map(ToString::to_string),
             "usage" => usage = Some(event["usage"].clone()),
             _ => {}
         }

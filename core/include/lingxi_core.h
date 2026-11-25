@@ -25,6 +25,47 @@ char *lingxi_registry_resolve_endpoint(
  * Returns a JSON result envelope. Call off the application's async event loop. */
 char *lingxi_runtime_request(const char *request_json_utf8);
 
+
+/* ------------------- Native wire target preparation -------------------
+ *
+ * lingxi_native_prepare resolves the final upstream URL, auth headers, request
+ * body and wire framing for one request, so foreign SDKs never re-implement
+ * endpoint joining, protocol auth headers or AWS SigV4. It performs no I/O and
+ * is safe to call from any thread, including inside a host async loop.
+ *
+ * Request (camelCase; payload is the provider-native JSON body):
+ *   {"protocol":"anthropic_messages","baseUrl":"https://api.anthropic.com",
+ *    "apiKey":"...","model":"claude-sonnet-4","payload":{...},
+ *    "headers":{},"timeoutMs":60000,"idleTimeoutMs":120000,
+ *    "allowInsecureHttp":false,"stream":false}
+ *
+ * Response:
+ *   {"ok":true,"url":"...","headers":{"x-api-key":"..."},
+ *    "body":{...},"framing":"sse"}
+ *   framing is "sse", "ndjson" or "amazon_event_stream".
+ *   {"ok":false,"code":"registry|invalid_endpoint|auth_missing|unsupported_protocol|invalid_request","error":"..."}
+ */
+char *lingxi_native_prepare(const char *request_json_utf8);
+
+/* Same contract as lingxi_native_prepare, but the input is an LMP request that
+ * the core translates first. This is the shortest path for a Unified client:
+ * one call yields the provider-native body plus the URL and headers to send it
+ * to, and lingxi_lmp_normalize_response / the incremental normalizer turn the
+ * answer back into LMP.
+ *
+ * Request:
+ *   {"protocol":"anthropic_messages","baseUrl":"https://api.anthropic.com",
+ *    "apiKey":"...","model":"claude-sonnet-4","request":{<LMP request>},
+ *    "headers":{},"timeoutMs":60000,"idleTimeoutMs":120000,
+ *    "allowInsecureHttp":false,"stream":false}
+ *
+ * Response adds the resolved protocol:
+ *   {"ok":true,"protocol":"anthropic_messages","url":"...","headers":{},
+ *    "body":{...},"framing":"sse"}
+ *   {"ok":false,"code":"unsupported_feature|auth_missing|invalid_endpoint|...","error":"..."}
+ */
+char *lingxi_unified_prepare(const char *request_json_utf8);
+
 /* ------------------------- Incremental streaming -------------------------
  *
  * Streaming is handle-based so an FFI caller observes provider events while
@@ -73,6 +114,50 @@ void lingxi_stream_close(LingxiStream *stream);
 
 /* Last error recorded for the handle, plus diagnostics (JSON envelope). */
 char *lingxi_stream_last_error(LingxiStream *stream);
+
+/* ---------------- Unified embeddings and reranking ---------------- */
+
+/* {"ok":true,"response":{embeddings,usage,raw}} or {"ok":false,"code","error"}.
+ * Request: {"protocol","baseUrl","apiKey","model","input":[...]} */
+char *lingxi_unified_embed(const char *request_json_utf8);
+
+/* {"ok":true,"response":{results:[{index,relevanceScore}],raw}}.
+ * Request: {"protocol","baseUrl","apiKey","model","query","documents":[...],"topN"} */
+char *lingxi_unified_rerank(const char *request_json_utf8);
+
+/* --------------------- Incremental LMP normalization ---------------------
+ *
+ * lingxi_lmp_normalize_stream_events needs the complete event array, so a
+ * caller that owns the HTTP transport (URLSession, HttpClient, HttpClient,
+ * dart:io, ...) would have to buffer the whole upstream response before it
+ * sees any LMP event. These sessions instead normalize one frame at a time:
+ *
+ *   LingxiNormalizer *n = lingxi_lmp_normalizer_open("anthropic_messages");
+ *   char *env = lingxi_lmp_normalizer_push(n, "{\"data\":\"{\\\"type\\\":...}\"}");
+ *   // env = {"ok":true,"events":[{"type":"text_delta",...}],"done":false}
+ *   char *tail = lingxi_lmp_normalizer_finish(n);
+ *   lingxi_lmp_normalizer_close(n);
+ *
+ * Sessions hold protocol state only (tool-call argument accumulation, thinking
+ * signatures, usage merge) and perform no I/O, so they are safe to call from
+ * the host async loop.
+ */
+typedef struct LingxiNormalizer LingxiNormalizer;
+
+/* NULL on unknown protocol; reason via lingxi_normalizer_open_error(). */
+LingxiNormalizer *lingxi_lmp_normalizer_open(const char *protocol_utf8);
+
+/* JSON error envelope for the most recent NULL open. */
+char *lingxi_normalizer_open_error(void);
+
+/* Feeds one frame; returns the LMP events it produced. */
+char *lingxi_lmp_normalizer_push(LingxiNormalizer *normalizer, const char *event_json_utf8);
+
+/* Emits trailing state such as a final message_end. */
+char *lingxi_lmp_normalizer_finish(LingxiNormalizer *normalizer);
+
+/* Releases the session. Idempotent and NULL-safe. */
+void lingxi_lmp_normalizer_close(LingxiNormalizer *normalizer);
 
 /* Frees a string allocated by lingxi_core. Safe on NULL. */
 void lingxi_string_free(char *ptr);

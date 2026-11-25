@@ -227,19 +227,7 @@ impl UnifiedClient {
                     .native
                     .post_json_endpoint(&url, &headers, &payload, Duration::from_secs(60), false)
                     .await?;
-                let results = resp.body["results"]
-                    .as_array()
-                    .ok_or_else(|| LmpError::Decode("missing results array".into()))?
-                    .iter()
-                    .map(|r| RerankResult {
-                        index: r["index"].as_u64().unwrap_or(0) as usize,
-                        relevance_score: r["relevance_score"].as_f64().unwrap_or(0.0),
-                    })
-                    .collect();
-                Ok(RerankResponse {
-                    results,
-                    raw: resp.body,
-                })
+                normalize_rerank_response(protocol, &resp.body)
             }
             _ => Err(LmpError::UnsupportedFeature {
                 protocol: protocol.as_str().to_string(),
@@ -379,6 +367,32 @@ impl LmpStreamHandle {
         Ok(events)
     }
 }
+/// Normalizes a provider rerank payload into the LMP shape.
+pub fn normalize_rerank_response(
+    protocol: NativeProtocol,
+    raw: &Value,
+) -> Result<RerankResponse, LmpError> {
+    if protocol != NativeProtocol::Cohere {
+        return Err(LmpError::UnsupportedFeature {
+            protocol: protocol.as_str().to_string(),
+            feature: "rerank".into(),
+        });
+    }
+    let results = raw["results"]
+        .as_array()
+        .ok_or_else(|| LmpError::Decode("missing results array".into()))?
+        .iter()
+        .map(|r| RerankResult {
+            index: r["index"].as_u64().unwrap_or(0) as usize,
+            relevance_score: r["relevance_score"].as_f64().unwrap_or(0.0),
+        })
+        .collect();
+    Ok(RerankResponse {
+        results,
+        raw: raw.clone(),
+    })
+}
+
 pub fn normalize_embedding_response(
     protocol: NativeProtocol,
     raw: &Value,

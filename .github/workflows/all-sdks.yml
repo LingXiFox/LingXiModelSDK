@@ -60,17 +60,24 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: dtolnay/rust-toolchain@39008827e6b4319a349e9a42dfc90579dd25f1ca # stable
+        with:
+          toolchain: stable
       - uses: actions/setup-java@cf277c60eb25467037889841efdb72551f06f6c3 # v4
         with:
           distribution: temurin
-          java-version: "21"
+          java-version: "22"
+      - name: Build the shared Rust core
+        run: cargo build --locked --manifest-path core/Cargo.toml
       - name: Test Java SDK (4 modules)
+        env:
+          LINGXI_CORE_LIB: $GITHUB_WORKSPACE/core/target/debug/liblingxi_core.so
         run: |
           cd sdk/java
           mkdir -p build/classes
-          javac -d build/classes src/main/java/cn/lingxifox/modelsdk/*.java src/test/java/cn/lingxifox/modelsdk/*.java
-          java -cp build/classes cn.lingxifox.modelsdk.CatalogTestRunner
-          java -cp build/classes cn.lingxifox.modelsdk.ProviderTestRunner
+          javac --release 22 -d build/classes src/main/java/cn/lingxifox/modelsdk/*.java src/test/java/cn/lingxifox/modelsdk/*.java
+          java --enable-native-access=ALL-UNNAMED -cp build/classes cn.lingxifox.modelsdk.CatalogTestRunner
+          java --enable-native-access=ALL-UNNAMED -cp build/classes cn.lingxifox.modelsdk.ProviderTestRunner
       - name: Install and Test Kotlin SDK (4 modules)
         run: |
           curl -fsSL https://github.com/JetBrains/kotlin/releases/download/v2.1.0/kotlin-compiler-2.1.0.zip -o /tmp/kotlin.zip
@@ -78,8 +85,8 @@ jobs:
           unzip -q /tmp/kotlin.zip -d /tmp/kotlin-sdk
           export PATH="/tmp/kotlin-sdk/kotlinc/bin:$PATH"
           cd sdk/kotlin
-          kotlinc src/cn/lingxifox/modelsdk/*.kt tests/TestRunner.kt -include-runtime -d /tmp/lingxi-kotlin.jar
-          java -jar /tmp/lingxi-kotlin.jar
+          kotlinc -jvm-target 22 src/cn/lingxifox/modelsdk/*.kt tests/TestRunner.kt -include-runtime -d /tmp/lingxi-kotlin.jar
+          java --enable-native-access=ALL-UNNAMED -jar /tmp/lingxi-kotlin.jar
 
   csharp-dotnet:
     runs-on: ubuntu-latest

@@ -17,6 +17,11 @@ Status: Frozen for Phase 4 Unified Provider clients.
 - **Structured output**: `responseFormat` (`text` | `json_object` | `json_schema` with `name`, `schema`, `strict`).
 - **Usage & Prompt Cache**: `inputTokens`, `outputTokens`, `totalTokens`, `reasoningTokens`, `cacheReadTokens`, `cacheWriteTokens`.
 - **Stream Events**: `message_start`, `thinking_delta`, `text_delta`, `tool_call_delta`, `usage`, `message_end`, `error`.
+  Events are tagged by `type` (snake_case); every field inside an event is camelCase, e.g.
+  `{"type":"tool_call_delta","index":0,"id":"call_1","name":"weather","argumentsDelta":"{\"city\":","signature":null}`.
+  `thinking_delta` and `text_delta` carry `delta` plus an optional provider `signature`;
+  `message_end` carries an optional `finishReason`; `error` carries a stable `code` and
+  a human-readable `message`, and terminates the stream.
 - **Extensions**: `EmbeddingRequest`/`EmbeddingResponse`, `RerankRequest`/`RerankResponse`.
 - **Error Taxonomy**: `UnsupportedFeature`, `Auth`, `RateLimit`, `InvalidRequest`, `ProviderError`, `Timeout`, `Cancelled`, `Transport`, `Decode`.
 

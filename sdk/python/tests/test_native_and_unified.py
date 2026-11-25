@@ -88,7 +88,7 @@ class TestPythonNativeAndUnified(unittest.TestCase):
 
         events = client.stream("aws_bedrock", self.base, "AKIA:SECRET", req)
         self.assertIn("tool_call_delta", {event["type"] for event in events})
-        self.assertTrue(any("東京" in event.get("arguments_delta", "") for event in events))
+        self.assertTrue(any("東京" in event.get("argumentsDelta", "") for event in events))
 
         v_out = client.complete("google_vertex_ai", self.base, "tok", req)
         self.assertEqual(v_out["content"][0]["signature"], "sig-vertex-1")

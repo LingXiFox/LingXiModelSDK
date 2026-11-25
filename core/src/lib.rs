@@ -1,6 +1,7 @@
 pub mod errors;
 mod eventstream;
 pub mod ffi;
+mod ffi_normalizer;
 mod ffi_stream;
 
 pub use ffi_stream::LingxiStream;
