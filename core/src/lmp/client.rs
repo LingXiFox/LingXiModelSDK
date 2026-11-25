@@ -1,9 +1,11 @@
-use std::collections::HashMap;
+use std::collections::{HashMap, VecDeque};
 use std::time::Duration;
 
 use serde_json::{json, Value};
 
-use crate::lmp::adapters::{normalize_response, normalize_stream_events, translate_request};
+use crate::lmp::adapters::{
+    normalize_response, normalize_stream_events, translate_request, StreamNormalizer,
+};
 use crate::lmp::errors::LmpError;
 use crate::lmp::types::{
     EmbeddingRequest, EmbeddingResponse, LmpRequest, LmpResponse, LmpStreamEvent, RerankRequest,
@@ -11,6 +13,7 @@ use crate::lmp::types::{
 };
 use crate::native::{NativeClient, NativeRequestConfig};
 use crate::registry::NativeProtocol;
+use crate::stream::EventStreamHandle;
 
 pub struct UnifiedClient {
     native: NativeClient,
@@ -42,6 +45,7 @@ impl UnifiedClient {
             api_key,
             headers: HashMap::new(),
             timeout: Duration::from_millis(req.timeout_ms.unwrap_or(60_000)),
+            stream_idle_timeout: Duration::from_secs(120),
             allow_insecure_http: false,
         };
         let resp = self.native.request_json(protocol, &cfg, Some(&req.model), &payload).await?;
@@ -61,10 +65,39 @@ impl UnifiedClient {
             api_key,
             headers: HashMap::new(),
             timeout: Duration::from_millis(req.timeout_ms.unwrap_or(60_000)),
+            stream_idle_timeout: Duration::from_secs(120),
             allow_insecure_http: false,
         };
         let events = self.native.request_stream(protocol, &cfg, Some(&req.model), &payload).await?;
         normalize_stream_events(protocol, &events)
+    }
+    /// Opens a unified (LMP) stream without buffering.
+    ///
+    /// Events are normalized incrementally; the caller sees each fragment as
+    /// soon as it is decoded. Terminal failures surface as a final
+    /// `LmpStreamEvent::Error { code, message }` so C ABIs and language SDKs can
+    /// distinguish a clean end from a truncated stream.
+    pub async fn open_stream(
+        &self,
+        protocol: NativeProtocol,
+        base_url: &str,
+        api_key: Option<String>,
+        req: &LmpRequest,
+    ) -> Result<LmpStreamHandle, LmpError> {
+        let payload = translate_request(protocol, req)?;
+        let cfg = NativeRequestConfig {
+            base_url: base_url.to_string(),
+            api_key,
+            headers: HashMap::new(),
+            timeout: Duration::from_millis(req.timeout_ms.unwrap_or(60_000)),
+            stream_idle_timeout: Duration::from_secs(120),
+            allow_insecure_http: false,
+        };
+        let inner = self
+            .native
+            .open_stream_events(protocol, &cfg, Some(&req.model), &payload)
+            .await?;
+        Ok(LmpStreamHandle::new(protocol, inner))
     }
 
     pub async fn embed(
@@ -216,6 +249,136 @@ impl UnifiedClient {
     }
 }
 
+/// Incremental LMP stream: pulls native frames, normalizes each one, and
+/// yields unified events as soon as they are decodable.
+///
+/// Backpressure is consumer-driven: no socket reads happen until
+/// [`LmpStreamHandle::next_event`] is called. A terminal failure is delivered
+/// as one `LmpStreamEvent::Error` followed by `None`, so callers never mistake
+/// a truncated stream for a clean end.
+pub struct LmpStreamHandle {
+    protocol: NativeProtocol,
+    inner: EventStreamHandle,
+    normalizer: StreamNormalizer,
+    buffer: VecDeque<LmpStreamEvent>,
+    failure: Option<LmpError>,
+    finished: bool,
+}
+
+impl LmpStreamHandle {
+    pub(crate) fn new(protocol: NativeProtocol, inner: EventStreamHandle) -> Self {
+        Self {
+            protocol,
+            normalizer: StreamNormalizer::new(protocol),
+            inner,
+            buffer: VecDeque::new(),
+            failure: None,
+            finished: false,
+        }
+    }
+
+    /// Protocol driving this stream (for diagnostics).
+    pub fn protocol(&self) -> NativeProtocol {
+        self.protocol
+    }
+
+    pub fn status(&self) -> u16 {
+        self.inner.status()
+    }
+
+    pub fn headers(&self) -> &HashMap<String, String> {
+        self.inner.headers()
+    }
+
+    /// Raw payload bytes consumed from upstream so far.
+    pub fn bytes_read(&self) -> usize {
+        self.inner.bytes_read()
+    }
+
+    /// Requests cancellation; pending and future reads fail with `cancelled`.
+    pub fn cancel(&self) {
+        self.inner.cancel();
+    }
+
+    /// Shared cancellation flag, for language bindings that cancel by token.
+    pub fn cancellation(&self) -> std::sync::Arc<std::sync::atomic::AtomicBool> {
+        self.inner.cancellation()
+    }
+
+    /// Wake handle for blocked readers (used by the C ABI cancel path).
+    pub fn cancellation_notify(&self) -> std::sync::Arc<tokio::sync::Notify> {
+        self.inner.cancellation_notify()
+    }
+
+    pub fn is_cancelled(&self) -> bool {
+        self.inner.is_cancelled()
+    }
+
+    /// True once the terminal event has been delivered and drained.
+    pub fn is_finished(&self) -> bool {
+        self.finished && self.buffer.is_empty()
+    }
+
+    /// Error that terminated the stream, if any.
+    pub fn failure(&self) -> Option<&LmpError> {
+        self.failure.as_ref()
+    }
+
+    /// Returns the next unified event, or `None` once the stream is over.
+    pub async fn next_event(&mut self) -> Result<Option<LmpStreamEvent>, LmpError> {
+        loop {
+            if let Some(event) = self.buffer.pop_front() {
+                if matches!(event, LmpStreamEvent::Error { .. }) {
+                    self.finished = true;
+                }
+                return Ok(Some(event));
+            }
+            if self.finished || self.failure.is_some() {
+                return Ok(None);
+            }
+            if self.normalizer.is_finished() {
+                self.finished = true;
+                continue;
+            }
+            match self.inner.next_event().await {
+                Ok(Some(event)) => {
+                    let mut staged = Vec::new();
+                    if let Err(err) = self.normalizer.push(&event, &mut staged) {
+                        self.fail(err);
+                    }
+                    self.buffer.extend(staged);
+                }
+                Ok(None) => {
+                    let mut staged = Vec::new();
+                    self.normalizer.finish(&mut staged);
+                    self.buffer.extend(staged);
+                    if self.buffer.is_empty() {
+                        self.finished = true;
+                    }
+                }
+                Err(err) => self.fail(err.into()),
+            }
+        }
+    }
+
+    fn fail(&mut self, err: LmpError) {
+        self.buffer.push_back(LmpStreamEvent::Error {
+            code: err.code().to_string(),
+            message: err.to_string(),
+        });
+        self.failure = Some(err);
+        self.finished = true;
+    }
+
+    /// Drains the stream into memory (compatibility helper).
+    pub async fn collect(&mut self) -> Result<Vec<LmpStreamEvent>, LmpError> {
+        let mut events = Vec::new();
+        while let Some(event) = self.next_event().await? {
+            events.push(event);
+        }
+        Ok(events)
+    }
+}
 pub fn normalize_embedding_response(
     protocol: NativeProtocol,
     raw: &Value,

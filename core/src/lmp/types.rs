@@ -172,17 +172,39 @@ impl LmpResponse {
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(tag = "type", rename_all = "snake_case")]
 pub enum LmpStreamEvent {
-    MessageStart { id: Option<String> },
-    ThinkingDelta { delta: String },
-    TextDelta { delta: String },
+    MessageStart {
+        id: Option<String>,
+    },
+    ThinkingDelta {
+        delta: String,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        signature: Option<String>,
+    },
+    TextDelta {
+        delta: String,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        signature: Option<String>,
+    },
     ToolCallDelta {
         index: usize,
         id: Option<String>,
         name: Option<String>,
         arguments_delta: String,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        signature: Option<String>,
     },
-    Usage { usage: Usage },
-    MessageEnd { finish_reason: Option<String> },
+    Usage {
+        usage: Usage,
+    },
+    MessageEnd {
+        finish_reason: Option<String>,
+    },
+    /// Terminal stream failure. Emitted before the handle closes so agents can
+    /// distinguish truncation, cancellation and upstream errors from a clean end.
+    Error {
+        code: String,
+        message: String,
+    },
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]

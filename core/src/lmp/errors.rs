@@ -33,6 +33,23 @@ impl fmt::Display for LmpError {
     }
 }
 
+impl LmpError {
+    /// Stable machine-readable code carried by terminal stream `error` events.
+    pub fn code(&self) -> &'static str {
+        match self {
+            Self::UnsupportedFeature { .. } => "unsupported_feature",
+            Self::Auth(_) => "auth",
+            Self::RateLimit(_) => "rate_limit",
+            Self::InvalidRequest(_) => "invalid_request",
+            Self::ProviderError { .. } => "provider_error",
+            Self::Timeout(_) => "timeout",
+            Self::Cancelled(_) => "cancelled",
+            Self::Transport(_) => "transport",
+            Self::Decode(_) => "decode",
+        }
+    }
+}
+
 impl std::error::Error for LmpError {}
 
 impl From<NativeError> for LmpError {
@@ -59,6 +76,8 @@ impl From<NativeError> for LmpError {
                     Self::Transport(msg)
                 }
             }
+            NativeError::Timeout(msg) => Self::Timeout(msg),
+            NativeError::Cancelled(msg) => Self::Cancelled(msg),
             NativeError::StreamParse(msg) => Self::Decode(msg),
             NativeError::Registry(msg) | NativeError::InvalidEndpoint(msg) => {
                 Self::InvalidRequest(msg)

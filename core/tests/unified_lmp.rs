@@ -147,7 +147,7 @@ async fn test_lmp_all_four_protocols_and_streaming() {
         let streamed_text: String = events
             .iter()
             .filter_map(|ev| match ev {
-                LmpStreamEvent::TextDelta { delta } => Some(delta.as_str()),
+                LmpStreamEvent::TextDelta { delta, .. } => Some(delta.as_str()),
                 _ => None,
             })
             .collect();

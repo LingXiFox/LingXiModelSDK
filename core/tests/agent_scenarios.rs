@@ -118,7 +118,7 @@ async fn tier2_protocols_complete_and_stream_against_mock_servers() {
         )
         .await
         .unwrap();
-    assert!(events.iter().any(|e| matches!(e, LmpStreamEvent::TextDelta { delta } if delta == "Hello ")));
+    assert!(events.iter().any(|e| matches!(e, LmpStreamEvent::TextDelta { delta, .. } if delta == "Hello ")));
     h1.abort();
 
     // 2. Google Vertex AI (thoughtSignature preservation + SSE)
@@ -195,7 +195,7 @@ async fn tier2_protocols_complete_and_stream_against_mock_servers() {
         .stream(NativeProtocol::Ollama, &base, None, &ol_req)
         .await
         .unwrap();
-    assert!(events.iter().any(|e| matches!(e, LmpStreamEvent::TextDelta { delta } if delta == "Ollama")));
+    assert!(events.iter().any(|e| matches!(e, LmpStreamEvent::TextDelta { delta, .. } if delta == "Ollama")));
     ol_req.response_format = Some(ResponseFormat::JsonSchema {
         name: "x".into(),
         schema: json!({"type": "object"}),

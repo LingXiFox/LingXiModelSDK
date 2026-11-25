@@ -13,6 +13,8 @@ pub enum NativeError {
         headers: HashMap<String, String>,
     },
     Transport(String),
+    Timeout(String),
+    Cancelled(String),
     StreamParse(String),
 }
 
@@ -30,6 +32,8 @@ impl fmt::Display for NativeError {
                 write!(f, "upstream HTTP {status}: {text}")
             }
             Self::Transport(msg) => write!(f, "transport error: {msg}"),
+            Self::Timeout(msg) => write!(f, "stream timed out: {msg}"),
+            Self::Cancelled(msg) => write!(f, "stream cancelled: {msg}"),
             Self::StreamParse(msg) => write!(f, "SSE parse error: {msg}"),
         }
     }

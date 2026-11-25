@@ -8,7 +8,7 @@ use crate::eventstream::{EventStream, MEDIA_TYPE};
 use crate::registry::{validate_endpoint_url, AuthConfig, NativeProtocol, ProviderRegistry};
 use crate::sigv4::{current_amz_date, sign_sigv4, SigV4Input};
 use crate::sse::{NdjsonParser, SseEvent, SseParser};
-
+use crate::stream::{EventStreamHandle, StreamDecoder};
 const MAX_RESPONSE_BYTES: usize = 32 * 1024 * 1024;
 
 #[derive(Clone)]
@@ -17,6 +17,8 @@ pub struct NativeRequestConfig {
     pub api_key: Option<String>,
     pub headers: HashMap<String, String>,
     pub timeout: Duration,
+    /// Maximum silence between stream chunks before the read fails.
+    pub stream_idle_timeout: Duration,
     pub allow_insecure_http: bool,
 }
 
@@ -36,6 +38,7 @@ impl NativeRequestConfig {
             api_key,
             headers: HashMap::new(),
             timeout: Duration::from_secs(60),
+            stream_idle_timeout: Duration::from_secs(120),
             allow_insecure_http: false,
         }
     }
@@ -85,12 +88,11 @@ impl NativeClient {
         cfg: &NativeRequestConfig,
         payload: &Value,
     ) -> Result<Vec<SseEvent>, NativeError> {
-        let url = join_path(&cfg.base_url, "/chat/completions");
-        let mut headers = cfg.headers.clone();
-        apply_bearer(&mut headers, cfg.api_key.as_deref())?;
-        let body = with_stream_true(payload);
-        self.post_sse(&url, &headers, &body, cfg.timeout, cfg.allow_insecure_http)
+        self.open_stream_events(NativeProtocol::OpenaiChatCompletions, cfg, None, payload)
+            .await?
+            .collect()
             .await
+
     }
 
     pub async fn openai_responses(
@@ -110,12 +112,11 @@ impl NativeClient {
         cfg: &NativeRequestConfig,
         payload: &Value,
     ) -> Result<Vec<SseEvent>, NativeError> {
-        let url = join_path(&cfg.base_url, "/responses");
-        let mut headers = cfg.headers.clone();
-        apply_bearer(&mut headers, cfg.api_key.as_deref())?;
-        let body = with_stream_true(payload);
-        self.post_sse(&url, &headers, &body, cfg.timeout, cfg.allow_insecure_http)
+        self.open_stream_events(NativeProtocol::OpenaiResponses, cfg, None, payload)
+            .await?
+            .collect()
             .await
+
     }
 
     pub async fn anthropic_messages(
@@ -138,15 +139,11 @@ impl NativeClient {
         cfg: &NativeRequestConfig,
         payload: &Value,
     ) -> Result<Vec<SseEvent>, NativeError> {
-        let url = join_anthropic_messages(&cfg.base_url);
-        let mut headers = cfg.headers.clone();
-        apply_header_auth(&mut headers, "x-api-key", cfg.api_key.as_deref())?;
-        headers
-            .entry("anthropic-version".to_string())
-            .or_insert_with(|| "2023-06-01".to_string());
-        let body = with_stream_true(payload);
-        self.post_sse(&url, &headers, &body, cfg.timeout, cfg.allow_insecure_http)
+        self.open_stream_events(NativeProtocol::AnthropicMessages, cfg, None, payload)
+            .await?
+            .collect()
             .await
+
     }
 
     pub async fn google_gemini_generate(
@@ -172,15 +169,11 @@ impl NativeClient {
         model: &str,
         payload: &Value,
     ) -> Result<Vec<SseEvent>, NativeError> {
-        let url = format!(
-            "{}/v1beta/models/{}:streamGenerateContent?alt=sse",
-            cfg.base_url.trim_end_matches('/'),
-            model
-        );
-        let mut headers = cfg.headers.clone();
-        apply_header_auth(&mut headers, "x-goog-api-key", cfg.api_key.as_deref())?;
-        self.post_sse(&url, &headers, payload, cfg.timeout, cfg.allow_insecure_http)
+        self.open_stream_events(NativeProtocol::GoogleGemini, cfg, Some(model), payload)
+            .await?
+            .collect()
             .await
+
     }
 
     pub async fn aws_bedrock_converse(
@@ -203,12 +196,11 @@ impl NativeClient {
         model: &str,
         payload: &Value,
     ) -> Result<Vec<SseEvent>, NativeError> {
-        let uri = format!("/model/{}/converse-stream", aws_encode_path(model, false));
-        let url = format!("{}{uri}", cfg.base_url.trim_end_matches('/'));
-        let mut headers = cfg.headers.clone();
-        apply_bedrock_auth(&url, payload, cfg.api_key.as_deref(), &mut headers)?;
-        self.post_ndjson(&url, &headers, payload, cfg.timeout, cfg.allow_insecure_http, true)
+        self.open_stream_events(NativeProtocol::AwsBedrock, cfg, Some(model), payload)
+            .await?
+            .collect()
             .await
+
     }
 
     pub async fn google_vertex_generate(
@@ -235,16 +227,11 @@ impl NativeClient {
         model: &str,
         payload: &Value,
     ) -> Result<Vec<SseEvent>, NativeError> {
-        let base = cfg.base_url.trim_end_matches('/');
-        let url = if base.contains("/models") {
-            format!("{base}/{model}:streamGenerateContent?alt=sse")
-        } else {
-            format!("{base}/v1/publishers/google/models/{model}:streamGenerateContent?alt=sse")
-        };
-        let mut headers = cfg.headers.clone();
-        apply_bearer(&mut headers, cfg.api_key.as_deref())?;
-        self.post_sse(&url, &headers, payload, cfg.timeout, cfg.allow_insecure_http)
+        self.open_stream_events(NativeProtocol::GoogleVertexAi, cfg, Some(model), payload)
+            .await?
+            .collect()
             .await
+
     }
 
     pub async fn azure_openai_chat_completions(
@@ -274,20 +261,11 @@ impl NativeClient {
         deployment: &str,
         payload: &Value,
     ) -> Result<Vec<SseEvent>, NativeError> {
-        let api_version = cfg
-            .headers
-            .get("x-azure-api-version")
-            .map(String::as_str)
-            .unwrap_or("2024-10-21");
-        let url = format!(
-            "{}/openai/deployments/{deployment}/chat/completions?api-version={api_version}",
-            cfg.base_url.trim_end_matches('/')
-        );
-        let mut headers = cfg.headers.clone();
-        apply_header_auth(&mut headers, "api-key", cfg.api_key.as_deref())?;
-        let body = with_stream_true(payload);
-        self.post_sse(&url, &headers, &body, cfg.timeout, cfg.allow_insecure_http)
+        self.open_stream_events(NativeProtocol::AzureOpenai, cfg, Some(deployment), payload)
+            .await?
+            .collect()
             .await
+
     }
 
     pub async fn ollama_chat(
@@ -309,10 +287,11 @@ impl NativeClient {
         cfg: &NativeRequestConfig,
         payload: &Value,
     ) -> Result<Vec<SseEvent>, NativeError> {
-        let url = join_path(&cfg.base_url, "/api/chat");
-        let body = with_stream_true(payload);
-        self.post_ndjson(&url, &cfg.headers, &body, cfg.timeout, cfg.allow_insecure_http, false)
+        self.open_stream_events(NativeProtocol::Ollama, cfg, None, payload)
+            .await?
+            .collect()
             .await
+
     }
 
     pub async fn cohere_chat(
@@ -332,12 +311,11 @@ impl NativeClient {
         cfg: &NativeRequestConfig,
         payload: &Value,
     ) -> Result<Vec<SseEvent>, NativeError> {
-        let url = join_path(&cfg.base_url, "/v2/chat");
-        let mut headers = cfg.headers.clone();
-        apply_bearer(&mut headers, cfg.api_key.as_deref())?;
-        let body = with_stream_true(payload);
-        self.post_sse(&url, &headers, &body, cfg.timeout, cfg.allow_insecure_http)
+        self.open_stream_events(NativeProtocol::Cohere, cfg, None, payload)
+            .await?
+            .collect()
             .await
+
     }
 
     pub async fn post_json_endpoint(
@@ -378,6 +356,7 @@ impl NativeClient {
             api_key,
             headers,
             timeout: Duration::from_secs(60),
+            stream_idle_timeout: Duration::from_secs(120),
             allow_insecure_http: false,
         };
         self.request_json(protocol, &cfg, model_id, &merged_payload).await
@@ -430,6 +409,20 @@ impl NativeClient {
         }
     }
 
+
+    /// Opens a stream without buffering. Use this when the caller needs to see
+    /// events before the upstream response finishes.
+    pub async fn open_stream(
+        &self,
+        protocol: NativeProtocol,
+        cfg: &NativeRequestConfig,
+        model_id: Option<&str>,
+        payload: &Value,
+    ) -> Result<EventStreamHandle, NativeError> {
+        self.open_stream_events(protocol, cfg, model_id, payload).await
+    }
+
+    /// Buffered convenience wrapper over [`NativeClient::open_stream`].
     pub async fn request_stream(
         &self,
         protocol: NativeProtocol,
@@ -437,44 +430,10 @@ impl NativeClient {
         model_id: Option<&str>,
         payload: &Value,
     ) -> Result<Vec<SseEvent>, NativeError> {
-        let model_required = || model_id.ok_or_else(|| NativeError::Registry(format!("{} requires a model_id", protocol.as_str())));
-        match protocol {
-            NativeProtocol::OpenaiChatCompletions => {
-                self
-                    .stream_openai_chat_completions(cfg, payload)
-                    .await
-            }
-            NativeProtocol::OpenaiResponses => {
-                self.stream_openai_responses(cfg, payload).await
-            }
-            NativeProtocol::AnthropicMessages => {
-                self
-                    .stream_anthropic_messages(cfg, payload)
-                    .await
-            }
-            NativeProtocol::GoogleGemini => {
-                self
-                    .stream_google_gemini_generate(cfg, model_required()?, payload)
-                    .await
-            }
-            NativeProtocol::AwsBedrock => {
-                self
-                    .stream_aws_bedrock_converse(cfg, model_required()?, payload)
-                    .await
-            }
-            NativeProtocol::GoogleVertexAi => {
-                self
-                    .stream_google_vertex_generate(cfg, model_required()?, payload)
-                    .await
-            }
-            NativeProtocol::AzureOpenai => {
-                self
-                    .stream_azure_openai_chat_completions(cfg, model_required()?, payload)
-                    .await
-            }
-            NativeProtocol::Ollama => self.stream_ollama_chat(cfg, payload).await,
-            NativeProtocol::Cohere => self.stream_cohere_chat(cfg, payload).await,
-        }
+        self.open_stream_events(protocol, cfg, model_id, payload)
+            .await?
+            .collect()
+            .await
     }
 
     async fn post_json(
@@ -522,25 +481,36 @@ impl NativeClient {
         })
     }
 
-    async fn post_sse(
+    /// Opens an incremental stream: the request is sent and the response
+    /// headers are validated here, but the body is decoded lazily by
+    /// [`EventStreamHandle::next_event`]. Callers that want the old buffered
+    /// behaviour call `.collect().await` on the returned handle.
+    pub async fn open_stream_events(
         &self,
-        url: &str,
-        headers: &HashMap<String, String>,
+        protocol: NativeProtocol,
+        cfg: &NativeRequestConfig,
+        model_id: Option<&str>,
         payload: &Value,
-        timeout: Duration,
-        allow_insecure_http: bool,
-    ) -> Result<Vec<SseEvent>, NativeError> {
-        validate_endpoint_url(url, allow_insecure_http)?;
-        let body_bytes = serde_json::to_vec(payload)
+    ) -> Result<EventStreamHandle, NativeError> {
+        let (url, headers, body, framing) = stream_target(protocol, cfg, model_id, payload)?;
+        validate_endpoint_url(&url, cfg.allow_insecure_http)?;
+        let body_bytes = serde_json::to_vec(&body)
             .map_err(|e| NativeError::Transport(format!("failed to encode JSON: {e}")))?;
+        let accept = match framing {
+            StreamFraming::AmazonEventStream => MEDIA_TYPE,
+            StreamFraming::Ndjson => "application/x-ndjson, application/json",
+            StreamFraming::Sse => "text/event-stream",
+        };
         let mut req = self
             .http
-            .post(url)
-            .timeout(timeout)
+            .post(&url)
             .header("Content-Type", "application/json")
-            .header("Accept", "text/event-stream")
+            .header("Accept", accept)
             .body(body_bytes);
-        for (k, v) in headers {
+        if !matches!(framing, StreamFraming::AmazonEventStream) {
+            req = req.timeout(cfg.timeout);
+        }
+        for (k, v) in &headers {
             req = req.header(k, v);
         }
         let mut resp = req
@@ -548,106 +518,50 @@ impl NativeClient {
             .await
             .map_err(|e| NativeError::Transport(e.to_string()))?;
         let status = resp.status().as_u16();
-        let resp_headers = collect_headers(resp.headers());
         if !(200..=299).contains(&status) {
-            let raw = read_bounded(&mut resp).await?;
+            let headers = collect_headers(resp.headers());
+            let body = read_bounded(&mut resp).await?;
             return Err(NativeError::HttpStatus {
                 status,
-                body: raw,
-                headers: resp_headers,
+                body,
+                headers,
             });
         }
-        let mut parser = SseParser::new();
-        let mut events = Vec::new();
-        let mut total_bytes = 0usize;
-        while let Some(chunk) = resp
-            .chunk()
-            .await
-            .map_err(|e| NativeError::Transport(e.to_string()))?
-        {
-            total_bytes += chunk.len();
-            if total_bytes > MAX_RESPONSE_BYTES {
-                return Err(NativeError::Transport(format!(
-                    "stream exceeded {MAX_RESPONSE_BYTES} byte limit"
-                )));
+        let content_type = resp
+            .headers()
+            .get("content-type")
+            .and_then(|value| value.to_str().ok())
+            .unwrap_or("")
+            .split(';')
+            .next()
+            .unwrap_or("")
+            .trim()
+            .to_string();
+        let decoder = match framing {
+            StreamFraming::Sse => StreamDecoder::Sse(SseParser::new()),
+            StreamFraming::Ndjson => StreamDecoder::Ndjson(NdjsonParser::new()),
+            StreamFraming::AmazonEventStream => {
+                if content_type.eq_ignore_ascii_case(MEDIA_TYPE) {
+                    StreamDecoder::AmazonEventStream(EventStream::default())
+                } else if content_type.eq_ignore_ascii_case("application/json")
+                    || content_type.eq_ignore_ascii_case("application/x-ndjson")
+                {
+                    // Bedrock-compatible relays may answer with plain JSON lines.
+                    StreamDecoder::Ndjson(NdjsonParser::new())
+                } else {
+                    return Err(NativeError::StreamParse(format!(
+                        "unexpected Bedrock response content type: {content_type}"
+                    )));
+                }
             }
-            events.extend(parser.push(&chunk[..]));
-        }
-        events.extend(parser.finish());
-        Ok(events)
+        };
+        Ok(EventStreamHandle::new(
+            resp,
+            decoder,
+            cfg.stream_idle_timeout,
+        ))
     }
 
-    async fn post_ndjson(
-        &self,
-        url: &str,
-        headers: &HashMap<String, String>,
-        payload: &Value,
-        timeout: Duration,
-        allow_insecure_http: bool,
-        bedrock: bool,
-    ) -> Result<Vec<SseEvent>, NativeError> {
-        validate_endpoint_url(url, allow_insecure_http)?;
-        let body_bytes = serde_json::to_vec(payload)
-            .map_err(|e| NativeError::Transport(format!("failed to encode JSON: {e}")))?;
-        let mut req = self
-            .http
-            .post(url)
-            .timeout(timeout)
-            .header("Content-Type", "application/json")
-            .header("Accept", if bedrock { MEDIA_TYPE } else { "application/x-ndjson, application/json" })
-            .body(body_bytes);
-        for (k, v) in headers {
-            req = req.header(k, v);
-        }
-        let mut resp = req
-            .send()
-            .await
-            .map_err(|e| NativeError::Transport(e.to_string()))?;
-        let status = resp.status().as_u16();
-        let resp_headers = collect_headers(resp.headers());
-        if !(200..=299).contains(&status) {
-            let raw = read_bounded(&mut resp).await?;
-            return Err(NativeError::HttpStatus {
-                status,
-                body: raw,
-                headers: resp_headers,
-            });
-        }
-        let content_type = resp.headers().get("content-type")
-            .and_then(|value| value.to_str().ok()).unwrap_or("")
-            .split(';').next().unwrap_or("").trim();
-        let binary = bedrock && content_type.eq_ignore_ascii_case(MEDIA_TYPE);
-        if bedrock && !binary && content_type != "application/x-ndjson" {
-            return Err(NativeError::StreamParse("unexpected Bedrock response content type".into()));
-        }
-        let mut event_stream = EventStream::default();
-        let mut parser = NdjsonParser::new();
-        let mut events = Vec::new();
-        let mut total_bytes = 0usize;
-        while let Some(chunk) = resp
-            .chunk()
-            .await
-            .map_err(|e| NativeError::Transport(e.to_string()))?
-        {
-            total_bytes += chunk.len();
-            if total_bytes > MAX_RESPONSE_BYTES {
-                return Err(NativeError::Transport(format!(
-                    "stream exceeded {MAX_RESPONSE_BYTES} byte limit"
-                )));
-            }
-            if binary {
-                events.extend(event_stream.push(&chunk)?);
-            } else {
-                events.extend(parser.push(&chunk));
-            }
-        }
-        if binary {
-            event_stream.finish()?;
-        } else {
-            events.extend(parser.finish());
-        }
-        Ok(events)
-    }
 }
 
 async fn read_bounded(resp: &mut reqwest::Response) -> Result<Vec<u8>, NativeError> {
@@ -828,3 +742,114 @@ fn collect_headers(map: &reqwest::header::HeaderMap) -> HashMap<String, String> 
     }
     out
 }
+
+
+/// Wire framing used by an upstream streaming endpoint.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum StreamFraming {
+    Sse,
+    Ndjson,
+    AmazonEventStream,
+}
+
+/// Resolves the streaming URL, auth headers, request body and framing for a
+/// protocol. Single source of truth for both the incremental handle and the
+/// buffered wrappers, so the two can never drift apart.
+fn stream_target(
+    protocol: NativeProtocol,
+    cfg: &NativeRequestConfig,
+    model_id: Option<&str>,
+    payload: &Value,
+) -> Result<(String, HashMap<String, String>, Value, StreamFraming), NativeError> {
+    let require_model = || {
+        model_id.ok_or_else(|| {
+            NativeError::Registry(format!("{} requires a model_id", protocol.as_str()))
+        })
+    };
+    let mut headers = cfg.headers.clone();
+    let url;
+    let body;
+    let framing;
+    match protocol {
+        NativeProtocol::OpenaiChatCompletions => {
+            apply_bearer(&mut headers, cfg.api_key.as_deref())?;
+            url = join_path(&cfg.base_url, "/chat/completions");
+            body = with_stream_true(payload);
+            framing = StreamFraming::Sse;
+        }
+        NativeProtocol::OpenaiResponses => {
+            apply_bearer(&mut headers, cfg.api_key.as_deref())?;
+            url = join_path(&cfg.base_url, "/responses");
+            body = with_stream_true(payload);
+            framing = StreamFraming::Sse;
+        }
+        NativeProtocol::AnthropicMessages => {
+            apply_header_auth(&mut headers, "x-api-key", cfg.api_key.as_deref())?;
+            headers
+                .entry("anthropic-version".to_string())
+                .or_insert_with(|| "2023-06-01".to_string());
+            url = join_anthropic_messages(&cfg.base_url);
+            body = with_stream_true(payload);
+            framing = StreamFraming::Sse;
+        }
+        NativeProtocol::GoogleGemini => {
+            let model = require_model()?;
+            apply_header_auth(&mut headers, "x-goog-api-key", cfg.api_key.as_deref())?;
+            url = format!(
+                "{}/v1beta/models/{}:streamGenerateContent?alt=sse",
+                cfg.base_url.trim_end_matches('/'),
+                model
+            );
+            body = payload.clone();
+            framing = StreamFraming::Sse;
+        }
+        NativeProtocol::AwsBedrock => {
+            let model = require_model()?;
+            let uri = format!("/model/{}/converse-stream", aws_encode_path(model, false));
+            url = format!("{}{uri}", cfg.base_url.trim_end_matches('/'));
+            apply_bedrock_auth(&url, payload, cfg.api_key.as_deref(), &mut headers)?;
+            body = payload.clone();
+            framing = StreamFraming::AmazonEventStream;
+        }
+        NativeProtocol::GoogleVertexAi => {
+            let model = require_model()?;
+            let base = cfg.base_url.trim_end_matches('/');
+            url = if base.contains("/models") {
+                format!("{base}/{model}:streamGenerateContent?alt=sse")
+            } else {
+                format!("{base}/v1/publishers/google/models/{model}:streamGenerateContent?alt=sse")
+            };
+            apply_bearer(&mut headers, cfg.api_key.as_deref())?;
+            body = payload.clone();
+            framing = StreamFraming::Sse;
+        }
+        NativeProtocol::AzureOpenai => {
+            let deployment = require_model()?;
+            let api_version = cfg
+                .headers
+                .get("x-azure-api-version")
+                .map(String::as_str)
+                .unwrap_or("2024-10-21");
+            url = format!(
+                "{}/openai/deployments/{deployment}/chat/completions?api-version={api_version}",
+                cfg.base_url.trim_end_matches('/')
+            );
+            apply_header_auth(&mut headers, "api-key", cfg.api_key.as_deref())?;
+            body = with_stream_true(payload);
+            framing = StreamFraming::Sse;
+        }
+        NativeProtocol::Ollama => {
+            url = join_path(&cfg.base_url, "/api/chat");
+            body = with_stream_true(payload);
+            framing = StreamFraming::Ndjson;
+        }
+        NativeProtocol::Cohere => {
+            apply_bearer(&mut headers, cfg.api_key.as_deref())?;
+            url = join_path(&cfg.base_url, "/v2/chat");
+            body = with_stream_true(payload);
+            framing = StreamFraming::Sse;
+        }
+    }
+    Ok((url, headers, body, framing))
+}
+

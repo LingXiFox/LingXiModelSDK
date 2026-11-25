@@ -4,7 +4,7 @@ use crate::{errors::NativeError, sse::SseEvent};
 
 pub(crate) const MEDIA_TYPE: &str = "application/vnd.amazon.eventstream";
 
-#[derive(Default)]
+#[derive(Default, Debug)]
 pub(crate) struct EventStream {
     pending: Vec<u8>,
 }

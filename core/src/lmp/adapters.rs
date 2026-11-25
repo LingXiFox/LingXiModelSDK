@@ -1,3 +1,5 @@
+use std::collections::HashMap;
+
 use serde_json::{json, Map, Value};
 
 use crate::lmp::errors::LmpError;
@@ -41,249 +43,590 @@ pub fn normalize_stream_events(
     protocol: NativeProtocol,
     events: &[SseEvent],
 ) -> Result<Vec<LmpStreamEvent>, LmpError> {
+    let mut normalizer = StreamNormalizer::new(protocol);
     let mut out = Vec::new();
-    for ev in events {
-        if ev.data.trim() == "[DONE]" || ev.data.trim().is_empty() {
-            continue;
+    for event in events {
+        normalizer.push(event, &mut out)?;
+    }
+    normalizer.finish(&mut out);
+    Ok(out)
+}
+
+/// Stateful, protocol-aware streaming normalizer.
+///
+/// Streams are inherently stateful: tool arguments arrive as JSON fragments,
+/// content-block indexes identify tool calls announced by an earlier frame,
+/// and signatures/usage may trail the payload they describe. Keeping that
+/// bookkeeping here is what lets callers normalize one event at a time instead
+/// of buffering the whole upstream response.
+pub struct StreamNormalizer {
+    protocol: NativeProtocol,
+    started: bool,
+    ended: bool,
+    usage: Usage,
+    /// Anthropic content block index -> (tool call id, tool name).
+    anthropic_tools: HashMap<usize, (Option<String>, Option<String>)>,
+    /// Last finish reason observed, applied to the final message_end event.
+    finish_reason: Option<String>,
+}
+
+impl StreamNormalizer {
+    pub fn new(protocol: NativeProtocol) -> Self {
+        Self {
+            protocol,
+            started: false,
+            ended: false,
+            usage: Usage::default(),
+            anthropic_tools: HashMap::new(),
+            finish_reason: None,
         }
-        let val: Value =
-            serde_json::from_str(&ev.data).map_err(|e| LmpError::Decode(e.to_string()))?;
-        match protocol {
+    }
+
+    /// True once a terminal `message_end` has been produced.
+    pub fn is_finished(&self) -> bool {
+        self.ended
+    }
+
+    /// Normalizes a single SSE event into zero or more LMP stream events.
+    pub fn push(
+        &mut self,
+        event: &SseEvent,
+        out: &mut Vec<LmpStreamEvent>,
+    ) -> Result<(), LmpError> {
+        let data = event.data.trim();
+        if data.is_empty() || data == "[DONE]" {
+            return Ok(());
+        }
+        let value: Value = serde_json::from_str(data).map_err(|e| LmpError::Decode(e.to_string()))?;
+        match self.protocol {
             NativeProtocol::OpenaiChatCompletions | NativeProtocol::AzureOpenai => {
-                if let Some(choice) = val["choices"].get(0) {
-                    if let Some(delta) = choice["delta"].as_object() {
-                        if let Some(rc) = delta.get("reasoning_content").and_then(Value::as_str) {
-                            if !rc.is_empty() {
-                                out.push(LmpStreamEvent::ThinkingDelta {
-                                    delta: rc.to_string(),
-                                });
-                            }
-                        }
-                        if let Some(txt) = delta.get("content").and_then(Value::as_str) {
-                            if !txt.is_empty() {
-                                out.push(LmpStreamEvent::TextDelta {
-                                    delta: txt.to_string(),
-                                });
-                            }
-                        }
-                    }
-                    if let Some(fr) = choice["finish_reason"].as_str() {
-                        out.push(LmpStreamEvent::MessageEnd {
-                            finish_reason: Some(fr.to_string()),
-                        });
-                    }
-                }
-                if let Some(u) = val.get("usage").filter(|u| u.is_object()) {
-                    out.push(LmpStreamEvent::Usage {
-                        usage: parse_openai_usage(u),
-                    });
-                }
+                self.push_openai_chat(&value, out)
             }
-            NativeProtocol::OpenaiResponses => {
-                let kind = ev
-                    .event
-                    .as_deref()
-                    .or_else(|| val["type"].as_str())
-                    .unwrap_or("");
-                match kind {
-                    "response.created" => out.push(LmpStreamEvent::MessageStart {
-                        id: val["response"]["id"].as_str().map(ToString::to_string),
-                    }),
-                    "response.output_text.delta" => {
-                        if let Some(d) = val["delta"].as_str() {
-                            out.push(LmpStreamEvent::TextDelta {
-                                delta: d.to_string(),
-                            });
-                        }
-                    }
-                    "response.reasoning_summary_text.delta" => {
-                        if let Some(d) = val["delta"].as_str() {
-                            out.push(LmpStreamEvent::ThinkingDelta {
-                                delta: d.to_string(),
-                            });
-                        }
-                    }
-                    "response.completed" => out.push(LmpStreamEvent::MessageEnd {
-                        finish_reason: val["response"]["status"].as_str().map(ToString::to_string),
-                    }),
-                    _ => {}
-                }
-            }
-            NativeProtocol::AnthropicMessages => {
-                let kind = ev
-                    .event
-                    .as_deref()
-                    .or_else(|| val["type"].as_str())
-                    .unwrap_or("");
-                match kind {
-                    "message_start" => out.push(LmpStreamEvent::MessageStart {
-                        id: val["message"]["id"].as_str().map(ToString::to_string),
-                    }),
-                    "content_block_delta" => {
-                        let d = &val["delta"];
-                        match d["type"].as_str() {
-                            Some("thinking_delta") => {
-                                if let Some(t) = d["thinking"].as_str() {
-                                    out.push(LmpStreamEvent::ThinkingDelta {
-                                        delta: t.to_string(),
-                                    });
-                                }
-                            }
-                            Some("text_delta") => {
-                                if let Some(t) = d["text"].as_str() {
-                                    out.push(LmpStreamEvent::TextDelta {
-                                        delta: t.to_string(),
-                                    });
-                                }
-                            }
-                            _ => {}
-                        }
-                    }
-                    "message_stop" => out.push(LmpStreamEvent::MessageEnd {
-                        finish_reason: Some("stop".to_string()),
-                    }),
-                    _ => {}
-                }
-            }
+            NativeProtocol::OpenaiResponses => self.push_openai_responses(event, &value, out),
+            NativeProtocol::AnthropicMessages => self.push_anthropic(event, &value, out),
             NativeProtocol::GoogleGemini | NativeProtocol::GoogleVertexAi => {
-                if let Some(cand) = val["candidates"].get(0) {
-                    if let Some(parts) = cand["content"]["parts"].as_array() {
-                        for part in parts {
-                            if let Some(txt) = part["text"].as_str() {
-                                if part["thought"].as_bool() == Some(true) {
-                                    out.push(LmpStreamEvent::ThinkingDelta {
-                                        delta: txt.to_string(),
-                                    });
-                                } else {
-                                    out.push(LmpStreamEvent::TextDelta {
-                                        delta: txt.to_string(),
-                                    });
-                                }
-                            }
-                        }
+                self.push_gemini(&value, out)
+            }
+            NativeProtocol::AwsBedrock => self.push_bedrock(&value, out),
+            NativeProtocol::Ollama => self.push_ollama(&value, out),
+            NativeProtocol::Cohere => self.push_cohere(event, &value, out),
+        }
+        Ok(())
+    }
+
+    /// Flushes state once the upstream body ends: emits `message_end` for
+    /// protocols that never sent an explicit terminal frame.
+    pub fn finish(&mut self, out: &mut Vec<LmpStreamEvent>) {
+        if self.ended {
+            return;
+        }
+        self.ended = true;
+        out.push(LmpStreamEvent::MessageEnd {
+            finish_reason: self.finish_reason.clone(),
+        });
+    }
+
+    fn mark_started(&mut self, id: Option<String>, out: &mut Vec<LmpStreamEvent>) {
+        if !self.started {
+            self.started = true;
+            out.push(LmpStreamEvent::MessageStart { id });
+        }
+    }
+
+    fn mark_ended(&mut self, finish_reason: Option<String>, out: &mut Vec<LmpStreamEvent>) {
+        if finish_reason.is_some() {
+            self.finish_reason = finish_reason.clone();
+        }
+        if !self.ended {
+            self.ended = true;
+            out.push(LmpStreamEvent::MessageEnd { finish_reason });
+        }
+    }
+
+    fn emit_usage(&mut self, usage: Usage, out: &mut Vec<LmpStreamEvent>) {
+        let changed = self.usage != usage;
+        self.usage = usage.clone();
+        if changed {
+            out.push(LmpStreamEvent::Usage { usage });
+        }
+    }
+
+    fn push_openai_chat(&mut self, value: &Value, out: &mut Vec<LmpStreamEvent>) {
+        if let Some(choice) = value["choices"].get(0) {
+            if let Some(delta) = choice["delta"].as_object() {
+                if let Some(reasoning) = delta.get("reasoning_content").and_then(Value::as_str) {
+                    if !reasoning.is_empty() {
+                        out.push(LmpStreamEvent::ThinkingDelta {
+                            delta: reasoning.to_string(),
+                            signature: None,
+                        });
                     }
-                    if let Some(fr) = cand["finishReason"].as_str() {
-                        out.push(LmpStreamEvent::MessageEnd {
-                            finish_reason: Some(fr.to_string()),
+                }
+                if let Some(text) = delta.get("content").and_then(Value::as_str) {
+                    if !text.is_empty() {
+                        out.push(LmpStreamEvent::TextDelta {
+                            delta: text.to_string(),
+                            signature: None,
+                        });
+                    }
+                }
+                if let Some(calls) = delta.get("tool_calls").and_then(Value::as_array) {
+                    for (position, call) in calls.iter().enumerate() {
+                        let index = call["index"].as_u64().map(|i| i as usize).unwrap_or(position);
+                        out.push(LmpStreamEvent::ToolCallDelta {
+                            index,
+                            id: call["id"].as_str().map(ToString::to_string),
+                            name: call["function"]["name"].as_str().map(ToString::to_string),
+                            arguments_delta: call["function"]["arguments"]
+                                .as_str()
+                                .unwrap_or_default()
+                                .to_string(),
+                            signature: None,
                         });
                     }
                 }
             }
-            NativeProtocol::AwsBedrock => {
-                if let Some(delta) = val["contentBlockDelta"]["delta"].as_object() {
-                    if let Some(txt) = delta.get("text").and_then(Value::as_str) {
-                        out.push(LmpStreamEvent::TextDelta {
-                            delta: txt.to_string(),
-                        });
-                    }
-                    if let Some(rt) = delta.get("reasoningContent").and_then(|v| v["text"].as_str()) {
-                        out.push(LmpStreamEvent::ThinkingDelta {
-                            delta: rt.to_string(),
-                        });
-                    }
-                    if let Some(inp) = delta.get("toolUse").and_then(|v| v["input"].as_str()) {
-                        let idx = val["contentBlockDelta"]["contentBlockIndex"].as_u64().unwrap_or(0) as usize;
-                        out.push(LmpStreamEvent::ToolCallDelta {
-                            index: idx,
-                            id: None,
-                            name: None,
-                            arguments_delta: inp.to_string(),
-                        });
-                    }
-                } else if let Some(start) = val["contentBlockStart"]["start"]["toolUse"].as_object() {
-                    let idx = val["contentBlockStart"]["contentBlockIndex"].as_u64().unwrap_or(0) as usize;
+            if let Some(reason) = choice["finish_reason"].as_str() {
+                self.mark_ended(Some(reason.to_string()), out);
+            }
+        }
+        if let Some(usage) = value.get("usage").filter(|u| u.is_object()) {
+            self.emit_usage(parse_openai_usage(usage), out);
+        }
+    }
+
+    fn push_openai_responses(
+        &mut self,
+        event: &SseEvent,
+        value: &Value,
+        out: &mut Vec<LmpStreamEvent>,
+    ) {
+        let kind = event
+            .event
+            .as_deref()
+            .or_else(|| value["type"].as_str())
+            .unwrap_or("");
+        match kind {
+            "response.created" => self.mark_started(
+                value["response"]["id"].as_str().map(ToString::to_string),
+                out,
+            ),
+            "response.output_text.delta" => {
+                if let Some(delta) = value["delta"].as_str() {
+                    out.push(LmpStreamEvent::TextDelta {
+                        delta: delta.to_string(),
+                        signature: None,
+                    });
+                }
+            }
+            "response.reasoning_summary_text.delta" | "response.reasoning_text.delta" => {
+                if let Some(delta) = value["delta"].as_str() {
+                    out.push(LmpStreamEvent::ThinkingDelta {
+                        delta: delta.to_string(),
+                        signature: None,
+                    });
+                }
+            }
+            "response.output_item.added" => {
+                let item = &value["item"];
+                if item["type"].as_str() == Some("function_call") {
                     out.push(LmpStreamEvent::ToolCallDelta {
-                        index: idx,
-                        id: start.get("toolUseId").and_then(Value::as_str).map(ToString::to_string),
-                        name: start.get("name").and_then(Value::as_str).map(ToString::to_string),
+                        index: value["output_index"].as_u64().unwrap_or(0) as usize,
+                        id: item["call_id"]
+                            .as_str()
+                            .or_else(|| item["id"].as_str())
+                            .map(ToString::to_string),
+                        name: item["name"].as_str().map(ToString::to_string),
                         arguments_delta: String::new(),
+                        signature: None,
                     });
-                } else if let Some(sr) = val["messageStop"]["stopReason"].as_str() {
-                    out.push(LmpStreamEvent::MessageEnd {
-                        finish_reason: Some(sr.to_string()),
+                }
+            }
+            "response.function_call_arguments.delta" => {
+                if let Some(delta) = value["delta"].as_str() {
+                    out.push(LmpStreamEvent::ToolCallDelta {
+                        index: value["output_index"].as_u64().unwrap_or(0) as usize,
+                        id: None,
+                        name: None,
+                        arguments_delta: delta.to_string(),
+                        signature: None,
                     });
-                } else if let Some(u) = val["metadata"].get("usage").filter(|v| v.is_object()) {
-                    out.push(LmpStreamEvent::Usage {
-                        usage: Usage {
-                            input_tokens: u["inputTokens"].as_u64().unwrap_or(0),
-                            output_tokens: u["outputTokens"].as_u64().unwrap_or(0),
-                            total_tokens: u["totalTokens"].as_u64().unwrap_or(0),
-                            cache_read_tokens: u["cacheReadInputTokens"].as_u64(),
-                            cache_write_tokens: u["cacheWriteInputTokens"].as_u64(),
+                }
+            }
+            "response.completed" => {
+                if let Some(usage) = value["response"].get("usage").filter(|u| u.is_object()) {
+                    let input_tokens = usage["input_tokens"].as_u64().unwrap_or(0);
+                    let output_tokens = usage["output_tokens"].as_u64().unwrap_or(0);
+                    self.emit_usage(
+                        Usage {
+                            input_tokens,
+                            output_tokens,
+                            total_tokens: usage["total_tokens"]
+                                .as_u64()
+                                .unwrap_or(input_tokens + output_tokens),
+                            reasoning_tokens: usage["output_tokens_details"]["reasoning_tokens"]
+                                .as_u64(),
+                            cache_read_tokens: usage["input_tokens_details"]["cached_tokens"]
+                                .as_u64(),
                             ..Default::default()
                         },
+                        out,
+                    );
+                }
+                self.mark_ended(
+                    value["response"]["status"].as_str().map(ToString::to_string),
+                    out,
+                );
+            }
+            _ => {}
+        }
+    }
+
+    fn push_anthropic(
+        &mut self,
+        event: &SseEvent,
+        value: &Value,
+        out: &mut Vec<LmpStreamEvent>,
+    ) {
+        let kind = event
+            .event
+            .as_deref()
+            .or_else(|| value["type"].as_str())
+            .unwrap_or("");
+        match kind {
+            "message_start" => {
+                let message = &value["message"];
+                self.mark_started(message["id"].as_str().map(ToString::to_string), out);
+                if let Some(usage) = message.get("usage").filter(|u| u.is_object()) {
+                    self.emit_usage(parse_anthropic_usage(usage, &self.usage), out);
+                }
+            }
+            "content_block_start" => {
+                let index = value["index"].as_u64().unwrap_or(0) as usize;
+                let block = &value["content_block"];
+                match block["type"].as_str() {
+                    Some("tool_use") => {
+                        let id = block["id"].as_str().map(ToString::to_string);
+                        let name = block["name"].as_str().map(ToString::to_string);
+                        self.anthropic_tools.insert(index, (id.clone(), name.clone()));
+                        out.push(LmpStreamEvent::ToolCallDelta {
+                            index,
+                            id,
+                            name,
+                            arguments_delta: String::new(),
+                            signature: None,
+                        });
+                    }
+                    Some("thinking") => {
+                        if let Some(signature) = block["signature"].as_str() {
+                            out.push(LmpStreamEvent::ThinkingDelta {
+                                delta: String::new(),
+                                signature: Some(signature.to_string()),
+                            });
+                        }
+                    }
+                    _ => {}
+                }
+            }
+            "content_block_delta" => {
+                let index = value["index"].as_u64().unwrap_or(0) as usize;
+                let delta = &value["delta"];
+                match delta["type"].as_str() {
+                    Some("thinking_delta") => {
+                        if let Some(text) = delta["thinking"].as_str() {
+                            out.push(LmpStreamEvent::ThinkingDelta {
+                                delta: text.to_string(),
+                                signature: None,
+                            });
+                        }
+                    }
+                    Some("text_delta") => {
+                        if let Some(text) = delta["text"].as_str() {
+                            out.push(LmpStreamEvent::TextDelta {
+                                delta: text.to_string(),
+                                signature: None,
+                            });
+                        }
+                    }
+                    Some("input_json_delta") => {
+                        if let Some(partial) = delta["partial_json"].as_str() {
+                            let (id, name) = self
+                                .anthropic_tools
+                                .get(&index)
+                                .cloned()
+                                .unwrap_or((None, None));
+                            out.push(LmpStreamEvent::ToolCallDelta {
+                                index,
+                                id,
+                                name,
+                                arguments_delta: partial.to_string(),
+                                signature: None,
+                            });
+                        }
+                    }
+                    Some("signature_delta") => {
+                        if let Some(signature) = delta["signature"].as_str() {
+                            out.push(LmpStreamEvent::ThinkingDelta {
+                                delta: String::new(),
+                                signature: Some(signature.to_string()),
+                            });
+                        }
+                    }
+                    _ => {}
+                }
+            }
+            "message_delta" => {
+                if let Some(usage) = value.get("usage").filter(|u| u.is_object()) {
+                    let parsed = parse_anthropic_usage(usage, &self.usage);
+                    self.emit_usage(parsed, out);
+                }
+                if let Some(reason) = value["delta"]["stop_reason"].as_str() {
+                    self.finish_reason = Some(reason.to_string());
+                }
+            }
+            "message_stop" => self.mark_ended(self.finish_reason.clone(), out),
+            _ => {}
+        }
+    }
+
+    fn push_gemini(&mut self, value: &Value, out: &mut Vec<LmpStreamEvent>) {
+        if let Some(candidate) = value["candidates"].get(0) {
+            if let Some(parts) = candidate["content"]["parts"].as_array() {
+                for (index, part) in parts.iter().enumerate() {
+                    let signature = part["thoughtSignature"].as_str().map(ToString::to_string);
+                    if let Some(text) = part["text"].as_str() {
+                        if part["thought"].as_bool() == Some(true) {
+                            out.push(LmpStreamEvent::ThinkingDelta {
+                                delta: text.to_string(),
+                                signature,
+                            });
+                        } else {
+                            out.push(LmpStreamEvent::TextDelta {
+                                delta: text.to_string(),
+                                signature,
+                            });
+                        }
+                    } else if let Some(call) = part.get("functionCall") {
+                        out.push(LmpStreamEvent::ToolCallDelta {
+                            index,
+                            id: call["id"].as_str().map(ToString::to_string),
+                            name: call["name"].as_str().map(ToString::to_string),
+                            arguments_delta: if call["args"].is_null() {
+                                String::new()
+                            } else {
+                                call["args"].to_string()
+                            },
+                            signature,
+                        });
+                    }
+                }
+            }
+            if let Some(reason) = candidate["finishReason"].as_str() {
+                self.finish_reason = Some(reason.to_string());
+            }
+        }
+        if let Some(usage) = value.get("usageMetadata").filter(|u| u.is_object()) {
+            let input_tokens = usage["promptTokenCount"].as_u64().unwrap_or(0);
+            let output_tokens = usage["candidatesTokenCount"].as_u64().unwrap_or(0);
+            self.emit_usage(
+                Usage {
+                    input_tokens,
+                    output_tokens,
+                    total_tokens: usage["totalTokenCount"]
+                        .as_u64()
+                        .unwrap_or(input_tokens + output_tokens),
+                    cache_read_tokens: usage["cachedContentTokenCount"].as_u64(),
+                    ..Default::default()
+                },
+                out,
+            );
+        }
+    }
+
+    fn push_bedrock(&mut self, value: &Value, out: &mut Vec<LmpStreamEvent>) {
+        if let Some(delta) = value["contentBlockDelta"]["delta"].as_object() {
+            let index = value["contentBlockDelta"]["contentBlockIndex"]
+                .as_u64()
+                .unwrap_or(0) as usize;
+            if let Some(text) = delta.get("text").and_then(Value::as_str) {
+                out.push(LmpStreamEvent::TextDelta {
+                    delta: text.to_string(),
+                    signature: None,
+                });
+            }
+            if let Some(reasoning) = delta.get("reasoningContent") {
+                if let Some(text) = reasoning["text"].as_str() {
+                    out.push(LmpStreamEvent::ThinkingDelta {
+                        delta: text.to_string(),
+                        signature: None,
+                    });
+                }
+                if let Some(signature) = reasoning["signature"].as_str() {
+                    out.push(LmpStreamEvent::ThinkingDelta {
+                        delta: String::new(),
+                        signature: Some(signature.to_string()),
                     });
                 }
             }
-            NativeProtocol::Ollama => {
-                if let Some(th) = val["message"]["thinking"].as_str() {
-                    if !th.is_empty() {
-                        out.push(LmpStreamEvent::ThinkingDelta {
-                            delta: th.to_string(),
-                        });
-                    }
+            if let Some(input) = delta.get("toolUse").and_then(|v| v["input"].as_str()) {
+                out.push(LmpStreamEvent::ToolCallDelta {
+                    index,
+                    id: None,
+                    name: None,
+                    arguments_delta: input.to_string(),
+                    signature: None,
+                });
+            }
+        } else if let Some(start) = value["contentBlockStart"]["start"]["toolUse"].as_object() {
+            let index = value["contentBlockStart"]["contentBlockIndex"]
+                .as_u64()
+                .unwrap_or(0) as usize;
+            out.push(LmpStreamEvent::ToolCallDelta {
+                index,
+                id: start
+                    .get("toolUseId")
+                    .and_then(Value::as_str)
+                    .map(ToString::to_string),
+                name: start
+                    .get("name")
+                    .and_then(Value::as_str)
+                    .map(ToString::to_string),
+                arguments_delta: String::new(),
+                signature: None,
+            });
+        } else if let Some(reason) = value["messageStop"]["stopReason"].as_str() {
+            self.mark_ended(Some(reason.to_string()), out);
+        } else if let Some(usage) = value["metadata"].get("usage").filter(|v| v.is_object()) {
+            let input_tokens = usage["inputTokens"].as_u64().unwrap_or(0);
+            let output_tokens = usage["outputTokens"].as_u64().unwrap_or(0);
+            self.emit_usage(
+                Usage {
+                    input_tokens,
+                    output_tokens,
+                    total_tokens: usage["totalTokens"]
+                        .as_u64()
+                        .unwrap_or(input_tokens + output_tokens),
+                    cache_read_tokens: usage["cacheReadInputTokens"].as_u64(),
+                    cache_write_tokens: usage["cacheWriteInputTokens"].as_u64(),
+                    ..Default::default()
+                },
+                out,
+            );
+        }
+    }
+
+    fn push_ollama(&mut self, value: &Value, out: &mut Vec<LmpStreamEvent>) {
+        if let Some(thinking) = value["message"]["thinking"].as_str() {
+            if !thinking.is_empty() {
+                out.push(LmpStreamEvent::ThinkingDelta {
+                    delta: thinking.to_string(),
+                    signature: None,
+                });
+            }
+        }
+        if let Some(text) = value["message"]["content"].as_str() {
+            if !text.is_empty() {
+                out.push(LmpStreamEvent::TextDelta {
+                    delta: text.to_string(),
+                    signature: None,
+                });
+            }
+        }
+        if value["done"].as_bool() == Some(true) {
+            let input_tokens = value["prompt_eval_count"].as_u64().unwrap_or(0);
+            let output_tokens = value["eval_count"].as_u64().unwrap_or(0);
+            self.emit_usage(
+                Usage {
+                    input_tokens,
+                    output_tokens,
+                    total_tokens: input_tokens + output_tokens,
+                    ..Default::default()
+                },
+                out,
+            );
+            self.mark_ended(
+                value["done_reason"].as_str().map(ToString::to_string),
+                out,
+            );
+        }
+    }
+
+    fn push_cohere(
+        &mut self,
+        event: &SseEvent,
+        value: &Value,
+        out: &mut Vec<LmpStreamEvent>,
+    ) {
+        let kind = event
+            .event
+            .as_deref()
+            .or_else(|| value["type"].as_str())
+            .unwrap_or("");
+        match kind {
+            "content-delta" => {
+                if let Some(text) = value["delta"]["message"]["content"]["text"].as_str() {
+                    out.push(LmpStreamEvent::TextDelta {
+                        delta: text.to_string(),
+                        signature: None,
+                    });
                 }
-                if let Some(txt) = val["message"]["content"].as_str() {
-                    if !txt.is_empty() {
-                        out.push(LmpStreamEvent::TextDelta {
-                            delta: txt.to_string(),
-                        });
-                    }
+                if let Some(thinking) = value["delta"]["message"]["content"]["thinking"].as_str() {
+                    out.push(LmpStreamEvent::ThinkingDelta {
+                        delta: thinking.to_string(),
+                        signature: None,
+                    });
                 }
-                if val["done"].as_bool() == Some(true) {
-                    let input_tokens = val["prompt_eval_count"].as_u64().unwrap_or(0);
-                    let output_tokens = val["eval_count"].as_u64().unwrap_or(0);
-                    out.push(LmpStreamEvent::Usage {
-                        usage: Usage {
+            }
+            "message-end" => {
+                if let Some(usage) = value["delta"]["usage"].get("tokens") {
+                    let input_tokens = usage["input_tokens"].as_u64().unwrap_or(0);
+                    let output_tokens = usage["output_tokens"].as_u64().unwrap_or(0);
+                    self.emit_usage(
+                        Usage {
                             input_tokens,
                             output_tokens,
                             total_tokens: input_tokens + output_tokens,
                             ..Default::default()
                         },
-                    });
-                    out.push(LmpStreamEvent::MessageEnd {
-                        finish_reason: val["done_reason"].as_str().map(ToString::to_string),
-                    });
+                        out,
+                    );
                 }
+                self.mark_ended(
+                    value["delta"]["finish_reason"]
+                        .as_str()
+                        .map(ToString::to_string),
+                    out,
+                );
             }
-            NativeProtocol::Cohere => {
-                let kind = ev.event.as_deref().or_else(|| val["type"].as_str()).unwrap_or("");
-                match kind {
-                    "content-delta" => {
-                        if let Some(txt) = val["delta"]["message"]["content"]["text"].as_str() {
-                            out.push(LmpStreamEvent::TextDelta {
-                                delta: txt.to_string(),
-                            });
-                        }
-                        if let Some(th) = val["delta"]["message"]["content"]["thinking"].as_str() {
-                            out.push(LmpStreamEvent::ThinkingDelta {
-                                delta: th.to_string(),
-                            });
-                        }
-                    }
-                    "message-end" => {
-                        if let Some(u) = val["delta"]["usage"].get("tokens") {
-                            let input_tokens = u["input_tokens"].as_u64().unwrap_or(0);
-                            let output_tokens = u["output_tokens"].as_u64().unwrap_or(0);
-                            out.push(LmpStreamEvent::Usage {
-                                usage: Usage {
-                                    input_tokens,
-                                    output_tokens,
-                                    total_tokens: input_tokens + output_tokens,
-                                    ..Default::default()
-                                },
-                            });
-                        }
-                        out.push(LmpStreamEvent::MessageEnd {
-                            finish_reason: val["delta"]["finish_reason"].as_str().map(ToString::to_string),
-                        });
-                    }
-                    _ => {}
-                }
-            }
+            _ => {}
         }
     }
-    Ok(out)
+}
+
+/// Anthropic reports cache counters separately from input tokens; LMP keeps
+/// both on one usage record. Stream deltas only carry the new counters, so the
+/// previous totals are merged in.
+fn parse_anthropic_usage(usage: &Value, previous: &Usage) -> Usage {
+    let input_tokens = usage["input_tokens"]
+        .as_u64()
+        .unwrap_or(previous.input_tokens);
+    let output_tokens = usage["output_tokens"]
+        .as_u64()
+        .unwrap_or(previous.output_tokens);
+    Usage {
+        input_tokens,
+        output_tokens,
+        total_tokens: usage["total_tokens"]
+            .as_u64()
+            .unwrap_or(input_tokens + output_tokens),
+        cache_read_tokens: usage["cache_read_input_tokens"]
+            .as_u64()
+            .or(previous.cache_read_tokens),
+        cache_write_tokens: usage["cache_creation_input_tokens"]
+            .as_u64()
+            .or(previous.cache_write_tokens),
+        ..Default::default()
+    }
 }
 
 fn to_openai_chat(req: &LmpRequest) -> Result<Value, LmpError> {
