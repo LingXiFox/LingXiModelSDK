@@ -103,6 +103,21 @@ The goal of this phase was not more languages or protocols. It was to make the t
 - TypeScript Catalog, Native and Unified entry points executed inside headless Chrome (`sdk/typescript/tests/browser_check.mjs`), gated in CI and skipped cleanly when no browser binary is present.
 - Every distributable artifact was packed, installed into an empty project and exercised: npm tarball, Python wheel, NuGet package, Java and Kotlin JARs, a CMake package, a Dart `path` dependency, and both Rust crates.
 
+### Workflow results
+
+Candidate [`69e7e47`](https://github.com/LingXiFox/LingXiModelSDK/commit/69e7e47) passed all six push workflows. The path-filtered workflows were dispatched against the same commit.
+
+| Workflow | Result |
+| --- | --- |
+| All 10 SDKs & Agent Conformance | [Passed](https://github.com/LingXiFox/LingXiModelSDK/actions/runs/45646352472) |
+| Catalog SDKs | [Passed](https://github.com/LingXiFox/LingXiModelSDK/actions/runs/45646352653) |
+| Native Providers | [Passed](https://github.com/LingXiFox/LingXiModelSDK/actions/runs/45646904710) |
+| Unified LMP | [Passed](https://github.com/LingXiFox/LingXiModelSDK/actions/runs/45646913144) |
+| Gateway | [Passed](https://github.com/LingXiFox/LingXiModelSDK/actions/runs/45646923013) |
+| Website | [Passed](https://github.com/LingXiFox/LingXiModelSDK/actions/runs/45646930404) |
+
+The first push of the phase exposed three workflow defects rather than SDK defects: the C++ loopback harness suppressed SIGPIPE with a BSD-only `SO_NOSIGPIPE`, the Swift job pinned a `dtolnay/rust-toolchain` commit that no longer resolves, and the catalog workflow still compiled `sdk/java` with JDK 21 after the FFM bridge made 22 the real floor. Each was fixed in `f6b2459` and `69e7e47` and re-run to green. The Swift job in the catalog workflow now builds the Rust core instead of assuming a prebuilt library, and the Java job compiles with the JDK version the FFM bridge needs.
+
 ### What this phase did not do
 
 - No provider credential was available, so the nine credentialed probes reported `[SKIP]` and no provider moved to `live_verified`. Mock-tested capabilities were not upgraded.
