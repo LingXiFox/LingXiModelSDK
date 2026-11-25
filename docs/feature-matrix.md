@@ -4,16 +4,16 @@ The workflow builds and tests ten language SDKs. Entries describe the tested sur
 
 | Language | Model Catalog | Provider Registry | Native Provider | Unified Provider |
 | --- | --- | --- | --- | --- |
-| Swift | `LingXiModelSDK`, catalog fixture conformance and cache tests | `LingXiProviderRegistry` | `LingXiNativeProvider`, JSON and buffered stream interfaces | `LingXiUnifiedProvider`, selected typed completion and rerank mappings |
+| Swift | `LingXiModelSDK`, catalog fixture conformance and cache tests | `LingXiProviderRegistry` | `LingXiNativeProvider`, prepared wire targets and incremental raw frames through the Rust core | `LingXiUnifiedProvider`, LMP completion, incremental streaming, embed and rerank through the Rust core, explicit unsupported-feature errors |
 | Rust | `sdk/rust` catalog fixture conformance | `lingxi_core::registry` | `lingxi_core::NativeClient`, nine adapters and buffered events | `lingxi_core::lmp`, nine adapters, buffered events, selected embed and rerank |
 | Go | `sdk/go` catalog fixture conformance | `native.Registry` | `native.Client`, nine adapters and incremental events | `unified.Client`, nine adapters, incremental events, selected embed and rerank |
 | TypeScript / JavaScript | Root import, catalog fixture conformance | `./registry` | `./native`, nine adapters and event generators. SigV4 uses Node crypto. | `./unified`, nine adapters, buffered and incremental interfaces, selected embed and rerank |
-| Python | `lingxi_model_sdk` catalog fixture conformance | `.registry` | `.native`, stdlib HTTP, JSON and text event helpers | `.unified`, Rust adapter through ctypes, including buffered Bedrock streaming |
-| Java | `LingXiModelCatalog`, fixture and loader tests | `ProviderRegistry` | `NativeClient`, HTTP and auth helpers | `UnifiedClient.completeText` and `rerank` return provider JSON. Full LMP parity remains open. |
-| C# | `Catalog`, decode smoke test | `Registry` | `NativeClient`, HTTP and auth helpers | `CompleteTextAsync` and `RerankAsync` return provider JSON. Full LMP parity remains open. |
-| Kotlin | `ModelCatalog`, decode smoke test | `ProviderRegistry` | `NativeClient`, HTTP and auth helpers | `completeText` and `rerank` return provider JSON. Full LMP parity remains open. |
-| C++20 | `lingxi/catalog.hpp`, raw JSON and limited provider lookup | `lingxi/registry.hpp`, C ABI | `lingxi/native.hpp`, direct Rust runtime through the C ABI | Rust translation and blocking HTTP via the C ABI, with buffered events |
-| Dart 3 | `lib/catalog.dart`, decode smoke test | `lib/registry.dart` | `lib/native.dart`, HTTP and auth helpers | `completeText` and `rerank` return provider JSON. Full LMP parity remains open. |
+| Python | `lingxi_model_sdk` catalog fixture conformance | `.registry` | `.native`, prepared wire targets and incremental raw frames through the Rust core | `.unified`, LMP completion, incremental streaming, embed and rerank through the Rust core, explicit unsupported-feature errors |
+| Java | `LingXiModelCatalog`, fixture and loader tests | `ProviderRegistry` | `NativeClient`, prepared wire targets and incremental raw frames through the Rust core | `UnifiedClient`, LMP completion, incremental streaming, embed and rerank through the Rust core, explicit unsupported-feature errors |
+| C# | `LingXiModelCatalog`, fixture conformance and loader cache/ETag tests | `ProviderRegistry` | `NativeClient`, prepared requests and incremental raw frames through the Rust core | `UnifiedClient`, LMP completion, incremental streaming, embed and rerank through the Rust core, explicit unsupported-feature errors |
+| Kotlin | `LingXiModelCatalog`, fixture conformance and loader cache/ETag tests | `ProviderRegistry` | `NativeClient`, prepared requests and incremental events through the Rust core | `UnifiedClient`, LMP completion, incremental streaming, embed and rerank through the Rust core, explicit unsupported-feature errors |
+| C++20 | `lingxi/catalog.hpp`, full fixture conformance and `catalog_loader.hpp` cache/ETag tests | `lingxi/registry.hpp` over the C ABI | `lingxi/native.hpp`, prepared wire targets and `StreamSession` raw frames through the Rust core | `lingxi/unified.hpp`, LMP completion, incremental streaming, embed and rerank through the Rust core, explicit unsupported-feature errors |
+| Dart 3 | `LingXiModelCatalog`, fixture conformance and loader cache/ETag tests | `ProviderRegistry` | `NativeClient`, prepared requests and incremental raw frames through the Rust core | `UnifiedClient`, LMP completion, incremental streaming, embed and rerank through the Rust core, explicit unsupported-feature errors |
 
 ## Protocol coverage
 

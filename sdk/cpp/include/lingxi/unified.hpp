@@ -1,51 +1,109 @@
 #pragma once
 
-#include "lingxi_core.h"
-#include <stdexcept>
-#include <string>
+#include "lingxi/core.hpp"
+#include "lingxi/json.hpp"
+#include "lingxi/native.hpp"
 
+#include <map>
+#include <optional>
+#include <string>
+#include <vector>
 namespace lingxi::unified {
 
-class UnifiedBridge {
-public:
-    static std::string translate_request(
-        const std::string& protocol,
-        const std::string& lmp_request_json) {
-        char* raw = lingxi_lmp_translate_request(protocol.c_str(), lmp_request_json.c_str());
-        if (!raw) throw std::runtime_error("null from lingxi_lmp_translate_request");
-        std::string out(raw);
-        lingxi_string_free(raw);
-        if (out.find("\"ok\":true") == std::string::npos) {
-            throw std::runtime_error("LMP translate_request failed: " + out);
-        }
-        return out;
-    }
-
-    static std::string normalize_response(
-        const std::string& protocol,
-        const std::string& native_response_json) {
-        char* raw = lingxi_lmp_normalize_response(protocol.c_str(), native_response_json.c_str());
-        if (!raw) throw std::runtime_error("null from lingxi_lmp_normalize_response");
-        std::string out(raw);
-        lingxi_string_free(raw);
-        if (out.find("\"ok\":true") == std::string::npos) {
-            throw std::runtime_error("LMP normalize_response failed: " + out);
-        }
-        return out;
-    }
-
-    static std::string normalize_stream_events(
-        const std::string& protocol,
-        const std::string& events_json) {
-        char* raw = lingxi_lmp_normalize_stream_events(protocol.c_str(), events_json.c_str());
-        if (!raw) throw std::runtime_error("null from lingxi_lmp_normalize_stream_events");
-        std::string out(raw);
-        lingxi_string_free(raw);
-        if (out.find("\"ok\":true") == std::string::npos) {
-            throw std::runtime_error("LMP normalize_stream_events failed: " + out);
-        }
-        return out;
-    }
+// A Unified request prepared for the wire: the LMP request was translated by
+// the core, so `target.body` is the provider-native payload for the protocol.
+struct Prepared {
+    native::Target target;
+    json::Value request;
 };
+
+inline Prepared prepare(
+    const std::string& protocol,
+    const std::string& base_url,
+    const std::optional<std::string>& api_key,
+    const std::optional<std::string>& model,
+    const json::Value& lmp_request,
+    const native::PrepareOptions& options = {}) {
+    json::Value request(json::Object{});
+    request.set("protocol", json::Value(protocol));
+    request.set("baseUrl", json::Value(base_url));
+    if (api_key) request.set("apiKey", json::Value(*api_key));
+    if (model) request.set("model", json::Value(*model));
+    request.set("request", lmp_request);
+    if (!options.headers.empty()) {
+        json::Value headers(json::Object{});
+        for (const auto& entry : options.headers) {
+            headers.set(entry.first, json::Value(entry.second));
+        }
+        request.set("headers", headers);
+    }
+    if (options.timeout_ms) request.set("timeoutMs", json::Value(*options.timeout_ms));
+    if (options.idle_timeout_ms) request.set("idleTimeoutMs", json::Value(*options.idle_timeout_ms));
+    request.set("allowInsecureHttp", json::Value(options.allow_insecure_http));
+    request.set("stream", json::Value(options.stream));
+
+    json::Value envelope = Core::prepare_unified(request);
+    Prepared prepared;
+    prepared.request = lmp_request;
+    if (const json::Value* url = envelope.find("url"); url && url->is_string()) {
+        prepared.target.url = url->string();
+    }
+    if (const json::Value* headers = envelope.find("headers"); headers && headers->is_object()) {
+        for (const auto& entry : headers->object()) {
+            if (entry.second.is_string()) prepared.target.headers[entry.first] = entry.second.string();
+        }
+    }
+    if (const json::Value* body = envelope.find("body"); body) prepared.target.body = *body;
+    if (const json::Value* framing = envelope.find("framing"); framing && framing->is_string()) {
+        prepared.target.framing = framing->string();
+    }
+    return prepared;
+}
+
+// Non-streaming completion: returns the LMP response envelope value (the
+// `response` object), never raw provider JSON.
+inline json::Value normalize_response(const std::string& protocol, const json::Value& native_response) {
+    return Core::normalize_response(protocol, native_response);
+}
+
+// Embeddings: returns the LMP EmbeddingResponse envelope value.
+inline json::Value embed(
+    const std::string& protocol,
+    const std::string& base_url,
+    const std::optional<std::string>& api_key,
+    const std::string& model,
+    const std::vector<std::string>& input) {
+    json::Value request(json::Object{});
+    request.set("protocol", json::Value(protocol));
+    request.set("baseUrl", json::Value(base_url));
+    if (api_key) request.set("apiKey", json::Value(*api_key));
+    request.set("model", json::Value(model));
+    json::Value values(json::Array{});
+    for (const auto& text : input) values.push(json::Value(text));
+    request.set("input", values);
+    return Core::embed(request);
+}
+
+// Reranking: Cohere only, returns the LMP RerankResponse envelope value.
+inline json::Value rerank(
+    const std::string& protocol,
+    const std::string& base_url,
+    const std::optional<std::string>& api_key,
+    const std::string& model,
+    const std::string& query,
+    const std::vector<std::string>& documents,
+    const std::optional<long long>& top_n = std::nullopt) {
+    json::Value request(json::Object{});
+    request.set("protocol", json::Value(protocol));
+    request.set("baseUrl", json::Value(base_url));
+    if (api_key) request.set("apiKey", json::Value(*api_key));
+    request.set("model", json::Value(model));
+    request.set("query", json::Value(query));
+    json::Value values(json::Array{});
+    for (const auto& document : documents) values.push(json::Value(document));
+    request.set("documents", values);
+    if (top_n) request.set("topN", json::Value(*top_n));
+    return Core::rerank(request);
+}
 
 } // namespace lingxi::unified

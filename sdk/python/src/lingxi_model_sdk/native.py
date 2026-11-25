@@ -1,22 +1,30 @@
-"""Native Provider communication using Python stdlib + AWS SigV4 + redirect blocking."""
+"""Native Provider transport.
+
+The Rust core owns every protocol detail: endpoint joining, auth headers,
+SigV4 signing, request translation and stream framing. This module owns the
+Python transport (urllib), redirect blocking and the response size caps.
+
+Callers obtain a wire target from :meth:`NativeClient.prepare` and hand it to
+:meth:`post_json` or :meth:`post_stream`, which keeps one code path per
+protocol across all ten SDKs.
+"""
 
 from __future__ import annotations
 
-import hashlib
-import hmac
 import json
 import urllib.error
 import urllib.request
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
 from typing import Any
-from urllib.parse import quote, urlparse
 
+from .ffi_bridge import CoreError, RustCoreBridge
 from .registry import validate_endpoint_url
+
+MAX_BODY_BYTES = 32 * 1024 * 1024
 
 
 class NativeError(Exception):
-    pass
+    """Raised when a provider request cannot be prepared or completed."""
 
 
 class NativeHTTPStatusError(NativeError):
@@ -32,47 +40,6 @@ class _NoRedirectHandler(urllib.request.HTTPRedirectHandler):
 
 
 _OPENER = urllib.request.build_opener(_NoRedirectHandler())
-
-
-def sign_sigv4(
-    method: str,
-    canonical_uri: str,
-    host: str,
-    region: str,
-    service: str,
-    access_key: str,
-    secret_key: str,
-    payload: bytes,
-    session_token: str | None = None,
-) -> dict[str, str]:
-    amz_date = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
-    date_stamp = amz_date[:8]
-    payload_hash = hashlib.sha256(payload).hexdigest()
-    hdrs = {"host": host, "x-amz-date": amz_date}
-    if session_token:
-        hdrs["x-amz-security-token"] = session_token
-    keys = sorted(hdrs.keys())
-    canonical_headers = "".join(f"{k}:{hdrs[k].strip()}\n" for k in keys)
-    signed_headers = ";".join(keys)
-    canonical_req = f"{method}\n{canonical_uri}\n\n{canonical_headers}\n{signed_headers}\n{payload_hash}"
-    scope = f"{date_stamp}/{region}/{service}/aws4_request"
-    sts = f"AWS4-HMAC-SHA256\n{amz_date}\n{scope}\n{hashlib.sha256(canonical_req.encode()).hexdigest()}"
-
-    def _hmac(k: bytes, m: str) -> bytes:
-        return hmac.new(k, m.encode("utf-8"), hashlib.sha256).digest()
-
-    k_date = _hmac(f"AWS4{secret_key}".encode("utf-8"), date_stamp)
-    k_region = _hmac(k_date, region)
-    k_service = _hmac(k_region, service)
-    k_signing = _hmac(k_service, "aws4_request")
-    sig = hmac.new(k_signing, sts.encode("utf-8"), hashlib.sha256).hexdigest()
-    out = {
-        "Authorization": f"AWS4-HMAC-SHA256 Credential={access_key}/{scope}, SignedHeaders={signed_headers}, Signature={sig}",
-        "X-Amz-Date": amz_date,
-    }
-    if session_token:
-        out["X-Amz-Security-Token"] = session_token
-    return out
 
 
 def parse_sse(text: str) -> list[dict[str, str | None]]:
@@ -120,9 +87,67 @@ class NativeRequestConfig:
     headers: dict[str, str] = field(default_factory=dict, repr=False)
     timeout: float = 60.0
     allow_insecure_http: bool = False
+    stream_idle_timeout: float = 120.0
+
+
+@dataclass(frozen=True)
+class WireTarget:
+    """A fully prepared request: URL, headers, body and framing."""
+
+    url: str
+    headers: dict[str, str]
+    body: dict[str, Any]
+    framing: str
+
+    @property
+    def is_ndjson(self) -> bool:
+        return self.framing == "ndjson"
+
+    @property
+    def is_event_stream(self) -> bool:
+        return self.framing == "amazon_event_stream"
 
 
 class NativeClient:
+    """Transport for the native wire protocols."""
+
+    def __init__(self, bridge: RustCoreBridge | None = None) -> None:
+        self.bridge = bridge or RustCoreBridge()
+
+    def prepare(
+        self,
+        protocol: str,
+        cfg: NativeRequestConfig,
+        model: str | None,
+        payload: dict[str, Any],
+        stream: bool = False,
+    ) -> WireTarget:
+        """Ask the core for the final URL, headers and body of one request."""
+        request: dict[str, Any] = {
+            "protocol": protocol,
+            "baseUrl": cfg.base_url,
+            "payload": payload,
+            "headers": cfg.headers,
+            "timeoutMs": int(cfg.timeout * 1000),
+            "idleTimeoutMs": int(cfg.stream_idle_timeout * 1000),
+            "allowInsecureHttp": cfg.allow_insecure_http,
+            "stream": stream,
+        }
+        if cfg.api_key:
+            request["apiKey"] = cfg.api_key
+        if model:
+            request["model"] = model
+        try:
+            prepared = self.bridge.prepare_native(request)
+        except CoreError as e:
+            raise NativeError(str(e)) from e
+        return WireTarget(
+            url=prepared["url"],
+            headers=dict(prepared.get("headers") or {}),
+            body=prepared.get("body") or {},
+            framing=prepared.get("framing", "sse"),
+        )
+
     def post_json(
         self,
         url: str,
@@ -137,8 +162,8 @@ class NativeClient:
         req = urllib.request.Request(url, data=data, headers=req_headers, method="POST")
         try:
             with _OPENER.open(req, timeout=timeout) as resp:
-                raw = resp.read(32 * 1024 * 1024 + 1)
-                if len(raw) > 32 * 1024 * 1024:
+                raw = resp.read(MAX_BODY_BYTES + 1)
+                if len(raw) > MAX_BODY_BYTES:
                     raise NativeError("Response exceeded 32 MiB limit")
                 return json.loads(raw.decode("utf-8"))
         except urllib.error.HTTPError as e:
@@ -153,6 +178,11 @@ class NativeClient:
         timeout: float = 60.0,
         allow_insecure_http: bool = False,
     ) -> list[dict[str, str | None]]:
+        """Buffered stream read.
+
+        Kept for hosts that cannot consume events incrementally; the incremental
+        path is `ffi_bridge.StreamHandle`, which applies real backpressure.
+        """
         validate_endpoint_url(url, allow_insecure_http=allow_insecure_http)
         data = json.dumps(payload).encode("utf-8")
         accept = "application/x-ndjson, application/json" if ndjson else "text/event-stream"
@@ -160,73 +190,10 @@ class NativeClient:
         req = urllib.request.Request(url, data=data, headers=req_headers, method="POST")
         try:
             with _OPENER.open(req, timeout=timeout) as resp:
-                raw = resp.read(32 * 1024 * 1024 + 1)
-                if len(raw) > 32 * 1024 * 1024:
+                raw = resp.read(MAX_BODY_BYTES + 1)
+                if len(raw) > MAX_BODY_BYTES:
                     raise NativeError("Stream exceeded 32 MiB limit")
                 text = raw.decode("utf-8", errors="replace")
                 return parse_ndjson(text) if ndjson else parse_sse(text)
         except urllib.error.HTTPError as e:
             raise NativeHTTPStatusError(e.code, e.read(1024 * 1024).decode("utf-8", errors="replace")) from e
-
-    def build_target(
-        self,
-        protocol: str,
-        cfg: NativeRequestConfig,
-        model: str,
-        payload: dict[str, Any],
-    ) -> tuple[str, dict[str, str], bool]:
-        base = cfg.base_url.rstrip("/")
-        hdrs = dict(cfg.headers)
-        key = cfg.api_key or ""
-        if protocol == "openai_chat_completions":
-            hdrs.setdefault("Authorization", f"Bearer {key}")
-            return f"{base}/chat/completions", hdrs, False
-        if protocol == "openai_responses":
-            hdrs.setdefault("Authorization", f"Bearer {key}")
-            return f"{base}/responses", hdrs, False
-        if protocol == "anthropic_messages":
-            hdrs.setdefault("x-api-key", key)
-            hdrs.setdefault("anthropic-version", "2023-06-01")
-            url = f"{base}/messages" if base.endswith("/v1") else f"{base}/v1/messages"
-            return url, hdrs, False
-        if protocol == "google_gemini":
-            hdrs.setdefault("x-goog-api-key", key)
-            return f"{base}/v1beta/models/{model}:generateContent", hdrs, False
-        if protocol == "google_vertex_ai":
-            hdrs.setdefault("Authorization", f"Bearer {key}")
-            publisher = base if base.endswith("/models") else f"{base}/v1/publishers/google/models"
-            return f"{publisher}/{model}:generateContent", hdrs, False
-        if protocol == "azure_openai":
-            hdrs.setdefault("api-key", key)
-            ver = hdrs.get("x-azure-api-version", "2024-10-21")
-            return f"{base}/openai/deployments/{model}/chat/completions?api-version={ver}", hdrs, False
-        if protocol == "ollama":
-            return f"{base}/api/chat", hdrs, True
-        if protocol == "cohere":
-            hdrs.setdefault("Authorization", f"Bearer {key}")
-            return f"{base}/v2/chat", hdrs, False
-        if protocol == "aws_bedrock":
-            uri = f"/model/{quote(model, safe='')}/converse"
-            parts = key.split(":")
-            if len(parts) >= 2:
-                parsed = urlparse(base + uri)
-                subdomain, _, remainder = (parsed.hostname or "").partition(".")
-                region, _, domain = remainder.partition(".")
-                if subdomain != "bedrock-runtime" or domain not in {"amazonaws.com", "amazonaws.com.cn", "api.aws"}:
-                    region = "us-east-1"
-                signed = sign_sigv4(
-                    method="POST",
-                    canonical_uri=quote(parsed.path, safe="/"),
-                    host=parsed.netloc,
-                    region=hdrs.get("x-aws-region", region),
-                    service="bedrock",
-                    access_key=parts[0],
-                    secret_key=parts[1],
-                    session_token=parts[2] if len(parts) >= 3 else None,
-                    payload=json.dumps(payload).encode("utf-8"),
-                )
-                hdrs.update(signed)
-            else:
-                hdrs.setdefault("Authorization", f"Bearer {key}")
-            return f"{base}{uri}", hdrs, True
-        raise NativeError(f"Unsupported protocol {protocol!r}")

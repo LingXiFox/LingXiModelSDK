@@ -10,6 +10,16 @@ from .errors import (
     UnexpectedStatusError,
     UnsupportedSchemaVersionError,
 )
+from .ffi_bridge import CoreError, RustCoreBridge, StreamHandle
+from .native import NativeClient, NativeError, NativeHTTPStatusError, NativeRequestConfig, WireTarget
+from .registry import (
+    ALL_PROTOCOLS,
+    ProviderEntry,
+    ProviderRegistry,
+    RegistryError,
+    validate_endpoint_url,
+)
+from .unified import UnifiedClient, UnifiedStream, UnsupportedFeatureError
 from .loader import (
     DEFAULT_ENDPOINT,
     CachedModelCatalog,
@@ -54,5 +64,20 @@ __all__ = [
     "decode_catalog",
     "models_in_stable_order",
     "natural_key",
-    "sort_providers",
+    "ALL_PROTOCOLS",
+    "CoreError",
+    "NativeClient",
+    "NativeError",
+    "NativeHTTPStatusError",
+    "NativeRequestConfig",
+    "ProviderEntry",
+    "ProviderRegistry",
+    "RegistryError",
+    "RustCoreBridge",
+    "StreamHandle",
+    "UnifiedClient",
+    "UnifiedStream",
+    "UnsupportedFeatureError",
+    "WireTarget",
+    "validate_endpoint_url",
 ]

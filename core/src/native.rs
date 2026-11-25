@@ -379,27 +379,27 @@ impl NativeClient {
             }
             NativeProtocol::GoogleGemini => {
                 let model = model_id.ok_or_else(|| {
-                    NativeError::Registry("google_gemini requires a model_id".into())
+                    NativeError::InvalidRequest("google_gemini requires a model_id".into())
                 })?;
                 self.google_gemini_generate(cfg, model, payload)
                     .await
             }
             NativeProtocol::AwsBedrock => {
                 let model = model_id.ok_or_else(|| {
-                    NativeError::Registry("aws_bedrock requires a model_id".into())
+                    NativeError::InvalidRequest("aws_bedrock requires a model_id".into())
                 })?;
                 self.aws_bedrock_converse(cfg, model, payload).await
             }
             NativeProtocol::GoogleVertexAi => {
                 let model = model_id.ok_or_else(|| {
-                    NativeError::Registry("google_vertex_ai requires a model_id".into())
+                    NativeError::InvalidRequest("google_vertex_ai requires a model_id".into())
                 })?;
                 self.google_vertex_generate(cfg, model, payload)
                     .await
             }
             NativeProtocol::AzureOpenai => {
                 let deployment = model_id.ok_or_else(|| {
-                    NativeError::Registry("azure_openai requires a model_id/deployment".into())
+                    NativeError::InvalidRequest("azure_openai requires a model_id/deployment".into())
                 })?;
                 self.azure_openai_chat_completions(cfg, deployment, payload)
                     .await
@@ -763,7 +763,7 @@ pub(crate) fn stream_target(
 ) -> Result<(String, HashMap<String, String>, Value, StreamFraming), NativeError> {
     let require_model = || {
         model_id.ok_or_else(|| {
-            NativeError::Registry(format!("{} requires a model_id", protocol.as_str()))
+            NativeError::InvalidRequest(format!("{} requires a model_id", protocol.as_str()))
         })
     };
     let mut headers = cfg.headers.clone();
@@ -885,7 +885,7 @@ pub(crate) fn native_target(
 ) -> Result<PreparedTarget, NativeError> {
     let require_model = |what: &str| {
         model_id.map(str::to_string).ok_or_else(|| {
-            NativeError::Registry(format!("{} requires a {what}", protocol.as_str()))
+            NativeError::InvalidRequest(format!("{} requires a {what}", protocol.as_str()))
         })
     };
     let mut headers = cfg.headers.clone();

@@ -79,9 +79,9 @@ impl From<NativeError> for LmpError {
             NativeError::Timeout(msg) => Self::Timeout(msg),
             NativeError::Cancelled(msg) => Self::Cancelled(msg),
             NativeError::StreamParse(msg) => Self::Decode(msg),
-            NativeError::Registry(msg) | NativeError::InvalidEndpoint(msg) => {
-                Self::InvalidRequest(msg)
-            }
+            NativeError::Registry(msg)
+            | NativeError::InvalidEndpoint(msg)
+            | NativeError::InvalidRequest(msg) => Self::InvalidRequest(msg),
         }
     }
 }

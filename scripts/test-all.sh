@@ -24,13 +24,25 @@ LINGXI_REQUIRE_FFI=1 PYTHONPATH="$ROOT/sdk/python/src" python3 -m unittest disco
 echo "=== 6. Swift SDK (Catalog + Registry + Native + Unified) ==="
 (cd "$ROOT" && swift test)
 
-echo "=== 7. Java SDK (4 Modules) ==="
-(cd "$ROOT/sdk/java" && mkdir -p build/classes && javac -d build/classes src/main/java/cn/lingxifox/modelsdk/*.java src/test/java/cn/lingxifox/modelsdk/*.java && java -cp build/classes cn.lingxifox.modelsdk.CatalogTestRunner && java -cp build/classes cn.lingxifox.modelsdk.ProviderTestRunner)
+CORE_LIB_NAME="liblingxi_core.so"; [ "$(uname -s)" = "Darwin" ] && CORE_LIB_NAME="liblingxi_core.dylib"
+export LINGXI_CORE_LIB="$ROOT/core/target/debug/$CORE_LIB_NAME"
 
-echo "=== 8. C++20 SDK (Catalog + Rust C ABI) ==="
-(cd "$ROOT/sdk/cpp" && clang++ -std=c++20 -Iinclude -I../../core/include tests/test_cpp_sdk.cpp -L../../core/target/debug -Wl,-rpath,"$(pwd)/../../core/target/debug" -llingxi_core -o /tmp/test_cpp_sdk && /tmp/test_cpp_sdk && rm -f /tmp/test_cpp_sdk)
+echo "=== 7. Java SDK (Catalog + Registry + Native + Unified via FFM, JDK 22+) ==="
+(cd "$ROOT/sdk/java" && rm -rf build/classes && mkdir -p build/classes && javac --release 22 -d build/classes src/main/java/cn/lingxifox/modelsdk/*.java src/test/java/cn/lingxifox/modelsdk/*.java && java --enable-native-access=ALL-UNNAMED -cp build/classes cn.lingxifox.modelsdk.CatalogTestRunner && java --enable-native-access=ALL-UNNAMED -cp build/classes cn.lingxifox.modelsdk.ProviderTestRunner)
 
-echo "=== 9. Support Matrix & Standalone Mock Server Smoke ==="
+echo "=== 8. Kotlin SDK (4 Modules via FFM) ==="
+(cd "$ROOT/sdk/kotlin" && kotlinc -jvm-target 22 -include-runtime -d /tmp/lingxi-kotlin.jar src tests && java --enable-native-access=ALL-UNNAMED -jar /tmp/lingxi-kotlin.jar && rm -f /tmp/lingxi-kotlin.jar)
+
+echo "=== 9. C# SDK (4 Modules, Rust core via P/Invoke) ==="
+(cd "$ROOT/sdk/csharp/Tests" && dotnet run --configuration Release)
+
+echo "=== 10. Dart SDK (4 Modules, Rust core via dart:ffi) ==="
+(cd "$ROOT/sdk/dart" && dart analyze && dart run test/sdk_test.dart)
+
+echo "=== 11. C++20 SDK (Catalog + Native + Unified + Rust C ABI) ==="
+(cd "$ROOT/sdk/cpp" && "${CXX:-clang++}" -std=c++20 -pthread -Iinclude -I../../core/include tests/test_cpp_sdk.cpp -L../../core/target/debug -Wl,-rpath,"$ROOT/core/target/debug" -llingxi_core -o /tmp/test_cpp_sdk && cd "$ROOT" && /tmp/test_cpp_sdk "$ROOT" && rm -f /tmp/test_cpp_sdk)
+
+echo "=== 12. Support Matrix & Standalone Mock Server Smoke ==="
 (cd "$ROOT" && python3 scripts/generate-support-report.py --check && PYTHONPATH=registry/scripts python3 -m unittest discover -s registry/scripts)
 python3 - <<'PY' "$ROOT/conformance/mock-server/server.py"
 import json, select, subprocess, sys, urllib.request

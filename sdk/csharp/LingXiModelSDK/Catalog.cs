@@ -1,37 +1,68 @@
 using System.Text.Json;
 
-namespace LingXiModelSDK.Catalog;
+namespace LingXiModelSDK;
 
-public sealed record CatalogModelSummary(string Id, string ProviderId, string Name, long? ContextLimit, long? OutputLimit);
-
-/// <summary>Zero-inference-dependency Model Catalog reader for schema 2.0.</summary>
+/// <summary>
+/// Legacy read-only catalog view kept for source compatibility.
+///
+/// <see cref="Decode"/> now delegates to the typed <see cref="Catalog.LingXiModelCatalog"/>
+/// decoder, so the same validation rules apply, while the raw provider entries stay
+/// available as <see cref="JsonElement"/> values.
+/// </summary>
 public sealed class ModelCatalog
 {
-    public string SchemaVersion { get; }
-    public IReadOnlyDictionary<string, JsonElement> Providers { get; }
-
-    private ModelCatalog(string schemaVersion, Dictionary<string, JsonElement> providers)
+    private ModelCatalog(string schemaVersion, IReadOnlyDictionary<string, JsonElement> providers)
     {
         SchemaVersion = schemaVersion;
         Providers = providers;
     }
 
+    public string SchemaVersion { get; }
+
+    public IReadOnlyDictionary<string, JsonElement> Providers { get; }
+
+    /// <summary>Typed view of the same document.</summary>
+    public Catalog.LingXiModelCatalog Typed { get; private init; } = null!;
+
     public static ModelCatalog Decode(string json)
     {
-        using var doc = JsonDocument.Parse(json);
-        var root = doc.RootElement;
-        if (!root.TryGetProperty("schemaVersion", out var sv) || sv.GetString() != "2.0")
-        {
-            throw new InvalidOperationException("Unsupported or missing catalog schemaVersion (expected 2.0)");
-        }
+        var typed = Catalog.LingXiModelCatalog.Decode(json);
+        return Build(typed, json);
+    }
+
+    private static ModelCatalog Build(Catalog.LingXiModelCatalog typed, string json)
+    {
+        using var document = JsonDocument.Parse(json);
         var providers = new Dictionary<string, JsonElement>(StringComparer.Ordinal);
-        if (root.TryGetProperty("providers", out var pObj) && pObj.ValueKind == JsonValueKind.Object)
+        if (document.RootElement.ValueKind == JsonValueKind.Object
+            && document.RootElement.TryGetProperty("providers", out var providersElement)
+            && providersElement.ValueKind == JsonValueKind.Object)
         {
-            foreach (var prop in pObj.EnumerateObject())
+            foreach (var entry in providersElement.EnumerateObject())
             {
-                providers[prop.Name] = prop.Value.Clone();
+                providers[entry.Name] = entry.Value.Clone();
             }
         }
-        return new ModelCatalog("2.0", providers);
+
+        return new ModelCatalog(typed.Revision.SchemaVersion, providers) { Typed = typed };
     }
+
+    /// <summary>Summaries of every model in the catalog, in stable order.</summary>
+    public IReadOnlyList<CatalogModelSummary> Models()
+        => Typed.AllModels()
+            .Select(model => new CatalogModelSummary(
+                model.Id,
+                model.ProviderId,
+                model.Name,
+                model.ContextWindow,
+                model.MaxOutputTokens))
+            .ToArray();
 }
+
+/// <summary>Flat summary of one catalog model.</summary>
+public sealed record CatalogModelSummary(
+    string Id,
+    string ProviderId,
+    string Name,
+    long? ContextLimit,
+    long? OutputLimit);

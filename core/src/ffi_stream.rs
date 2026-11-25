@@ -77,17 +77,7 @@ fn next_handle_id() -> u64 {
 /// Stable machine code for a native failure, prefixed into the message so the
 /// caller can classify without a second out-parameter.
 fn code_and_message(err: &NativeError) -> String {
-    let code = match err {
-        NativeError::Registry(_) => "registry",
-        NativeError::InvalidEndpoint(_) => "invalid_endpoint",
-        NativeError::AuthMissing(_) => "auth_missing",
-        NativeError::UnsupportedProtocol { .. } => "unsupported_protocol",
-        NativeError::HttpStatus { .. } => "http_status",
-        NativeError::Transport(_) => "transport",
-        NativeError::Timeout(_) => "timeout",
-        NativeError::Cancelled(_) => "cancelled",
-        NativeError::StreamParse(_) => "stream_parse",
-    };
+    let code = err.code();
     format!("{code}: {err}")
 }
 

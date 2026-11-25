@@ -27,11 +27,11 @@ jobs:
         run: LINGXI_REQUIRE_FFI=1 PYTHONPATH=sdk/python/src python3 -m unittest discover -s sdk/python/tests
       - name: Test C++ SDK (C++20 + Rust C ABI)
         run: |
-          cd sdk/cpp
-          clang++ -std=c++20 -Iinclude -I../../core/include tests/test_cpp_sdk.cpp \
-            -L../../core/target/debug -Wl,-rpath,"$(pwd)/../../core/target/debug" \
+          clang++ -std=c++20 -pthread -I sdk/cpp/include -I core/include \
+            sdk/cpp/tests/test_cpp_sdk.cpp \
+            -Lcore/target/debug -Wl,-rpath,"$PWD/core/target/debug" \
             -llingxi_core -o /tmp/test_cpp_sdk
-          /tmp/test_cpp_sdk
+          /tmp/test_cpp_sdk .
           rm -f /tmp/test_cpp_sdk
 
   go-gateway-ts:
@@ -79,6 +79,8 @@ jobs:
           java --enable-native-access=ALL-UNNAMED -cp build/classes cn.lingxifox.modelsdk.CatalogTestRunner
           java --enable-native-access=ALL-UNNAMED -cp build/classes cn.lingxifox.modelsdk.ProviderTestRunner
       - name: Install and Test Kotlin SDK (4 modules)
+        env:
+          LINGXI_CORE_LIB: $GITHUB_WORKSPACE/core/target/debug/liblingxi_core.so
         run: |
           curl -fsSL https://github.com/JetBrains/kotlin/releases/download/v2.1.0/kotlin-compiler-2.1.0.zip -o /tmp/kotlin.zip
           echo 'b6698d5728ad8f9edcdd01617d638073191d8a03139cc538a391b4e3759ad297  /tmp/kotlin.zip' | sha256sum -c -
@@ -92,10 +94,17 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: dtolnay/rust-toolchain@39008827e6b4319a349e9a42dfc90579dd25f1ca # stable
+        with:
+          toolchain: stable
       - uses: actions/setup-dotnet@67a3573c9a986a3f9c594539f4ab511d57bb3ce9 # v4
         with:
           dotnet-version: "8.0.x"
+      - name: Build the shared Rust core
+        run: cargo build --locked --manifest-path core/Cargo.toml
       - name: Test C# SDK (4 modules)
+        env:
+          LINGXI_CORE_LIB: ${{ github.workspace }}/core/target/debug/liblingxi_core.so
         run: cd sdk/csharp/Tests && dotnet run --configuration Release
 
   dart-sdk:
@@ -105,12 +114,26 @@ jobs:
       - uses: dart-lang/setup-dart@2286a0c042b44434fe26d292bbce8d34f7ec662b # v1
         with:
           sdk: stable
+      - uses: dtolnay/rust-toolchain@39008827e6b4319a349e9a42dfc90579dd25f1ca # stable
+        with:
+          toolchain: stable
+      - name: Build the shared Rust core
+        run: cargo build --locked --manifest-path core/Cargo.toml
+      - name: Analyze the Dart SDK
+        run: cd sdk/dart && dart analyze
       - name: Test Dart SDK (4 modules)
+        env:
+          LINGXI_CORE_LIB: ${{ github.workspace }}/core/target/debug/liblingxi_core.so
         run: cd sdk/dart && dart run test/sdk_test.dart
 
   swift-sdk:
     runs-on: macos-15
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: dtolnay/rust-toolchain@21dc36fb71dd22e3312b50f9d30a3fe3515bdc78 # stable
+      - name: Build the Rust core
+        run: cargo build --locked --manifest-path core/Cargo.toml
       - name: Test Swift SDK (Catalog + Registry + Native + Unified)
+        env:
+          LINGXI_CORE_LIB: ${{ github.workspace }}/core/target/debug/liblingxi_core.dylib
         run: swift test

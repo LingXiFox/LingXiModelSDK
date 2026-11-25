@@ -33,21 +33,25 @@ pub extern "C" fn lingxi_lmp_translate_request(
     lmp_request_json_utf8: *const c_char,
 ) -> *mut c_char {
     let Some(proto_str) = c_str_to_string(protocol_utf8) else {
-        return to_c_json(json!({"ok": false, "error": "null or invalid protocol"}));
+        return to_c_json(json!({"ok": false, "code": "invalid_request", "error": "null or invalid protocol"}));
     };
     let Some(proto) = NativeProtocol::parse_str(&proto_str) else {
-        return to_c_json(json!({"ok": false, "error": format!("unknown protocol: {proto_str}")}));
+        return to_c_json(
+            json!({"ok": false, "code": "unsupported_protocol", "error": format!("unknown protocol: {proto_str}")}),
+        );
     };
     let Some(req_str) = c_str_to_string(lmp_request_json_utf8) else {
-        return to_c_json(json!({"ok": false, "error": "null or invalid request JSON"}));
+        return to_c_json(json!({"ok": false, "code": "invalid_request", "error": "null or invalid request JSON"}));
     };
     let req: LmpRequest = match serde_json::from_str(&req_str) {
         Ok(r) => r,
-        Err(e) => return to_c_json(json!({"ok": false, "error": e.to_string()})),
+        Err(e) => {
+            return to_c_json(json!({"ok": false, "code": "invalid_request", "error": e.to_string()}))
+        }
     };
     match translate_request(proto, &req) {
         Ok(payload) => to_c_json(json!({"ok": true, "payload": payload})),
-        Err(e) => to_c_json(json!({"ok": false, "error": e.to_string()})),
+        Err(e) => to_c_json(json!({"ok": false, "code": e.code(), "error": e.to_string()})),
     }
 }
 
@@ -57,21 +61,21 @@ pub extern "C" fn lingxi_lmp_normalize_response(
     native_response_json_utf8: *const c_char,
 ) -> *mut c_char {
     let Some(proto_str) = c_str_to_string(protocol_utf8) else {
-        return to_c_json(json!({"ok": false, "error": "null or invalid protocol"}));
+        return to_c_json(json!({"ok": false, "code": "invalid_request", "error": "null or invalid protocol"}));
     };
     let Some(proto) = NativeProtocol::parse_str(&proto_str) else {
-        return to_c_json(json!({"ok": false, "error": format!("unknown protocol: {proto_str}")}));
+        return to_c_json(json!({"ok": false, "code": "unsupported_protocol", "error": format!("unknown protocol: {proto_str}")}));
     };
     let Some(resp_str) = c_str_to_string(native_response_json_utf8) else {
-        return to_c_json(json!({"ok": false, "error": "null or invalid response JSON"}));
+        return to_c_json(json!({"ok": false, "code": "invalid_request", "error": "null or invalid response JSON"}));
     };
     let raw: Value = match serde_json::from_str(&resp_str) {
         Ok(v) => v,
-        Err(e) => return to_c_json(json!({"ok": false, "error": e.to_string()})),
+        Err(e) => return to_c_json(json!({"ok": false, "code": "invalid_request", "error": e.to_string()})),
     };
     match normalize_response(proto, &raw) {
         Ok(norm) => to_c_json(json!({"ok": true, "response": norm})),
-        Err(e) => to_c_json(json!({"ok": false, "error": e.to_string()})),
+        Err(e) => to_c_json(json!({"ok": false, "code": e.code(), "error": e.to_string()})),
     }
 }
 
@@ -81,17 +85,17 @@ pub extern "C" fn lingxi_lmp_normalize_stream_events(
     events_json_utf8: *const c_char,
 ) -> *mut c_char {
     let Some(proto_str) = c_str_to_string(protocol_utf8) else {
-        return to_c_json(json!({"ok": false, "error": "null or invalid protocol"}));
+        return to_c_json(json!({"ok": false, "code": "invalid_request", "error": "null or invalid protocol"}));
     };
     let Some(proto) = NativeProtocol::parse_str(&proto_str) else {
-        return to_c_json(json!({"ok": false, "error": format!("unknown protocol: {proto_str}")}));
+        return to_c_json(json!({"ok": false, "code": "unsupported_protocol", "error": format!("unknown protocol: {proto_str}")}));
     };
     let Some(ev_str) = c_str_to_string(events_json_utf8) else {
-        return to_c_json(json!({"ok": false, "error": "null or invalid events JSON"}));
+        return to_c_json(json!({"ok": false, "code": "invalid_request", "error": "null or invalid events JSON"}));
     };
     let raw_events: Vec<Value> = match serde_json::from_str(&ev_str) {
         Ok(v) => v,
-        Err(e) => return to_c_json(json!({"ok": false, "error": e.to_string()})),
+        Err(e) => return to_c_json(json!({"ok": false, "code": "invalid_request", "error": e.to_string()})),
     };
     let events: Vec<SseEvent> = raw_events
         .into_iter()
@@ -103,7 +107,7 @@ pub extern "C" fn lingxi_lmp_normalize_stream_events(
         .collect();
     match normalize_stream_events(proto, &events) {
         Ok(norm) => to_c_json(json!({"ok": true, "events": norm})),
-        Err(e) => to_c_json(json!({"ok": false, "error": e.to_string()})),
+        Err(e) => to_c_json(json!({"ok": false, "code": e.code(), "error": e.to_string()})),
     }
 }
 
@@ -114,20 +118,20 @@ pub extern "C" fn lingxi_registry_resolve_endpoint(
     protocol_utf8: *const c_char,
 ) -> *mut c_char {
     let Some(reg_str) = c_str_to_string(registry_json_utf8) else {
-        return to_c_json(json!({"ok": false, "error": "null registry JSON"}));
+        return to_c_json(json!({"ok": false, "code": "registry", "error": "null registry JSON"}));
     };
     let Some(pid) = c_str_to_string(provider_id_utf8) else {
-        return to_c_json(json!({"ok": false, "error": "null provider_id"}));
+        return to_c_json(json!({"ok": false, "code": "registry", "error": "null provider_id"}));
     };
     let Some(proto_str) = c_str_to_string(protocol_utf8) else {
-        return to_c_json(json!({"ok": false, "error": "null protocol"}));
+        return to_c_json(json!({"ok": false, "code": "registry", "error": "null protocol"}));
     };
     let Some(proto) = NativeProtocol::parse_str(&proto_str) else {
-        return to_c_json(json!({"ok": false, "error": format!("unknown protocol: {proto_str}")}));
+        return to_c_json(json!({"ok": false, "code": "unsupported_protocol", "error": format!("unknown protocol: {proto_str}")}));
     };
     let reg = match ProviderRegistry::from_json(reg_str.as_bytes()) {
         Ok(r) => r,
-        Err(e) => return to_c_json(json!({"ok": false, "error": e.to_string()})),
+        Err(e) => return to_c_json(json!({"ok": false, "code": e.code(), "error": e.to_string()})),
     };
     match reg.resolve_endpoint(&pid, proto, None, None, false) {
         Ok((entry, endpoint)) => to_c_json(json!({
@@ -136,7 +140,7 @@ pub extern "C" fn lingxi_registry_resolve_endpoint(
             "provider": entry.id,
             "authType": entry.auth.auth_type,
         })),
-        Err(e) => to_c_json(json!({"ok": false, "error": e.to_string()})),
+        Err(e) => to_c_json(json!({"ok": false, "code": e.code(), "error": e.to_string()})),
     }
 }
 
@@ -189,19 +193,19 @@ fn shared_runtime() -> Result<&'static tokio::runtime::Runtime, String> {
 #[no_mangle]
 pub extern "C" fn lingxi_unified_embed(request_json_utf8: *const c_char) -> *mut c_char {
     let Some(raw) = c_str_to_string(request_json_utf8) else {
-        return to_c_json(json!({"ok": false, "error": "null embed request"}));
+        return to_c_json(json!({"ok": false, "code": "invalid_request", "error": "null embed request"}));
     };
     let Ok(request) = serde_json::from_str::<EmbedRequest>(&raw) else {
-        return to_c_json(json!({"ok": false, "error": "invalid embed request JSON"}));
+        return to_c_json(json!({"ok": false, "code": "invalid_request", "error": "invalid embed request JSON"}));
     };
     let Some(protocol) = NativeProtocol::parse_str(&request.protocol) else {
-        return to_c_json(json!({"ok": false, "error": "unknown protocol"}));
+        return to_c_json(json!({"ok": false, "code": "unsupported_protocol", "error": "unknown protocol"}));
     };
     if tokio::runtime::Handle::try_current().is_ok() {
-        return to_c_json(json!({"ok": false, "error": "blocking C ABI must run outside an async runtime"}));
+        return to_c_json(json!({"ok": false, "code": "invalid_context", "error": "blocking C ABI must run outside an async runtime"}));
     }
     let Ok(runtime) = shared_runtime() else {
-        return to_c_json(json!({"ok": false, "error": "could not start Rust HTTP runtime"}));
+        return to_c_json(json!({"ok": false, "code": "runtime", "error": "could not start Rust HTTP runtime"}));
     };
     let result = runtime.block_on(async {
         static UNIFIED: std::sync::OnceLock<crate::lmp::UnifiedClient> = std::sync::OnceLock::new();
@@ -224,19 +228,19 @@ pub extern "C" fn lingxi_unified_embed(request_json_utf8: *const c_char) -> *mut
 #[no_mangle]
 pub extern "C" fn lingxi_unified_rerank(request_json_utf8: *const c_char) -> *mut c_char {
     let Some(raw) = c_str_to_string(request_json_utf8) else {
-        return to_c_json(json!({"ok": false, "error": "null rerank request"}));
+        return to_c_json(json!({"ok": false, "code": "invalid_request", "error": "null rerank request"}));
     };
     let Ok(request) = serde_json::from_str::<RerankRequestWire>(&raw) else {
-        return to_c_json(json!({"ok": false, "error": "invalid rerank request JSON"}));
+        return to_c_json(json!({"ok": false, "code": "invalid_request", "error": "invalid rerank request JSON"}));
     };
     let Some(protocol) = NativeProtocol::parse_str(&request.protocol) else {
-        return to_c_json(json!({"ok": false, "error": "unknown protocol"}));
+        return to_c_json(json!({"ok": false, "code": "unsupported_protocol", "error": "unknown protocol"}));
     };
     if tokio::runtime::Handle::try_current().is_ok() {
-        return to_c_json(json!({"ok": false, "error": "blocking C ABI must run outside an async runtime"}));
+        return to_c_json(json!({"ok": false, "code": "invalid_context", "error": "blocking C ABI must run outside an async runtime"}));
     }
     let Ok(runtime) = shared_runtime() else {
-        return to_c_json(json!({"ok": false, "error": "could not start Rust HTTP runtime"}));
+        return to_c_json(json!({"ok": false, "code": "runtime", "error": "could not start Rust HTTP runtime"}));
     };
     let result = runtime.block_on(async {
         static UNIFIED: std::sync::OnceLock<crate::lmp::UnifiedClient> = std::sync::OnceLock::new();
@@ -315,13 +319,7 @@ pub extern "C" fn lingxi_native_prepare(request_json_utf8: *const c_char) -> *mu
             "framing": target.framing.as_str(),
         })),
         Err(e) => {
-            let code = match &e {
-                crate::NativeError::Registry(_) => "registry",
-                crate::NativeError::InvalidEndpoint(_) => "invalid_endpoint",
-                crate::NativeError::AuthMissing(_) => "auth_missing",
-                _ => "invalid_request",
-            };
-            to_c_json(json!({"ok": false, "code": code, "error": e.to_string()}))
+            to_c_json(json!({"ok": false, "code": e.code(), "error": e.to_string()}))
         }
     }
 }
@@ -412,13 +410,7 @@ pub extern "C" fn lingxi_unified_prepare(request_json_utf8: *const c_char) -> *m
             "framing": target.framing.as_str(),
         })),
         Err(e) => {
-            let code = match &e {
-                crate::NativeError::Registry(_) => "registry",
-                crate::NativeError::InvalidEndpoint(_) => "invalid_endpoint",
-                crate::NativeError::AuthMissing(_) => "auth_missing",
-                _ => "invalid_request",
-            };
-            to_c_json(json!({"ok": false, "code": code, "error": e.to_string()}))
+            to_c_json(json!({"ok": false, "code": e.code(), "error": e.to_string()}))
         }
     }
 }
@@ -426,18 +418,18 @@ pub extern "C" fn lingxi_unified_prepare(request_json_utf8: *const c_char) -> *m
 /// Makes a blocking network call. Call from a native thread outside an async runtime.
 #[no_mangle]
 pub extern "C" fn lingxi_runtime_request(request_json_utf8: *const c_char) -> *mut c_char {
-    let err = |message: &str| to_c_json(json!({"ok": false, "error": message}));
+    let err = |code: &str, message: &str| to_c_json(json!({"ok": false, "code": code, "error": message}));
     let Some(raw) = c_str_to_string(request_json_utf8) else {
-        return err("null or invalid runtime request");
+        return err("invalid_request", "null or invalid runtime request");
     };
     let Ok(request) = serde_json::from_str::<RuntimeRequest>(&raw) else {
-        return err("invalid runtime request JSON");
+        return err("invalid_request", "invalid runtime request JSON");
     };
     let Some(protocol) = NativeProtocol::parse_str(&request.protocol) else {
-        return err("unknown protocol");
+        return err("unsupported_protocol", "unknown protocol");
     };
     if tokio::runtime::Handle::try_current().is_ok() {
-        return err("blocking C ABI must run outside an async runtime");
+        return err("invalid_context", "blocking C ABI must run outside an async runtime");
     }
 
     static RUNTIME: std::sync::OnceLock<std::io::Result<tokio::runtime::Runtime>> = std::sync::OnceLock::new();
@@ -445,16 +437,16 @@ pub extern "C" fn lingxi_runtime_request(request_json_utf8: *const c_char) -> *m
     static UNIFIED: std::sync::OnceLock<crate::lmp::UnifiedClient> = std::sync::OnceLock::new();
     let Ok(runtime) = RUNTIME.get_or_init(|| tokio::runtime::Builder::new_multi_thread()
         .worker_threads(2).enable_all().build()) else {
-        return err("could not start Rust HTTP runtime");
+        return err("runtime", "could not start Rust HTTP runtime");
     };
 
     let response = runtime.block_on(async {
         if request.unified {
             if !request.headers.is_empty() {
-                return json!({"ok": false, "error": "unified request does not accept custom HTTP headers"});
+                return json!({"ok": false, "code": "invalid_request", "error": "unified request does not accept custom HTTP headers"});
             }
             let Ok(mut payload) = serde_json::from_value::<LmpRequest>(request.payload) else {
-                return json!({"ok": false, "error": "invalid unified request payload"});
+                return json!({"ok": false, "code": "invalid_request", "error": "invalid unified request payload"});
             };
             payload.timeout_ms = request.timeout_ms.or(payload.timeout_ms);
             let client = UNIFIED.get_or_init(crate::lmp::UnifiedClient::new);
@@ -480,15 +472,15 @@ pub extern "C" fn lingxi_runtime_request(request_json_utf8: *const c_char) -> *m
                 Ok(events) => json!({"ok": true, "events": events.into_iter().map(|event| json!({
                     "event": event.event, "data": event.data, "id": event.id
                 })).collect::<Vec<_>>() }),
-                Err(e) => json!({"ok": false, "error": e.to_string()}),
+                Err(e) => json!({"ok": false, "code": e.code(), "error": e.to_string()}),
             };
         }
         match client.request_json(protocol, &config, request.model.as_deref(), &request.payload).await {
             Ok(response) => json!({"ok": true, "status": response.status, "headers": response.headers, "body": response.body, "rawBody": String::from_utf8_lossy(&response.raw_bytes)}),
             Err(crate::NativeError::HttpStatus { status, headers, body }) => json!({
-                "ok": false, "status": status, "headers": headers, "body": String::from_utf8_lossy(&body)
+                "ok": false, "code": "http_status", "status": status, "headers": headers, "body": String::from_utf8_lossy(&body)
             }),
-            Err(e) => json!({"ok": false, "error": e.to_string()}),
+            Err(e) => json!({"ok": false, "code": e.code(), "error": e.to_string()}),
         }
     });
     to_c_json(response)
