@@ -133,7 +133,7 @@ jobs:
     runs-on: macos-15
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
-      - uses: dtolnay/rust-toolchain@21dc36fb71dd22e3312b50f9d30a3fe3515bdc78 # stable
+      - uses: dtolnay/rust-toolchain@39008827e6b4319a349e9a42dfc90579dd25f1ca # stable
       - name: Build the Rust core
         run: cargo build --locked --manifest-path core/Cargo.toml
       - name: Test Swift SDK (Catalog + Registry + Native + Unified)

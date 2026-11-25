@@ -41,6 +41,20 @@
 
 namespace {
 
+// SO_NOSIGPIPE is BSD-only; Linux suppresses the signal per send() instead.
+#if defined(SO_NOSIGPIPE)
+void suppress_sigpipe(int socket_fd) {
+    int enabled = 1;
+    ::setsockopt(socket_fd, SOL_SOCKET, SO_NOSIGPIPE, &enabled, sizeof(enabled));
+}
+constexpr int kSendFlags = 0;
+#elif defined(MSG_NOSIGNAL)
+void suppress_sigpipe(int) {}
+constexpr int kSendFlags = MSG_NOSIGNAL;
+#else
+#error "neither SO_NOSIGPIPE nor MSG_NOSIGNAL is available"
+#endif
+
 int checks = 0;
 
 void expect(bool condition, const std::string& label) {
@@ -139,8 +153,7 @@ lingxi::HttpReply http_exchange(
     limit.tv_usec = static_cast<long>((timeout.count() % 1000) * 1000);
     ::setsockopt(socket_fd, SOL_SOCKET, SO_RCVTIMEO, &limit, sizeof(limit));
     ::setsockopt(socket_fd, SOL_SOCKET, SO_SNDTIMEO, &limit, sizeof(limit));
-    int no_sigpipe = 1;
-    ::setsockopt(socket_fd, SOL_SOCKET, SO_NOSIGPIPE, &no_sigpipe, sizeof(no_sigpipe));
+    suppress_sigpipe(socket_fd);
 
     sockaddr_in address{};
     address.sin_family = AF_INET;
@@ -161,7 +174,7 @@ lingxi::HttpReply http_exchange(
     const std::string wire = request.str();
     std::size_t sent = 0;
     while (sent < wire.size()) {
-        ssize_t wrote = ::send(socket_fd, wire.data() + sent, wire.size() - sent, 0);
+        ssize_t wrote = ::send(socket_fd, wire.data() + sent, wire.size() - sent, kSendFlags);
         if (wrote <= 0) {
             ::close(socket_fd);
             throw std::runtime_error("send() failed for " + url);
@@ -574,7 +587,7 @@ public:
     static void send_all(int client, const std::string& text) {
         std::size_t sent = 0;
         while (sent < text.size()) {
-            ssize_t wrote = ::send(client, text.data() + sent, text.size() - sent, 0);
+            ssize_t wrote = ::send(client, text.data() + sent, text.size() - sent, kSendFlags);
             if (wrote <= 0) return;
             sent += static_cast<std::size_t>(wrote);
         }
@@ -615,8 +628,7 @@ private:
     }
 
     void handle(int client) {
-        int no_sigpipe = 1;
-        ::setsockopt(client, SOL_SOCKET, SO_NOSIGPIPE, &no_sigpipe, sizeof(no_sigpipe));
+        suppress_sigpipe(client);
         std::string raw;
         char buffer[8192];
         while (raw.find("\r\n\r\n") == std::string::npos) {
@@ -877,8 +889,7 @@ private:
         socklen_t length = sizeof(peer);
         int client = ::accept(listener_, reinterpret_cast<sockaddr*>(&peer), &length);
         if (client < 0) return;
-        int no_sigpipe = 1;
-        ::setsockopt(client, SOL_SOCKET, SO_NOSIGPIPE, &no_sigpipe, sizeof(no_sigpipe));
+        suppress_sigpipe(client);
         std::string raw;
         char buffer[4096];
         while (raw.find("\r\n\r\n") == std::string::npos) {
@@ -960,8 +971,7 @@ private:
             socklen_t length = sizeof(peer);
             int client = ::accept(listener_, reinterpret_cast<sockaddr*>(&peer), &length);
             if (client < 0) return;
-            int no_sigpipe = 1;
-            ::setsockopt(client, SOL_SOCKET, SO_NOSIGPIPE, &no_sigpipe, sizeof(no_sigpipe));
+            suppress_sigpipe(client);
             std::string raw;
             char buffer[4096];
             while (raw.find("\r\n\r\n") == std::string::npos) {
@@ -1027,8 +1037,7 @@ private:
             std::lock_guard<std::mutex> guard(mutex_);
             client_ = client;
         }
-        int no_sigpipe = 1;
-        ::setsockopt(client, SOL_SOCKET, SO_NOSIGPIPE, &no_sigpipe, sizeof(no_sigpipe));
+        suppress_sigpipe(client);
         std::string raw;
         char buffer[4096];
         while (raw.find("\r\n\r\n") == std::string::npos) {
@@ -1880,4 +1889,3 @@ int main(int argc, char** argv) {
     std::cout << "C++ SDK conformance passed (" << checks << " checks).\n";
     return 0;
 }
-
