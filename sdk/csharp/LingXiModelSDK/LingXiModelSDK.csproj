@@ -3,5 +3,12 @@
     <TargetFramework>net8.0</TargetFramework>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
+    <PackageId>LingXiModelSDK</PackageId>
+    <Version>2.0.0-alpha.1</Version>
+    <Authors>LingXiFox</Authors>
+    <Description>Cross-language LingXi model SDK: catalog, provider registry, native providers and the unified LingXi Model Protocol over the Rust core.</Description>
+    <PackageLicenseExpression>MIT</PackageLicenseExpression>
+    <RepositoryUrl>https://github.com/LingXiFox/LingXiModelSDK</RepositoryUrl>
+    <IncludeSymbols>false</IncludeSymbols>
   </PropertyGroup>
 </Project>

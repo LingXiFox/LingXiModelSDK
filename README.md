@@ -23,7 +23,7 @@ LingXiModelSDK provides three independent, parallel entry points:
    - Optional HTTP Gateway: [gateway/](gateway/README.md), [specs/gateway-v1.md](specs/gateway-v1.md)
    - Benchmarks & Security Audit: [docs/performance-security-audit.md](docs/performance-security-audit.md)
    - Support Evidence Matrix: [docs/support-matrix.md](docs/support-matrix.md)
-   - Local verification: `./scripts/test-all.sh` and [Phase 7 audit](docs/phase-7-audit.md)
+   - Local verification: `./scripts/test-all.sh`, [Phase 7 audit](docs/phase-7-audit.md) and the [Phase 8 roadmap section](ROADMAP.md)
 
 See [ROADMAP.md](ROADMAP.md) and [specs/architecture-v2.md](specs/architecture-v2.md) for full details.
 

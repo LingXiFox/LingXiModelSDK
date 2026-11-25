@@ -43,8 +43,6 @@ public:
                     // Keep the raw text as the message.
                 }
             }
-            LingxiStream* rejected = handle;
-            lingxi_stream_close(rejected);
             throw CoreError("lingxi_stream_open", code, message);
         }
         return StreamSession(handle);

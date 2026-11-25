@@ -1,92 +1,346 @@
 {
   "schemaVersion": "1.0",
-  "generatedAt": "2026-11-24T22:20:00Z",
-  "tiers": ["discovered", "compatible", "mock_tested", "live_verified", "full_support"],
+  "generatedAt": "2026-11-25T15:10:00Z",
+  "tiers": [
+    "discovered",
+    "compatible",
+    "mock_tested",
+    "live_verified",
+    "full_support"
+  ],
   "providers": {
     "openai": {
       "status": "mock_tested",
-      "protocols": ["openai_responses", "openai_chat_completions"],
-      "capabilities": ["streaming", "tools", "structured_output", "thinking_effort", "usage", "prompt_cache", "embed"],
+      "protocols": [
+        "openai_responses",
+        "openai_chat_completions"
+      ],
+      "capabilities": [
+        "streaming",
+        "tools",
+        "parallel_tool_calls",
+        "streamed_tool_arguments",
+        "structured_output",
+        "thinking_effort",
+        "reasoning_summary",
+        "encrypted_reasoning_state",
+        "usage",
+        "prompt_cache",
+        "multimodal_input",
+        "embed",
+        "cancellation"
+      ],
       "evidence": [
-        { "suite": "core/tests/native_protocols.rs", "verifiedAt": "2026-11-24" },
-        { "suite": "core/tests/unified_lmp.rs", "verifiedAt": "2026-11-24" },
-        { "suite": "core/tests/agent_scenarios.rs", "verifiedAt": "2026-11-24" },
-        { "suite": "gateway/gateway_test.go", "verifiedAt": "2026-11-24" }
+        {
+          "suite": "core/tests/native_protocols.rs",
+          "verifiedAt": "2026-11-25"
+        },
+        {
+          "suite": "core/tests/unified_lmp.rs",
+          "verifiedAt": "2026-11-25"
+        },
+        {
+          "suite": "core/tests/agent_scenarios.rs",
+          "verifiedAt": "2026-11-25"
+        },
+        {
+          "suite": "conformance/agent/expectations.json",
+          "verifiedAt": "2026-11-25"
+        },
+        {
+          "suite": "sdk/go/unified/agent_conformance_test.go",
+          "verifiedAt": "2026-11-25"
+        },
+        {
+          "suite": "sdk/typescript/tests/agent_conformance.test.ts",
+          "verifiedAt": "2026-11-25"
+        },
+        {
+          "suite": "gateway/gateway_test.go",
+          "verifiedAt": "2026-11-24"
+        }
       ]
     },
     "anthropic": {
       "status": "mock_tested",
-      "protocols": ["anthropic_messages"],
-      "capabilities": ["streaming", "tools", "thinking_budget_tokens", "thinking_signature", "usage", "prompt_cache"],
+      "protocols": [
+        "anthropic_messages"
+      ],
+      "capabilities": [
+        "streaming",
+        "tools",
+        "parallel_tool_calls",
+        "streamed_tool_arguments",
+        "thinking_budget_tokens",
+        "thinking_signature",
+        "signature_replay",
+        "usage",
+        "prompt_cache",
+        "multimodal_input",
+        "cancellation"
+      ],
       "evidence": [
-        { "suite": "core/tests/native_protocols.rs", "verifiedAt": "2026-11-24" },
-        { "suite": "core/tests/unified_lmp.rs", "verifiedAt": "2026-11-24" }
+        {
+          "suite": "core/tests/native_protocols.rs",
+          "verifiedAt": "2026-11-25"
+        },
+        {
+          "suite": "core/tests/unified_lmp.rs",
+          "verifiedAt": "2026-11-25"
+        },
+        {
+          "suite": "conformance/agent/expectations.json",
+          "verifiedAt": "2026-11-25"
+        },
+        {
+          "suite": "sdk/go/unified/agent_conformance_test.go",
+          "verifiedAt": "2026-11-25"
+        },
+        {
+          "suite": "sdk/typescript/tests/agent_conformance.test.ts",
+          "verifiedAt": "2026-11-25"
+        }
       ]
     },
     "google": {
       "status": "mock_tested",
-      "protocols": ["google_gemini"],
-      "capabilities": ["streaming", "tools", "structured_output", "thinking_config", "thinking_signature", "parallel_tool_replay", "usage", "prompt_cache", "inline_media"],
+      "protocols": [
+        "google_gemini"
+      ],
+      "capabilities": [
+        "streaming",
+        "tools",
+        "parallel_tool_calls",
+        "streamed_tool_arguments",
+        "structured_output",
+        "thinking_config",
+        "thinking_signature",
+        "signature_replay",
+        "parallel_tool_replay",
+        "usage",
+        "prompt_cache",
+        "inline_media",
+        "multimodal_input",
+        "cancellation",
+        "browser_runtime"
+      ],
       "evidence": [
-        { "suite": "core/tests/native_protocols.rs", "verifiedAt": "2026-11-24" },
-        { "suite": "core/tests/unified_lmp.rs", "verifiedAt": "2026-11-24" },
-        { "suite": "conformance/agent/gemini-tool-loop.json", "verifiedAt": "2026-11-24" }
+        {
+          "suite": "core/tests/native_protocols.rs",
+          "verifiedAt": "2026-11-25"
+        },
+        {
+          "suite": "core/tests/unified_lmp.rs",
+          "verifiedAt": "2026-11-25"
+        },
+        {
+          "suite": "conformance/agent/gemini-tool-loop.json",
+          "verifiedAt": "2026-11-24"
+        },
+        {
+          "suite": "conformance/agent/expectations.json",
+          "verifiedAt": "2026-11-25"
+        },
+        {
+          "suite": "sdk/typescript/tests/browser_check.mjs",
+          "verifiedAt": "2026-11-25"
+        }
       ]
     },
     "deepseek": {
       "status": "mock_tested",
-      "protocols": ["openai_chat_completions"],
-      "capabilities": ["streaming", "tools", "reasoning_content", "usage"],
+      "protocols": [
+        "openai_chat_completions"
+      ],
+      "capabilities": [
+        "streaming",
+        "tools",
+        "parallel_tool_calls",
+        "reasoning_content",
+        "usage",
+        "multimodal_input"
+      ],
       "evidence": [
-        { "suite": "core/tests/native_protocols.rs", "verifiedAt": "2026-11-24" },
-        { "suite": "sdk/go/native/native_test.go", "verifiedAt": "2026-11-24" }
+        {
+          "suite": "core/tests/native_protocols.rs",
+          "verifiedAt": "2026-11-25"
+        },
+        {
+          "suite": "sdk/go/native/native_test.go",
+          "verifiedAt": "2026-11-24"
+        },
+        {
+          "suite": "conformance/agent/expectations.json",
+          "verifiedAt": "2026-11-25"
+        }
       ]
     },
     "amazon-bedrock": {
       "status": "mock_tested",
-      "protocols": ["aws_bedrock"],
-      "capabilities": ["aws_sigv4", "streaming_amazon_eventstream", "tools", "thinking_budget_tokens", "thinking_signature", "prompt_cache"],
+      "protocols": [
+        "aws_bedrock"
+      ],
+      "capabilities": [
+        "aws_sigv4",
+        "streaming_amazon_eventstream",
+        "tools",
+        "parallel_tool_calls",
+        "streamed_tool_arguments",
+        "thinking_budget_tokens",
+        "thinking_signature",
+        "signature_replay",
+        "tool_choice",
+        "prompt_cache",
+        "multimodal_input",
+        "cancellation"
+      ],
       "evidence": [
-        { "suite": "core/tests/agent_scenarios.rs", "verifiedAt": "2026-11-24" },
-        { "suite": "sdk/go/unified/unified_test.go", "verifiedAt": "2026-11-24" },
-        { "suite": "sdk/typescript/tests/phase7_agent.test.ts", "verifiedAt": "2026-11-24" }
+        {
+          "suite": "core/tests/agent_scenarios.rs",
+          "verifiedAt": "2026-11-25"
+        },
+        {
+          "suite": "core/tests/stream_incremental.rs",
+          "verifiedAt": "2026-11-25"
+        },
+        {
+          "suite": "conformance/agent/expectations.json",
+          "verifiedAt": "2026-11-25"
+        },
+        {
+          "suite": "sdk/go/unified/agent_conformance_test.go",
+          "verifiedAt": "2026-11-25"
+        },
+        {
+          "suite": "sdk/typescript/tests/agent_conformance.test.ts",
+          "verifiedAt": "2026-11-25"
+        }
       ]
     },
     "google-vertex": {
       "status": "mock_tested",
-      "protocols": ["google_vertex_ai"],
-      "capabilities": ["streaming", "thinking_signature", "usage"],
+      "protocols": [
+        "google_vertex_ai"
+      ],
+      "capabilities": [
+        "streaming",
+        "tools",
+        "parallel_tool_calls",
+        "thinking_signature",
+        "signature_replay",
+        "usage",
+        "prompt_cache",
+        "multimodal_input"
+      ],
       "evidence": [
-        { "suite": "core/tests/agent_scenarios.rs", "verifiedAt": "2026-11-24" },
-        { "suite": "sdk/go/unified/unified_test.go", "verifiedAt": "2026-11-24" }
+        {
+          "suite": "core/tests/agent_scenarios.rs",
+          "verifiedAt": "2026-11-25"
+        },
+        {
+          "suite": "conformance/agent/expectations.json",
+          "verifiedAt": "2026-11-25"
+        },
+        {
+          "suite": "sdk/go/unified/agent_conformance_test.go",
+          "verifiedAt": "2026-11-25"
+        }
       ]
     },
     "azure": {
       "status": "mock_tested",
-      "protocols": ["azure_openai"],
-      "capabilities": ["deployment_routing", "api_key_header", "streaming", "tools", "embed"],
+      "protocols": [
+        "azure_openai"
+      ],
+      "capabilities": [
+        "deployment_routing",
+        "api_key_header",
+        "streaming",
+        "tools",
+        "parallel_tool_calls",
+        "streamed_tool_arguments",
+        "prompt_cache",
+        "multimodal_input",
+        "embed",
+        "cancellation"
+      ],
       "evidence": [
-        { "suite": "core/tests/agent_scenarios.rs", "verifiedAt": "2026-11-24" },
-        { "suite": "sdk/go/unified/unified_test.go", "verifiedAt": "2026-11-24" }
+        {
+          "suite": "core/tests/agent_scenarios.rs",
+          "verifiedAt": "2026-11-25"
+        },
+        {
+          "suite": "conformance/agent/expectations.json",
+          "verifiedAt": "2026-11-25"
+        },
+        {
+          "suite": "sdk/go/unified/agent_conformance_test.go",
+          "verifiedAt": "2026-11-25"
+        }
       ]
     },
     "ollama": {
       "status": "mock_tested",
-      "protocols": ["ollama"],
-      "capabilities": ["local_no_auth", "streaming_ndjson", "thinking", "embed"],
+      "protocols": [
+        "ollama"
+      ],
+      "capabilities": [
+        "local_no_auth",
+        "streaming_ndjson",
+        "tools",
+        "tool_name_replay",
+        "thinking",
+        "usage",
+        "embed"
+      ],
       "evidence": [
-        { "suite": "core/tests/agent_scenarios.rs", "verifiedAt": "2026-11-24" },
-        { "suite": "sdk/go/unified/unified_test.go", "verifiedAt": "2026-11-24" }
+        {
+          "suite": "core/tests/agent_scenarios.rs",
+          "verifiedAt": "2026-11-25"
+        },
+        {
+          "suite": "conformance/agent/expectations.json",
+          "verifiedAt": "2026-11-25"
+        },
+        {
+          "suite": "sdk/go/unified/agent_conformance_test.go",
+          "verifiedAt": "2026-11-25"
+        }
       ]
     },
     "cohere": {
       "status": "mock_tested",
-      "protocols": ["cohere"],
-      "capabilities": ["streaming", "thinking_budget_tokens", "embed", "rerank"],
+      "protocols": [
+        "cohere"
+      ],
+      "capabilities": [
+        "streaming",
+        "thinking",
+        "tools",
+        "tool_calls_replay",
+        "tool_stream_events",
+        "usage",
+        "embed",
+        "rerank",
+        "cancellation"
+      ],
       "evidence": [
-        { "suite": "core/tests/agent_scenarios.rs", "verifiedAt": "2026-11-24" },
-        { "suite": "sdk/go/unified/unified_test.go", "verifiedAt": "2026-11-24" },
-        { "suite": "sdk/typescript/tests/phase7_agent.test.ts", "verifiedAt": "2026-11-24" }
+        {
+          "suite": "core/tests/agent_scenarios.rs",
+          "verifiedAt": "2026-11-25"
+        },
+        {
+          "suite": "conformance/agent/expectations.json",
+          "verifiedAt": "2026-11-25"
+        },
+        {
+          "suite": "sdk/go/unified/agent_conformance_test.go",
+          "verifiedAt": "2026-11-25"
+        },
+        {
+          "suite": "sdk/typescript/tests/agent_conformance.test.ts",
+          "verifiedAt": "2026-11-25"
+        }
       ]
     }
   }

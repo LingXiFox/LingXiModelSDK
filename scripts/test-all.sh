@@ -16,7 +16,7 @@ echo "=== 3. Go SDK (Catalog + Registry + Native + Unified) & Gateway ==="
 (cd "$ROOT/gateway" && go vet ./... && go test -race ./...)
 
 echo "=== 4. TypeScript SDK ==="
-(cd "$ROOT/sdk/typescript" && node --test tests/*.test.ts && npm run build)
+(cd "$ROOT/sdk/typescript" && node --test tests/*.test.ts && npm run build && node tests/browser_check.mjs)
 
 echo "=== 5. Python SDK (Catalog + Registry + Native + Unified + ctypes Rust FFI) ==="
 LINGXI_REQUIRE_FFI=1 PYTHONPATH="$ROOT/sdk/python/src" python3 -m unittest discover -s "$ROOT/sdk/python/tests"

@@ -15,15 +15,15 @@ Generated from `registry/registry.json` and `conformance/evidence/support-matrix
 
 | Provider | Status | Protocols | Evidence |
 | --- | --- | --- | --- |
-| `amazon-bedrock` | `mock_tested` | `aws_bedrock` | `core/tests/agent_scenarios.rs` (2026-11-24), `sdk/go/unified/unified_test.go` (2026-11-24), `sdk/typescript/tests/phase7_agent.test.ts` (2026-11-24) |
-| `anthropic` | `mock_tested` | `anthropic_messages` | `core/tests/native_protocols.rs` (2026-11-24), `core/tests/unified_lmp.rs` (2026-11-24) |
-| `azure` | `mock_tested` | `azure_openai` | `core/tests/agent_scenarios.rs` (2026-11-24), `sdk/go/unified/unified_test.go` (2026-11-24) |
-| `cohere` | `mock_tested` | `cohere` | `core/tests/agent_scenarios.rs` (2026-11-24), `sdk/go/unified/unified_test.go` (2026-11-24), `sdk/typescript/tests/phase7_agent.test.ts` (2026-11-24) |
-| `deepseek` | `mock_tested` | `openai_chat_completions` | `core/tests/native_protocols.rs` (2026-11-24), `sdk/go/native/native_test.go` (2026-11-24) |
-| `google` | `mock_tested` | `google_gemini` | `core/tests/native_protocols.rs` (2026-11-24), `core/tests/unified_lmp.rs` (2026-11-24), `conformance/agent/gemini-tool-loop.json` (2026-11-24) |
-| `google-vertex` | `mock_tested` | `google_vertex_ai` | `core/tests/agent_scenarios.rs` (2026-11-24), `sdk/go/unified/unified_test.go` (2026-11-24) |
-| `ollama` | `mock_tested` | `ollama` | `core/tests/agent_scenarios.rs` (2026-11-24), `sdk/go/unified/unified_test.go` (2026-11-24) |
-| `openai` | `mock_tested` | `openai_responses`, `openai_chat_completions` | `core/tests/native_protocols.rs` (2026-11-24), `core/tests/unified_lmp.rs` (2026-11-24), `core/tests/agent_scenarios.rs` (2026-11-24), `gateway/gateway_test.go` (2026-11-24) |
+| `amazon-bedrock` | `mock_tested` | `aws_bedrock` | `core/tests/agent_scenarios.rs` (2026-11-25), `core/tests/stream_incremental.rs` (2026-11-25), `conformance/agent/expectations.json` (2026-11-25), `sdk/go/unified/agent_conformance_test.go` (2026-11-25), `sdk/typescript/tests/agent_conformance.test.ts` (2026-11-25) |
+| `anthropic` | `mock_tested` | `anthropic_messages` | `core/tests/native_protocols.rs` (2026-11-25), `core/tests/unified_lmp.rs` (2026-11-25), `conformance/agent/expectations.json` (2026-11-25), `sdk/go/unified/agent_conformance_test.go` (2026-11-25), `sdk/typescript/tests/agent_conformance.test.ts` (2026-11-25) |
+| `azure` | `mock_tested` | `azure_openai` | `core/tests/agent_scenarios.rs` (2026-11-25), `conformance/agent/expectations.json` (2026-11-25), `sdk/go/unified/agent_conformance_test.go` (2026-11-25) |
+| `cohere` | `mock_tested` | `cohere` | `core/tests/agent_scenarios.rs` (2026-11-25), `conformance/agent/expectations.json` (2026-11-25), `sdk/go/unified/agent_conformance_test.go` (2026-11-25), `sdk/typescript/tests/agent_conformance.test.ts` (2026-11-25) |
+| `deepseek` | `mock_tested` | `openai_chat_completions` | `core/tests/native_protocols.rs` (2026-11-25), `sdk/go/native/native_test.go` (2026-11-24), `conformance/agent/expectations.json` (2026-11-25) |
+| `google` | `mock_tested` | `google_gemini` | `core/tests/native_protocols.rs` (2026-11-25), `core/tests/unified_lmp.rs` (2026-11-25), `conformance/agent/gemini-tool-loop.json` (2026-11-24), `conformance/agent/expectations.json` (2026-11-25), `sdk/typescript/tests/browser_check.mjs` (2026-11-25) |
+| `google-vertex` | `mock_tested` | `google_vertex_ai` | `core/tests/agent_scenarios.rs` (2026-11-25), `conformance/agent/expectations.json` (2026-11-25), `sdk/go/unified/agent_conformance_test.go` (2026-11-25) |
+| `ollama` | `mock_tested` | `ollama` | `core/tests/agent_scenarios.rs` (2026-11-25), `conformance/agent/expectations.json` (2026-11-25), `sdk/go/unified/agent_conformance_test.go` (2026-11-25) |
+| `openai` | `mock_tested` | `openai_responses`, `openai_chat_completions` | `core/tests/native_protocols.rs` (2026-11-25), `core/tests/unified_lmp.rs` (2026-11-25), `core/tests/agent_scenarios.rs` (2026-11-25), `conformance/agent/expectations.json` (2026-11-25), `sdk/go/unified/agent_conformance_test.go` (2026-11-25), `sdk/typescript/tests/agent_conformance.test.ts` (2026-11-25), `gateway/gateway_test.go` (2026-11-24) |
 
 ## Declarative Compatible Providers (`compatible`)
 

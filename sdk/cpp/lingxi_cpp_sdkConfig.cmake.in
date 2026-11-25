@@ -1,0 +1,4 @@
+@PACKAGE_INIT@
+
+include("${CMAKE_CURRENT_LIST_DIR}/lingxi_cpp_sdkTargets.cmake")
+check_required_components(lingxi_cpp_sdk)

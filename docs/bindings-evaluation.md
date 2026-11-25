@@ -16,4 +16,12 @@
 
 ## 3. Verified C ABI Surface
 
-`core/include/lingxi_core.h` exports pure deterministic JSON-in / JSON-out functions (`lingxi_lmp_translate_request`, `lingxi_lmp_normalize_response`, `lingxi_string_free`) so host languages can invoke Rust's canonical LMP translation without embedding Tokio or reqwest inside C callbacks.
+`core/include/lingxi_core.h` exports 21 symbols in three groups. All of them were exercised from at least two host languages (Python ctypes and Java FFM) and from the C++ header-only binding.
+
+| Group | Symbols | Scope |
+| --- | --- | --- |
+| Translation and normalization | `lingxi_lmp_translate_request`, `lingxi_lmp_normalize_response`, `lingxi_lmp_normalize_stream_events`, `lingxi_string_free` | Pure JSON in / out, no I/O, no runtime |
+| Wire preparation and one-shot requests | `lingxi_native_prepare`, `lingxi_unified_prepare`, `lingxi_unified_embed`, `lingxi_unified_rerank`, `lingxi_registry_resolve_endpoint`, `lingxi_runtime_request` | Preparation is pure; `lingxi_runtime_request` blocks and must not be called from an async runtime |
+| Streaming | `lingxi_stream_open`, `lingxi_stream_open_error`, `lingxi_stream_next`, `lingxi_stream_cancel`, `lingxi_stream_close`, `lingxi_stream_last_error`, `lingxi_lmp_normalizer_open`, `lingxi_normalizer_open_error`, `lingxi_lmp_normalizer_push`, `lingxi_lmp_normalizer_finish`, `lingxi_lmp_normalizer_close` | `lingxi_stream_*` owns a Tokio runtime on its own thread and pulls events on demand; `lingxi_lmp_normalizer_*` is state-only and safe on a host event loop |
+
+Stream handles are monotonic ids checked against a registry, not raw pointers, so a NULL, released or forged handle is rejected instead of dereferenced; `lingxi_stream_close` is idempotent and safe concurrently with `lingxi_stream_next`. The two normalizer paths exist because a host that owns its own HTTP transport cannot hand the core a complete event array: the session API normalizes one frame at a time with the same state machine the core uses internally.

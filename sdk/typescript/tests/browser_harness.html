@@ -1,0 +1,74 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>lingxi browser check</title>
+<pre id="result">running</pre>
+<script type="module">
+const checks = [];
+const expect = (name, condition, detail) => checks.push({ name, ok: Boolean(condition), detail: detail ?? null });
+try {
+  const catalog = await import("/dist/index.js");
+  const native = await import("/dist/native/index.js");
+  const unified = await import("/dist/unified/index.js");
+
+  const fixtureText = await (await fetch("/fixtures/catalog/fixtures/v2_catalog.json")).text();
+  const decoded = catalog.decodeCatalog(fixtureText);
+  expect("catalog decode", decoded.totalModels === 5, String(decoded.totalModels));
+  expect(
+    "catalog ordering",
+    decoded.sortedProviders(["prov10"]).map((provider) => provider.id).join(",") === "prov10,deepseek,prov2"
+  );
+  const firstSearchHit = decoded.search("gpt", 1)[0];
+  expect("catalog search", firstSearchHit?.qualifiedID === "prov10/gpt-5", String(firstSearchHit?.qualifiedID));
+
+  const request = {
+    model: "browser-model",
+    messages: [{ role: "user", content: [{ type: "text", text: "hello" }] }],
+  };
+  for (const protocol of [
+    "openai_chat_completions",
+    "openai_responses",
+    "anthropic_messages",
+    "google_gemini",
+    "aws_bedrock",
+    "google_vertex_ai",
+    "azure_openai",
+    "ollama",
+    "cohere",
+  ]) {
+    const payload = unified.translateRequest(protocol, { ...request, model: "browser-model" });
+    expect("unified translate " + protocol, payload !== null && typeof payload === "object");
+  }
+
+  const raw = await (await fetch("/fixtures/native/openai_chat_response.json")).json();
+  const normalized = unified.normalizeResponse("openai_chat_completions", raw);
+  expect(
+    "unified normalize",
+    normalized.content.some((block) => block.type === "text" && block.text === "Hello from chat completions")
+  );
+
+  const client = new native.NativeClient();
+  const cfg = { baseURL: location.origin + "/mock/v1", apiKey: "browser-key" };
+  const chat = await client.openaiChatCompletions(cfg, { model: "browser-model", messages: [] });
+  expect("native json", chat.id === "chatcmpl-mock-1", String(chat.id));
+
+  let streamed = "";
+  const gemini = { ...cfg, baseURL: location.origin + "/mock" };
+  for await (const event of client.streamGoogleGeminiGenerate(gemini, "gemini-pro", { contents: [] })) {
+    streamed += event.data;
+  }
+  expect("native sse", streamed.includes("Hello"), streamed.slice(0, 40));
+
+  try {
+    unified.translateRequest("anthropic_messages", {
+      ...request,
+      responseFormat: { type: "json_schema", name: "x", schema: { type: "object" } },
+    });
+    expect("structured output rejected", false, "no error thrown");
+  } catch (error) {
+    expect("structured output rejected", error.code === "unsupported_feature", String(error.code));
+  }
+} catch (error) {
+  expect("harness", false, String(error && error.stack ? error.stack : error));
+}
+document.getElementById("result").textContent = JSON.stringify(checks);
+</script>

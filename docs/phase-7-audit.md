@@ -35,9 +35,23 @@ The [candidate artifact](https://github.com/LingXiFox/LingXiModelSDK/actions/run
 
 The reproducible local checks are `./scripts/test-all.sh` and `./scripts/benchmark.sh`. The local runner exercises Swift, Rust, Go, TypeScript, Python, Java, C++ and both Go applications. The all-SDK workflow also runs C#, Kotlin, and Dart. A passing build or smoke test provides evidence for the cases it exercises.
 
-## Remaining production gates
+## Remaining production gates (as of the Phase 7 candidate)
 
 - Complete language and protocol parity recorded in the [feature matrix](feature-matrix.md). Add shared fixtures for streamed tool deltas, opaque provider state, interruption recovery and feature rejection. Full C++ catalog parsing and long-lived process and connection testing remain open.
 - Verify browser execution and the actual installable package on each supported platform. Record upstream tests using the [credentialed probe](live-verification.md) and additional capability-specific checks.
 - Measure process RSS, reconnect behavior, long-running memory use, and deployment-target performance under representative load. Extend the manifest scan to target binaries and the production environment before general availability.
 - Obtain separate approval for public publishing and production rollout.
+
+## Phase 8 follow-up
+
+Each gate above was addressed in Phase 8 and the result is recorded in [ROADMAP.md](../ROADMAP.md).
+
+| Gate | Phase 8 outcome |
+| --- | --- |
+| Language and protocol parity | Closed for the mock surface: ten SDKs share the Rust core, C++ and Dart catalog parsing is complete, and `conformance/agent/` covers the nine protocols with 27 translations, 9 responses, 9 streams and 7 unsupported cases. |
+| Browser and packaged artifacts | TypeScript Catalog, Native and Unified run in headless Chrome. Ten distributable artifacts were packed, installed into empty projects and exercised; see [publishing.md](publishing.md). |
+| Long-lived process and connection behaviour | A 30-minute loopback soak drove all nine protocols through completion, incremental streaming and cancellation each round; see [performance-security-audit.md](performance-security-audit.md). |
+| Credentialed verification | Still open: no provider credential exists on the verification host, so nine probes reported `[SKIP]` and no provider left `mock_tested`. |
+| Production cutover and publishing | Still requires explicit approval. |
+
+This audit stays as the record of the Phase 7 candidate; the Phase 8 numbers are in the linked documents.

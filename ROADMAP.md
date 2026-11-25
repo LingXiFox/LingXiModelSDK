@@ -67,9 +67,51 @@ LingXiModelSDK 2.0 evolves the repository from a single-language Swift model cat
 - The standalone website retains its public catalog APIs, synchronizer, and filing metadata. SDK, provider, protocol, and Gateway pages describe the alpha coverage.
 - See the [Phase 7 audit](docs/phase-7-audit.md), [benchmarks](docs/performance-security-audit.md), and [alpha staging runbook](docs/release-2.0.0-alpha.1.md).
 
-### Remaining Acceptance Work
+### Remaining Acceptance Work (superseded by Phase 8)
 
-- Complete catalog parity in C#, Kotlin, C++, and Dart. Complete native and LMP parity across all language bindings, including cancellation and incremental delivery.
-- Expand Agent conformance to all protocols and languages, including build-time browser checks, unsupported-feature errors, long soak tests, and provider-specific opaque state.
-- Run credentialed provider verification and record the exact capabilities exercised. Run target-host performance and deployment acceptance after approval.
-- Obtain separate approval for production cutover, external package publication, and formal Git tags or Releases.
+- ~~Complete catalog parity in C#, Kotlin, C++, and Dart. Complete native and LMP parity across all language bindings, including cancellation and incremental delivery.~~ Done in Phase 8.
+- ~~Expand Agent conformance to all protocols and languages, including build-time browser checks, unsupported-feature errors, long soak tests, and provider-specific opaque state.~~ Done in Phase 8.
+- Run credentialed provider verification and record the exact capabilities exercised. Run target-host performance and deployment acceptance after approval. Credentials are still unavailable; see Phase 8.
+- Obtain separate approval for production cutover, external package publication, and formal Git tags or Releases. Still open.
+
+## Phase 8: Honest Cross-Language Coverage — Implemented (mock tested, credentials pending)
+
+The goal of this phase was not more languages or protocols. It was to make the ten language SDKs and nine protocols that already existed actually work, with one implementation of every wire rule instead of ten drifting copies.
+
+### Incremental streaming (`core/`)
+
+- `EventStreamHandle` replaces buffered collection for every protocol: SSE, NDJSON and the binary Amazon Event Stream all decode incrementally behind one consumer-driven `next_event()` pull. Backpressure comes from the caller, not from a buffer.
+- Per-chunk idle timeout (default 120 s) instead of a whole-body request timeout, so a long Bedrock stream is not killed by its own duration. The 32 MiB ceiling still applies to total bytes.
+- Cooperative cancellation through an `AtomicBool` plus `tokio::sync::Notify`, so `cancel()` interrupts a read that is already blocked in the socket. Buffered APIs (`stream`, `request_stream`) are thin wrappers over the same handle, so parsing exists once.
+- The C ABI exposes `lingxi_stream_open/next/cancel/close/last_error`; handles are registry-checked ids, never raw pointers, so a stale handle is rejected instead of dereferenced. A normalizer session API (`lingxi_lmp_normalizer_open/push/finish/close`) lets a host that owns its own HTTP transport normalize one frame at a time without running Tokio inside its event loop.
+
+### Ten SDKs on one core (`sdk/`)
+
+- Every language now reaches the same translation, normalization and wire-target logic: Swift, Python, Java, C#, Kotlin, C++, Dart through the Rust core (FFM, ctypes, P/Invoke, `dart:ffi`, direct link), Go and TypeScript through their own ports of the same rules, checked against shared fixtures.
+- Removed the fabricated results: the Swift unified client no longer returns a hard-coded response, and the Java, C#, Kotlin and Dart unified clients no longer return raw provider JSON while claiming to be LMP.
+- Catalog parity completed in C#, Kotlin, C++ and Dart: full schema decoding, natural ordering, search and filters, offline cache with ETag/`If-None-Match`, 304 revalidation and stale fallback.
+
+### Shared agent conformance (`conformance/agent/`)
+
+- One corpus for all nine protocols: 27 request translations, 9 normalized responses, 9 streamed frame sets (including the binary Bedrock event stream) and 7 declared unsupported cases.
+- Covers multi-turn tool loops, parallel tool calls, streamed tool-argument assembly, Anthropic thinking signatures, Gemini `thoughtSignature`, OpenAI Responses reasoning replay, prompt cache accounting, multimodal input, exact usage, structured output, mid-flight cancellation and typed unsupported-feature errors.
+- Replayed by Rust, Go and TypeScript test suites; the other seven languages reach the same normalizers through the core.
+
+### Evidence, load and packaging
+
+- 30-minute loopback soak (`./scripts/soak.sh`, `conformance/soak/soak_server.py`, `core/examples/soak.rs`): 875 rounds, 7,875 completions, 7,875 incremental streams, 7,875 mid-stream cancellations, 875 embeddings and 875 reranks, 0 failures, RSS 7,872 KiB → 7,968 KiB and descriptors 8 → 8. The numbers are recorded in the [performance audit](docs/performance-security-audit.md).
+- TypeScript Catalog, Native and Unified entry points executed inside headless Chrome (`sdk/typescript/tests/browser_check.mjs`), gated in CI and skipped cleanly when no browser binary is present.
+- Every distributable artifact was packed, installed into an empty project and exercised: npm tarball, Python wheel, NuGet package, Java and Kotlin JARs, a CMake package, a Dart `path` dependency, and both Rust crates.
+
+### What this phase did not do
+
+- No provider credential was available, so the nine credentialed probes reported `[SKIP]` and no provider moved to `live_verified`. Mock-tested capabilities were not upgraded.
+- Browser execution was checked in Chrome only; Safari and Firefox are unverified.
+- The Gateway was not re-benchmarked or redeployed, and no package was published to a public registry.
+
+### Remaining Acceptance Work (Phase 8 end state)
+
+- Credentialed provider verification: run `./scripts/live-verify.sh` with real keys and record per-protocol, per-capability `PASS` lines. Until then no provider may be promoted to `live_verified`.
+- Browser execution beyond Chrome: Safari and Firefox are untested for the TypeScript Catalog, Native and Unified entry points.
+- Target-host performance and deployment acceptance, plus RSS and descriptor behaviour on a Linux host (the soak ran on macOS arm64).
+- Explicit approval for production cutover, public package publication and formal Git tags or Releases.

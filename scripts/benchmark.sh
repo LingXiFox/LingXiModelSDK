@@ -52,6 +52,34 @@ print(f"Python->Rust FFI 5,000 translate+normalize: {dt:.2f} ms ({dt*1000/5000:.
 PY
 
 echo ""
+echo "--- 5b. Python + Rust C ABI Incremental Frame Normalization (30,000 frames) ---"
+PYTHONPATH="$ROOT/sdk/python/src" python3 - <<'PY'
+import ctypes, json, time
+from lingxi_model_sdk.ffi_bridge import RustCoreBridge
+bridge = RustCoreBridge()
+assert bridge.available, "Rust core shared lib required"
+frames = [
+    {"event": "message_start", "data": json.dumps({"type": "message_start", "message": {"id": "m1", "usage": {"input_tokens": 5}}})},
+    {"event": "content_block_delta", "data": json.dumps({"type": "content_block_delta", "index": 0, "delta": {"type": "text_delta", "text": "hello"}})},
+]
+lib = bridge._lib
+assert lib is not None
+push = lib.lingxi_lmp_normalizer_push
+frame_bytes = [json.dumps(f).encode() for f in frames]
+t0 = time.perf_counter()
+for _ in range(10000):
+    handle = lib.lingxi_lmp_normalizer_open(b"anthropic_messages")
+    for payload in frame_bytes:
+        bridge._take(push(handle, payload))
+    bridge._take(lib.lingxi_lmp_normalizer_finish(handle))
+    lib.lingxi_lmp_normalizer_close(handle)
+dt = (time.perf_counter() - t0) * 1000.0
+frames_per_round = len(frame_bytes) + 1
+total = 10000 * frames_per_round
+print(f"Python->Rust incremental normalizer: {dt:.2f} ms for {total} frames ({dt*1000/total:.2f} us/frame)")
+PY
+
+echo ""
 echo "--- 6. Website CGO=0 Binary Size ---"
 BINARY="$(mktemp "${TMPDIR:-/tmp}/lingxi-models-benchmark.XXXXXXXX")"
 trap 'rm -f "$BINARY"' EXIT
