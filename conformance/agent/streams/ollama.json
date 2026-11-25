@@ -1,0 +1,32 @@
+{
+  "schemaVersion": "1.0",
+  "protocol": "ollama",
+  "framing": "ndjson",
+  "events": [
+    {
+      "event": null,
+      "data": "{\"model\":\"llama3.3\",\"message\":{\"role\":\"assistant\",\"thinking\":\"I need both readings.\"},\"done\":false}",
+      "id": null
+    },
+    {
+      "event": null,
+      "data": "{\"model\":\"llama3.3\",\"message\":{\"role\":\"assistant\",\"content\":\"Checking both.\"},\"done\":false}",
+      "id": null
+    },
+    {
+      "event": null,
+      "data": "{\"model\":\"llama3.3\",\"message\":{\"role\":\"assistant\",\"tool_calls\":[{\"type\":\"function\",\"function\":{\"index\":0,\"name\":\"get_weather\",\"arguments\":{\"city\":\"Tokyo\"}}}]},\"done\":false}",
+      "id": null
+    },
+    {
+      "event": null,
+      "data": "{\"model\":\"llama3.3\",\"message\":{\"role\":\"assistant\",\"tool_calls\":[{\"type\":\"function\",\"function\":{\"index\":1,\"name\":\"get_weather\",\"arguments\":{\"city\":\"Osaka\"}}}]},\"done\":false}",
+      "id": null
+    },
+    {
+      "event": null,
+      "data": "{\"model\":\"llama3.3\",\"message\":{\"role\":\"assistant\",\"content\":\"\"},\"done\":true,\"done_reason\":\"tool_calls\",\"prompt_eval_count\":120,\"eval_count\":30}",
+      "id": null
+    }
+  ]
+}

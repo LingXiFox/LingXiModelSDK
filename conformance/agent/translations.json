@@ -1,0 +1,1435 @@
+{
+  "protocols": [
+    "openai_chat_completions",
+    "openai_responses",
+    "anthropic_messages",
+    "google_gemini",
+    "google_vertex_ai",
+    "aws_bedrock",
+    "azure_openai",
+    "ollama",
+    "cohere"
+  ],
+  "requests": {
+    "forced-tool": {
+      "anthropic_messages": {
+        "payload": {
+          "max_tokens": 128,
+          "messages": [
+            {
+              "content": [
+                {
+                  "text": "Tokyo please.",
+                  "type": "text"
+                }
+              ],
+              "role": "user"
+            },
+            {
+              "content": [
+                {
+                  "id": "call_tokyo",
+                  "input": {
+                    "city": "Tokyo"
+                  },
+                  "name": "get_weather",
+                  "type": "tool_use"
+                }
+              ],
+              "role": "assistant"
+            },
+            {
+              "content": [
+                {
+                  "content": "18 C",
+                  "is_error": false,
+                  "tool_use_id": "call_tokyo",
+                  "type": "tool_result"
+                }
+              ],
+              "role": "user"
+            }
+          ],
+          "model": "mock-1",
+          "tool_choice": {
+            "name": "get_weather",
+            "type": "tool"
+          },
+          "tools": [
+            {
+              "description": "Read temperature",
+              "input_schema": {
+                "properties": {
+                  "city": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "city"
+                ],
+                "type": "object"
+              },
+              "name": "get_weather"
+            }
+          ]
+        }
+      },
+      "aws_bedrock": {
+        "payload": {
+          "inferenceConfig": {
+            "maxTokens": 128
+          },
+          "messages": [
+            {
+              "content": [
+                {
+                  "text": "Tokyo please."
+                }
+              ],
+              "role": "user"
+            },
+            {
+              "content": [
+                {
+                  "toolUse": {
+                    "input": {
+                      "city": "Tokyo"
+                    },
+                    "name": "get_weather",
+                    "toolUseId": "call_tokyo"
+                  }
+                }
+              ],
+              "role": "assistant"
+            },
+            {
+              "content": [
+                {
+                  "toolResult": {
+                    "content": [
+                      {
+                        "text": "18 C"
+                      }
+                    ],
+                    "status": "success",
+                    "toolUseId": "call_tokyo"
+                  }
+                }
+              ],
+              "role": "user"
+            }
+          ],
+          "toolConfig": {
+            "toolChoice": {
+              "tool": {
+                "name": "get_weather"
+              }
+            },
+            "tools": [
+              {
+                "toolSpec": {
+                  "description": "Read temperature",
+                  "inputSchema": {
+                    "json": {
+                      "properties": {
+                        "city": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "city"
+                      ],
+                      "type": "object"
+                    }
+                  },
+                  "name": "get_weather"
+                }
+              }
+            ]
+          }
+        }
+      },
+      "azure_openai": {
+        "payload": {
+          "max_tokens": 128,
+          "messages": [
+            {
+              "content": "Tokyo please.",
+              "role": "user"
+            },
+            {
+              "content": "",
+              "role": "assistant",
+              "tool_calls": [
+                {
+                  "function": {
+                    "arguments": "{\"city\":\"Tokyo\"}",
+                    "name": "get_weather"
+                  },
+                  "id": "call_tokyo",
+                  "type": "function"
+                }
+              ]
+            },
+            {
+              "content": "18 C",
+              "role": "tool",
+              "tool_call_id": "call_tokyo"
+            }
+          ],
+          "model": "mock-1",
+          "tool_choice": {
+            "function": {
+              "name": "get_weather"
+            },
+            "type": "function"
+          },
+          "tools": [
+            {
+              "function": {
+                "description": "Read temperature",
+                "name": "get_weather",
+                "parameters": {
+                  "properties": {
+                    "city": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "city"
+                  ],
+                  "type": "object"
+                }
+              },
+              "type": "function"
+            }
+          ]
+        }
+      },
+      "cohere": {
+        "error": {
+          "code": "unsupported_feature",
+          "message": "unsupported feature 'tool_choice_tool' for protocol 'cohere'"
+        }
+      },
+      "google_gemini": {
+        "payload": {
+          "contents": [
+            {
+              "parts": [
+                {
+                  "text": "Tokyo please."
+                }
+              ],
+              "role": "user"
+            },
+            {
+              "parts": [
+                {
+                  "functionCall": {
+                    "args": {
+                      "city": "Tokyo"
+                    },
+                    "id": "call_tokyo",
+                    "name": "get_weather"
+                  }
+                }
+              ],
+              "role": "model"
+            },
+            {
+              "parts": [
+                {
+                  "functionResponse": {
+                    "id": "call_tokyo",
+                    "name": "get_weather",
+                    "response": {
+                      "content": "18 C"
+                    }
+                  }
+                }
+              ],
+              "role": "user"
+            }
+          ],
+          "generationConfig": {
+            "maxOutputTokens": 128
+          },
+          "toolConfig": {
+            "functionCallingConfig": {
+              "allowedFunctionNames": [
+                "get_weather"
+              ],
+              "mode": "ANY"
+            }
+          },
+          "tools": [
+            {
+              "functionDeclarations": [
+                {
+                  "description": "Read temperature",
+                  "name": "get_weather",
+                  "parameters": {
+                    "properties": {
+                      "city": {
+                        "type": "string"
+                      }
+                    },
+                    "required": [
+                      "city"
+                    ],
+                    "type": "object"
+                  }
+                }
+              ]
+            }
+          ]
+        }
+      },
+      "google_vertex_ai": {
+        "payload": {
+          "contents": [
+            {
+              "parts": [
+                {
+                  "text": "Tokyo please."
+                }
+              ],
+              "role": "user"
+            },
+            {
+              "parts": [
+                {
+                  "functionCall": {
+                    "args": {
+                      "city": "Tokyo"
+                    },
+                    "id": "call_tokyo",
+                    "name": "get_weather"
+                  }
+                }
+              ],
+              "role": "model"
+            },
+            {
+              "parts": [
+                {
+                  "functionResponse": {
+                    "id": "call_tokyo",
+                    "name": "get_weather",
+                    "response": {
+                      "content": "18 C"
+                    }
+                  }
+                }
+              ],
+              "role": "user"
+            }
+          ],
+          "generationConfig": {
+            "maxOutputTokens": 128
+          },
+          "toolConfig": {
+            "functionCallingConfig": {
+              "allowedFunctionNames": [
+                "get_weather"
+              ],
+              "mode": "ANY"
+            }
+          },
+          "tools": [
+            {
+              "functionDeclarations": [
+                {
+                  "description": "Read temperature",
+                  "name": "get_weather",
+                  "parameters": {
+                    "properties": {
+                      "city": {
+                        "type": "string"
+                      }
+                    },
+                    "required": [
+                      "city"
+                    ],
+                    "type": "object"
+                  }
+                }
+              ]
+            }
+          ]
+        }
+      },
+      "ollama": {
+        "error": {
+          "code": "unsupported_feature",
+          "message": "unsupported feature 'tool_choice' for protocol 'ollama'"
+        }
+      },
+      "openai_chat_completions": {
+        "payload": {
+          "max_tokens": 128,
+          "messages": [
+            {
+              "content": "Tokyo please.",
+              "role": "user"
+            },
+            {
+              "content": "",
+              "role": "assistant",
+              "tool_calls": [
+                {
+                  "function": {
+                    "arguments": "{\"city\":\"Tokyo\"}",
+                    "name": "get_weather"
+                  },
+                  "id": "call_tokyo",
+                  "type": "function"
+                }
+              ]
+            },
+            {
+              "content": "18 C",
+              "role": "tool",
+              "tool_call_id": "call_tokyo"
+            }
+          ],
+          "model": "mock-1",
+          "tool_choice": {
+            "function": {
+              "name": "get_weather"
+            },
+            "type": "function"
+          },
+          "tools": [
+            {
+              "function": {
+                "description": "Read temperature",
+                "name": "get_weather",
+                "parameters": {
+                  "properties": {
+                    "city": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "city"
+                  ],
+                  "type": "object"
+                }
+              },
+              "type": "function"
+            }
+          ]
+        }
+      },
+      "openai_responses": {
+        "payload": {
+          "input": [
+            {
+              "content": [
+                {
+                  "text": "Tokyo please.",
+                  "type": "input_text"
+                }
+              ],
+              "role": "user"
+            },
+            {
+              "arguments": "{\"city\":\"Tokyo\"}",
+              "call_id": "call_tokyo",
+              "name": "get_weather",
+              "type": "function_call"
+            },
+            {
+              "call_id": "call_tokyo",
+              "output": "18 C",
+              "type": "function_call_output"
+            }
+          ],
+          "max_output_tokens": 128,
+          "model": "mock-1"
+        }
+      }
+    },
+    "multi-turn-tools": {
+      "anthropic_messages": {
+        "payload": {
+          "max_tokens": 512,
+          "messages": [
+            {
+              "content": [
+                {
+                  "text": "Compare Tokyo and Osaka.",
+                  "type": "text"
+                }
+              ],
+              "role": "user"
+            },
+            {
+              "content": [
+                {
+                  "signature": "sig-think-1",
+                  "thinking": "I need both readings.",
+                  "type": "thinking"
+                },
+                {
+                  "text": "Checking both.",
+                  "type": "text"
+                },
+                {
+                  "id": "call_tokyo",
+                  "input": {
+                    "city": "Tokyo"
+                  },
+                  "name": "get_weather",
+                  "type": "tool_use"
+                },
+                {
+                  "id": "call_osaka",
+                  "input": {
+                    "city": "Osaka"
+                  },
+                  "name": "get_weather",
+                  "type": "tool_use"
+                }
+              ],
+              "role": "assistant"
+            },
+            {
+              "content": [
+                {
+                  "content": "18 C",
+                  "is_error": false,
+                  "tool_use_id": "call_tokyo",
+                  "type": "tool_result"
+                },
+                {
+                  "content": "21 C",
+                  "is_error": false,
+                  "tool_use_id": "call_osaka",
+                  "type": "tool_result"
+                }
+              ],
+              "role": "user"
+            }
+          ],
+          "model": "mock-1",
+          "output_config": {
+            "effort": "low"
+          },
+          "system": "You are a weather bot.",
+          "tool_choice": {
+            "type": "auto"
+          },
+          "tools": [
+            {
+              "description": "Read temperature",
+              "input_schema": {
+                "properties": {
+                  "city": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "city"
+                ],
+                "type": "object"
+              },
+              "name": "get_weather"
+            }
+          ]
+        }
+      },
+      "aws_bedrock": {
+        "payload": {
+          "inferenceConfig": {
+            "maxTokens": 512
+          },
+          "messages": [
+            {
+              "content": [
+                {
+                  "text": "Compare Tokyo and Osaka."
+                }
+              ],
+              "role": "user"
+            },
+            {
+              "content": [
+                {
+                  "reasoningContent": {
+                    "reasoningText": {
+                      "signature": "sig-think-1",
+                      "text": "I need both readings."
+                    }
+                  }
+                },
+                {
+                  "text": "Checking both."
+                },
+                {
+                  "toolUse": {
+                    "input": {
+                      "city": "Tokyo"
+                    },
+                    "name": "get_weather",
+                    "toolUseId": "call_tokyo"
+                  }
+                },
+                {
+                  "toolUse": {
+                    "input": {
+                      "city": "Osaka"
+                    },
+                    "name": "get_weather",
+                    "toolUseId": "call_osaka"
+                  }
+                }
+              ],
+              "role": "assistant"
+            },
+            {
+              "content": [
+                {
+                  "toolResult": {
+                    "content": [
+                      {
+                        "text": "18 C"
+                      }
+                    ],
+                    "status": "success",
+                    "toolUseId": "call_tokyo"
+                  }
+                }
+              ],
+              "role": "user"
+            },
+            {
+              "content": [
+                {
+                  "toolResult": {
+                    "content": [
+                      {
+                        "text": "21 C"
+                      }
+                    ],
+                    "status": "success",
+                    "toolUseId": "call_osaka"
+                  }
+                }
+              ],
+              "role": "user"
+            }
+          ],
+          "system": [
+            {
+              "text": "You are a weather bot."
+            }
+          ],
+          "toolConfig": {
+            "toolChoice": {
+              "auto": {}
+            },
+            "tools": [
+              {
+                "toolSpec": {
+                  "description": "Read temperature",
+                  "inputSchema": {
+                    "json": {
+                      "properties": {
+                        "city": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "city"
+                      ],
+                      "type": "object"
+                    }
+                  },
+                  "name": "get_weather"
+                }
+              }
+            ]
+          }
+        }
+      },
+      "azure_openai": {
+        "payload": {
+          "max_tokens": 512,
+          "messages": [
+            {
+              "content": "You are a weather bot.",
+              "role": "system"
+            },
+            {
+              "content": "Compare Tokyo and Osaka.",
+              "role": "user"
+            },
+            {
+              "content": "Checking both.",
+              "role": "assistant",
+              "tool_calls": [
+                {
+                  "function": {
+                    "arguments": "{\"city\":\"Tokyo\"}",
+                    "name": "get_weather"
+                  },
+                  "id": "call_tokyo",
+                  "type": "function"
+                },
+                {
+                  "function": {
+                    "arguments": "{\"city\":\"Osaka\"}",
+                    "name": "get_weather"
+                  },
+                  "id": "call_osaka",
+                  "type": "function"
+                }
+              ]
+            },
+            {
+              "content": "18 C",
+              "role": "tool",
+              "tool_call_id": "call_tokyo"
+            },
+            {
+              "content": "21 C",
+              "role": "tool",
+              "tool_call_id": "call_osaka"
+            }
+          ],
+          "model": "mock-1",
+          "reasoning_effort": "low",
+          "tool_choice": "auto",
+          "tools": [
+            {
+              "function": {
+                "description": "Read temperature",
+                "name": "get_weather",
+                "parameters": {
+                  "properties": {
+                    "city": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "city"
+                  ],
+                  "type": "object"
+                }
+              },
+              "type": "function"
+            }
+          ]
+        }
+      },
+      "cohere": {
+        "payload": {
+          "max_tokens": 512,
+          "messages": [
+            {
+              "content": "You are a weather bot.",
+              "role": "system"
+            },
+            {
+              "content": "Compare Tokyo and Osaka.",
+              "role": "user"
+            },
+            {
+              "content": [
+                {
+                  "thinking": "I need both readings.",
+                  "type": "thinking"
+                },
+                {
+                  "text": "Checking both.",
+                  "type": "text"
+                }
+              ],
+              "role": "assistant",
+              "tool_calls": [
+                {
+                  "function": {
+                    "arguments": "{\"city\":\"Tokyo\"}",
+                    "name": "get_weather"
+                  },
+                  "id": "call_tokyo",
+                  "type": "function"
+                },
+                {
+                  "function": {
+                    "arguments": "{\"city\":\"Osaka\"}",
+                    "name": "get_weather"
+                  },
+                  "id": "call_osaka",
+                  "type": "function"
+                }
+              ]
+            },
+            {
+              "content": [
+                {
+                  "document": {
+                    "data": "18 C"
+                  },
+                  "type": "document"
+                }
+              ],
+              "role": "tool",
+              "tool_call_id": "call_tokyo"
+            },
+            {
+              "content": [
+                {
+                  "document": {
+                    "data": "21 C"
+                  },
+                  "type": "document"
+                }
+              ],
+              "role": "tool",
+              "tool_call_id": "call_osaka"
+            }
+          ],
+          "model": "mock-1",
+          "thinking": {
+            "type": "enabled"
+          },
+          "tools": [
+            {
+              "function": {
+                "description": "Read temperature",
+                "name": "get_weather",
+                "parameters": {
+                  "properties": {
+                    "city": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "city"
+                  ],
+                  "type": "object"
+                }
+              },
+              "type": "function"
+            }
+          ]
+        }
+      },
+      "google_gemini": {
+        "payload": {
+          "contents": [
+            {
+              "parts": [
+                {
+                  "text": "Compare Tokyo and Osaka."
+                }
+              ],
+              "role": "user"
+            },
+            {
+              "parts": [
+                {
+                  "text": "I need both readings.",
+                  "thought": true,
+                  "thoughtSignature": "sig-think-1"
+                },
+                {
+                  "text": "Checking both."
+                },
+                {
+                  "functionCall": {
+                    "args": {
+                      "city": "Tokyo"
+                    },
+                    "id": "call_tokyo",
+                    "name": "get_weather"
+                  }
+                },
+                {
+                  "functionCall": {
+                    "args": {
+                      "city": "Osaka"
+                    },
+                    "id": "call_osaka",
+                    "name": "get_weather"
+                  }
+                }
+              ],
+              "role": "model"
+            },
+            {
+              "parts": [
+                {
+                  "functionResponse": {
+                    "id": "call_tokyo",
+                    "name": "get_weather",
+                    "response": {
+                      "content": "18 C"
+                    }
+                  }
+                },
+                {
+                  "functionResponse": {
+                    "id": "call_osaka",
+                    "name": "get_weather",
+                    "response": {
+                      "content": "21 C"
+                    }
+                  }
+                }
+              ],
+              "role": "user"
+            }
+          ],
+          "generationConfig": {
+            "maxOutputTokens": 512,
+            "thinkingConfig": {
+              "includeThoughts": true,
+              "thinkingLevel": "LOW"
+            }
+          },
+          "systemInstruction": {
+            "parts": [
+              {
+                "text": "You are a weather bot."
+              }
+            ]
+          },
+          "toolConfig": {
+            "functionCallingConfig": {
+              "mode": "AUTO"
+            }
+          },
+          "tools": [
+            {
+              "functionDeclarations": [
+                {
+                  "description": "Read temperature",
+                  "name": "get_weather",
+                  "parameters": {
+                    "properties": {
+                      "city": {
+                        "type": "string"
+                      }
+                    },
+                    "required": [
+                      "city"
+                    ],
+                    "type": "object"
+                  }
+                }
+              ]
+            }
+          ]
+        }
+      },
+      "google_vertex_ai": {
+        "payload": {
+          "contents": [
+            {
+              "parts": [
+                {
+                  "text": "Compare Tokyo and Osaka."
+                }
+              ],
+              "role": "user"
+            },
+            {
+              "parts": [
+                {
+                  "text": "I need both readings.",
+                  "thought": true,
+                  "thoughtSignature": "sig-think-1"
+                },
+                {
+                  "text": "Checking both."
+                },
+                {
+                  "functionCall": {
+                    "args": {
+                      "city": "Tokyo"
+                    },
+                    "id": "call_tokyo",
+                    "name": "get_weather"
+                  }
+                },
+                {
+                  "functionCall": {
+                    "args": {
+                      "city": "Osaka"
+                    },
+                    "id": "call_osaka",
+                    "name": "get_weather"
+                  }
+                }
+              ],
+              "role": "model"
+            },
+            {
+              "parts": [
+                {
+                  "functionResponse": {
+                    "id": "call_tokyo",
+                    "name": "get_weather",
+                    "response": {
+                      "content": "18 C"
+                    }
+                  }
+                },
+                {
+                  "functionResponse": {
+                    "id": "call_osaka",
+                    "name": "get_weather",
+                    "response": {
+                      "content": "21 C"
+                    }
+                  }
+                }
+              ],
+              "role": "user"
+            }
+          ],
+          "generationConfig": {
+            "maxOutputTokens": 512,
+            "thinkingConfig": {
+              "includeThoughts": true,
+              "thinkingLevel": "LOW"
+            }
+          },
+          "systemInstruction": {
+            "parts": [
+              {
+                "text": "You are a weather bot."
+              }
+            ]
+          },
+          "toolConfig": {
+            "functionCallingConfig": {
+              "mode": "AUTO"
+            }
+          },
+          "tools": [
+            {
+              "functionDeclarations": [
+                {
+                  "description": "Read temperature",
+                  "name": "get_weather",
+                  "parameters": {
+                    "properties": {
+                      "city": {
+                        "type": "string"
+                      }
+                    },
+                    "required": [
+                      "city"
+                    ],
+                    "type": "object"
+                  }
+                }
+              ]
+            }
+          ]
+        }
+      },
+      "ollama": {
+        "payload": {
+          "messages": [
+            {
+              "content": "You are a weather bot.",
+              "role": "system"
+            },
+            {
+              "content": "Compare Tokyo and Osaka.",
+              "role": "user"
+            },
+            {
+              "content": "Checking both.",
+              "role": "assistant",
+              "thinking": "I need both readings.",
+              "tool_calls": [
+                {
+                  "function": {
+                    "arguments": {
+                      "city": "Tokyo"
+                    },
+                    "index": 0,
+                    "name": "get_weather"
+                  },
+                  "type": "function"
+                },
+                {
+                  "function": {
+                    "arguments": {
+                      "city": "Osaka"
+                    },
+                    "index": 1,
+                    "name": "get_weather"
+                  },
+                  "type": "function"
+                }
+              ]
+            },
+            {
+              "content": "18 C",
+              "role": "tool",
+              "tool_name": "get_weather"
+            },
+            {
+              "content": "21 C",
+              "role": "tool",
+              "tool_name": "get_weather"
+            }
+          ],
+          "model": "mock-1",
+          "options": {
+            "num_predict": 512
+          },
+          "stream": false,
+          "think": "low",
+          "tools": [
+            {
+              "function": {
+                "description": "Read temperature",
+                "name": "get_weather",
+                "parameters": {
+                  "properties": {
+                    "city": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "city"
+                  ],
+                  "type": "object"
+                }
+              },
+              "type": "function"
+            }
+          ]
+        }
+      },
+      "openai_chat_completions": {
+        "payload": {
+          "max_tokens": 512,
+          "messages": [
+            {
+              "content": "You are a weather bot.",
+              "role": "system"
+            },
+            {
+              "content": "Compare Tokyo and Osaka.",
+              "role": "user"
+            },
+            {
+              "content": "Checking both.",
+              "role": "assistant",
+              "tool_calls": [
+                {
+                  "function": {
+                    "arguments": "{\"city\":\"Tokyo\"}",
+                    "name": "get_weather"
+                  },
+                  "id": "call_tokyo",
+                  "type": "function"
+                },
+                {
+                  "function": {
+                    "arguments": "{\"city\":\"Osaka\"}",
+                    "name": "get_weather"
+                  },
+                  "id": "call_osaka",
+                  "type": "function"
+                }
+              ]
+            },
+            {
+              "content": "18 C",
+              "role": "tool",
+              "tool_call_id": "call_tokyo"
+            },
+            {
+              "content": "21 C",
+              "role": "tool",
+              "tool_call_id": "call_osaka"
+            }
+          ],
+          "model": "mock-1",
+          "reasoning_effort": "low",
+          "tool_choice": "auto",
+          "tools": [
+            {
+              "function": {
+                "description": "Read temperature",
+                "name": "get_weather",
+                "parameters": {
+                  "properties": {
+                    "city": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "city"
+                  ],
+                  "type": "object"
+                }
+              },
+              "type": "function"
+            }
+          ]
+        }
+      },
+      "openai_responses": {
+        "payload": {
+          "input": [
+            {
+              "content": [
+                {
+                  "text": "You are a weather bot.",
+                  "type": "input_text"
+                }
+              ],
+              "role": "system"
+            },
+            {
+              "content": [
+                {
+                  "text": "Compare Tokyo and Osaka.",
+                  "type": "input_text"
+                }
+              ],
+              "role": "user"
+            },
+            {
+              "encrypted_content": "sig-think-1",
+              "summary": [
+                {
+                  "text": "I need both readings.",
+                  "type": "summary_text"
+                }
+              ],
+              "type": "reasoning"
+            },
+            {
+              "content": [
+                {
+                  "text": "Checking both.",
+                  "type": "input_text"
+                }
+              ],
+              "role": "assistant"
+            },
+            {
+              "arguments": "{\"city\":\"Tokyo\"}",
+              "call_id": "call_tokyo",
+              "name": "get_weather",
+              "type": "function_call"
+            },
+            {
+              "arguments": "{\"city\":\"Osaka\"}",
+              "call_id": "call_osaka",
+              "name": "get_weather",
+              "type": "function_call"
+            },
+            {
+              "call_id": "call_tokyo",
+              "output": "18 C",
+              "type": "function_call_output"
+            },
+            {
+              "call_id": "call_osaka",
+              "output": "21 C",
+              "type": "function_call_output"
+            }
+          ],
+          "max_output_tokens": 512,
+          "model": "mock-1",
+          "reasoning": {
+            "effort": "low"
+          }
+        }
+      }
+    },
+    "multimodal-structured": {
+      "anthropic_messages": {
+        "error": {
+          "code": "unsupported_feature",
+          "message": "unsupported feature 'json_schema' for protocol 'anthropic_messages'"
+        }
+      },
+      "aws_bedrock": {
+        "error": {
+          "code": "unsupported_feature",
+          "message": "unsupported feature 'image_url' for protocol 'aws_bedrock'"
+        }
+      },
+      "azure_openai": {
+        "payload": {
+          "max_tokens": 256,
+          "messages": [
+            {
+              "content": [
+                {
+                  "text": "What is on this receipt?",
+                  "type": "text"
+                },
+                {
+                  "image_url": {
+                    "url": "data:image/png;base64,AQID"
+                  },
+                  "type": "image_url"
+                },
+                {
+                  "image_url": {
+                    "url": "https://example.com/receipt.png"
+                  },
+                  "type": "image_url"
+                }
+              ],
+              "role": "user"
+            }
+          ],
+          "model": "mock-2",
+          "response_format": {
+            "json_schema": {
+              "name": "receipt",
+              "schema": {
+                "properties": {
+                  "total": {
+                    "type": "number"
+                  }
+                },
+                "required": [
+                  "total"
+                ],
+                "type": "object"
+              },
+              "strict": true
+            },
+            "type": "json_schema"
+          },
+          "temperature": 0.2
+        }
+      },
+      "cohere": {
+        "error": {
+          "code": "unsupported_feature",
+          "message": "unsupported feature 'image_base64' for protocol 'cohere'"
+        }
+      },
+      "google_gemini": {
+        "error": {
+          "code": "unsupported_feature",
+          "message": "unsupported feature 'image_url' for protocol 'google_gemini'"
+        }
+      },
+      "google_vertex_ai": {
+        "error": {
+          "code": "unsupported_feature",
+          "message": "unsupported feature 'image_url' for protocol 'google_vertex_ai'"
+        }
+      },
+      "ollama": {
+        "error": {
+          "code": "unsupported_feature",
+          "message": "unsupported feature 'json_schema_strict' for protocol 'ollama'"
+        }
+      },
+      "openai_chat_completions": {
+        "payload": {
+          "max_tokens": 256,
+          "messages": [
+            {
+              "content": [
+                {
+                  "text": "What is on this receipt?",
+                  "type": "text"
+                },
+                {
+                  "image_url": {
+                    "url": "data:image/png;base64,AQID"
+                  },
+                  "type": "image_url"
+                },
+                {
+                  "image_url": {
+                    "url": "https://example.com/receipt.png"
+                  },
+                  "type": "image_url"
+                }
+              ],
+              "role": "user"
+            }
+          ],
+          "model": "mock-2",
+          "response_format": {
+            "json_schema": {
+              "name": "receipt",
+              "schema": {
+                "properties": {
+                  "total": {
+                    "type": "number"
+                  }
+                },
+                "required": [
+                  "total"
+                ],
+                "type": "object"
+              },
+              "strict": true
+            },
+            "type": "json_schema"
+          },
+          "temperature": 0.2
+        }
+      },
+      "openai_responses": {
+        "payload": {
+          "input": [
+            {
+              "content": [
+                {
+                  "text": "What is on this receipt?",
+                  "type": "input_text"
+                },
+                {
+                  "image_url": "data:image/png;base64,AQID",
+                  "type": "input_image"
+                },
+                {
+                  "image_url": "https://example.com/receipt.png",
+                  "type": "input_image"
+                }
+              ],
+              "role": "user"
+            }
+          ],
+          "max_output_tokens": 256,
+          "model": "mock-2",
+          "text": {
+            "format": {
+              "name": "receipt",
+              "schema": {
+                "properties": {
+                  "total": {
+                    "type": "number"
+                  }
+                },
+                "required": [
+                  "total"
+                ],
+                "type": "object"
+              },
+              "strict": true,
+              "type": "json_schema"
+            }
+          }
+        }
+      }
+    }
+  },
+  "schemaVersion": "1.0"
+}

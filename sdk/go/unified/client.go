@@ -69,37 +69,50 @@ func (c *Client) StreamEach(ctx context.Context, proto native.Protocol, baseURL,
 		return err
 	}
 	cfg := native.RequestConfig{BaseURL: baseURL, APIKey: apiKey}
-	emit := func(raw native.SSEEvent) error {
-		parsed, err := NormalizeStreamEvent(proto, raw)
-		if err != nil {
-			return err
-		}
-		for _, item := range parsed {
+	// One stateful normalizer per stream: tool arguments arrive in fragments,
+	// thinking signatures may trail their text, and message_start/message_end
+	// must be emitted exactly once.
+	normalizer := NewStreamNormalizer(proto)
+	deliver := func(events []StreamEvent) error {
+		for _, item := range events {
 			if err := fn(item); err != nil {
 				return err
 			}
 		}
 		return nil
 	}
+	emit := func(raw native.SSEEvent) error {
+		parsed, err := normalizer.Push(raw)
+		if err != nil {
+			return err
+		}
+		return deliver(parsed)
+	}
+	finish := func(err error) error {
+		if err != nil {
+			return err
+		}
+		return deliver(normalizer.Finish())
+	}
 	switch proto {
 	case native.ProtocolOpenAIChatCompletions:
-		return c.Native.StreamOpenAIChatCompletionsEach(ctx, cfg, payload, emit)
+		return finish(c.Native.StreamOpenAIChatCompletionsEach(ctx, cfg, payload, emit))
 	case native.ProtocolOpenAIResponses:
-		return c.Native.StreamOpenAIResponsesEach(ctx, cfg, payload, emit)
+		return finish(c.Native.StreamOpenAIResponsesEach(ctx, cfg, payload, emit))
 	case native.ProtocolAnthropicMessages:
-		return c.Native.StreamAnthropicMessagesEach(ctx, cfg, payload, emit)
+		return finish(c.Native.StreamAnthropicMessagesEach(ctx, cfg, payload, emit))
 	case native.ProtocolGoogleGemini:
-		return c.Native.StreamGoogleGeminiGenerateEach(ctx, cfg, req.Model, payload, emit)
+		return finish(c.Native.StreamGoogleGeminiGenerateEach(ctx, cfg, req.Model, payload, emit))
 	case native.ProtocolAWSBedrock:
-		return c.Native.StreamAWSBedrockConverseEach(ctx, cfg, req.Model, payload, emit)
+		return finish(c.Native.StreamAWSBedrockConverseEach(ctx, cfg, req.Model, payload, emit))
 	case native.ProtocolGoogleVertexAI:
-		return c.Native.StreamGoogleVertexGenerateEach(ctx, cfg, req.Model, payload, emit)
+		return finish(c.Native.StreamGoogleVertexGenerateEach(ctx, cfg, req.Model, payload, emit))
 	case native.ProtocolAzureOpenAI:
-		return c.Native.StreamAzureOpenAIChatCompletionsEach(ctx, cfg, req.Model, payload, emit)
+		return finish(c.Native.StreamAzureOpenAIChatCompletionsEach(ctx, cfg, req.Model, payload, emit))
 	case native.ProtocolOllama:
-		return c.Native.StreamOllamaChatEach(ctx, cfg, payload, emit)
+		return finish(c.Native.StreamOllamaChatEach(ctx, cfg, payload, emit))
 	case native.ProtocolCohere:
-		return c.Native.StreamCohereChatEach(ctx, cfg, payload, emit)
+		return finish(c.Native.StreamCohereChatEach(ctx, cfg, payload, emit))
 	default:
 		return &UnsupportedFeatureError{Protocol: string(proto), Feature: "protocol"}
 	}

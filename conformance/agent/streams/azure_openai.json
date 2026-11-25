@@ -1,0 +1,47 @@
+{
+  "schemaVersion": "1.0",
+  "protocol": "azure_openai",
+  "framing": "sse",
+  "events": [
+    {
+      "event": null,
+      "data": "{\"id\":\"chatcmpl-azure-stream-1\",\"object\":\"chat.completion.chunk\",\"model\":\"gpt-4o\",\"choices\":[{\"index\":0,\"delta\":{\"role\":\"assistant\",\"content\":\"Checking both.\"}}]}",
+      "id": null
+    },
+    {
+      "event": null,
+      "data": "{\"id\":\"chatcmpl-azure-stream-1\",\"object\":\"chat.completion.chunk\",\"model\":\"gpt-4o\",\"choices\":[{\"index\":0,\"delta\":{\"tool_calls\":[{\"index\":0,\"id\":\"call_tokyo\",\"type\":\"function\",\"function\":{\"name\":\"get_weather\",\"arguments\":\"\"}}]}}]}",
+      "id": null
+    },
+    {
+      "event": null,
+      "data": "{\"id\":\"chatcmpl-azure-stream-1\",\"object\":\"chat.completion.chunk\",\"model\":\"gpt-4o\",\"choices\":[{\"index\":0,\"delta\":{\"tool_calls\":[{\"index\":0,\"function\":{\"arguments\":\"{\\\"city\\\":\"}}]}}]}",
+      "id": null
+    },
+    {
+      "event": null,
+      "data": "{\"id\":\"chatcmpl-azure-stream-1\",\"object\":\"chat.completion.chunk\",\"model\":\"gpt-4o\",\"choices\":[{\"index\":0,\"delta\":{\"tool_calls\":[{\"index\":0,\"function\":{\"arguments\":\"\\\"Tokyo\\\"}\"}}]}}]}",
+      "id": null
+    },
+    {
+      "event": null,
+      "data": "{\"id\":\"chatcmpl-azure-stream-1\",\"object\":\"chat.completion.chunk\",\"model\":\"gpt-4o\",\"choices\":[{\"index\":0,\"delta\":{\"tool_calls\":[{\"index\":1,\"id\":\"call_osaka\",\"type\":\"function\",\"function\":{\"name\":\"get_weather\",\"arguments\":\"\"}}]}}]}",
+      "id": null
+    },
+    {
+      "event": null,
+      "data": "{\"id\":\"chatcmpl-azure-stream-1\",\"object\":\"chat.completion.chunk\",\"model\":\"gpt-4o\",\"choices\":[{\"index\":0,\"delta\":{\"tool_calls\":[{\"index\":1,\"function\":{\"arguments\":\"{\\\"city\\\":\\\"Osaka\\\"}\"}}]}}]}",
+      "id": null
+    },
+    {
+      "event": null,
+      "data": "{\"id\":\"chatcmpl-azure-stream-1\",\"object\":\"chat.completion.chunk\",\"model\":\"gpt-4o\",\"choices\":[{\"index\":0,\"delta\":{},\"finish_reason\":\"tool_calls\"}],\"usage\":{\"prompt_tokens\":120,\"completion_tokens\":30,\"total_tokens\":150,\"prompt_tokens_details\":{\"cached_tokens\":40}}}",
+      "id": null
+    },
+    {
+      "event": null,
+      "data": "[DONE]",
+      "id": null
+    }
+  ]
+}

@@ -1,0 +1,67 @@
+{
+  "schemaVersion": "1.0",
+  "protocol": "aws_bedrock",
+  "framing": "amazon_event_stream",
+  "events": [
+    {
+      "event": "messageStart",
+      "data": "{\"messageStart\":{\"role\":\"assistant\"}}",
+      "id": null
+    },
+    {
+      "event": "contentBlockDelta",
+      "data": "{\"contentBlockDelta\":{\"contentBlockIndex\":0,\"delta\":{\"reasoningContent\":{\"text\":\"I need both readings.\"}}}}",
+      "id": null
+    },
+    {
+      "event": "contentBlockDelta",
+      "data": "{\"contentBlockDelta\":{\"contentBlockIndex\":0,\"delta\":{\"reasoningContent\":{\"signature\":\"sig-think-1\"}}}}",
+      "id": null
+    },
+    {
+      "event": "contentBlockDelta",
+      "data": "{\"contentBlockDelta\":{\"contentBlockIndex\":1,\"delta\":{\"text\":\"Checking both.\"}}}",
+      "id": null
+    },
+    {
+      "event": "contentBlockStart",
+      "data": "{\"contentBlockStart\":{\"contentBlockIndex\":2,\"start\":{\"toolUse\":{\"toolUseId\":\"call_tokyo\",\"name\":\"get_weather\"}}}}",
+      "id": null
+    },
+    {
+      "event": "contentBlockDelta",
+      "data": "{\"contentBlockDelta\":{\"contentBlockIndex\":2,\"delta\":{\"toolUse\":{\"input\":\"{\\\"city\\\":\\\"Tokyo\\\"}\"}}}}",
+      "id": null
+    },
+    {
+      "event": "contentBlockStop",
+      "data": "{\"contentBlockStop\":{\"contentBlockIndex\":2}}",
+      "id": null
+    },
+    {
+      "event": "contentBlockStart",
+      "data": "{\"contentBlockStart\":{\"contentBlockIndex\":3,\"start\":{\"toolUse\":{\"toolUseId\":\"call_osaka\",\"name\":\"get_weather\"}}}}",
+      "id": null
+    },
+    {
+      "event": "contentBlockDelta",
+      "data": "{\"contentBlockDelta\":{\"contentBlockIndex\":3,\"delta\":{\"toolUse\":{\"input\":\"{\\\"city\\\":\\\"Osaka\\\"}\"}}}}",
+      "id": null
+    },
+    {
+      "event": "contentBlockStop",
+      "data": "{\"contentBlockStop\":{\"contentBlockIndex\":3}}",
+      "id": null
+    },
+    {
+      "event": "messageStop",
+      "data": "{\"messageStop\":{\"stopReason\":\"tool_use\"}}",
+      "id": null
+    },
+    {
+      "event": "metadata",
+      "data": "{\"metadata\":{\"usage\":{\"inputTokens\":120,\"outputTokens\":30,\"totalTokens\":150,\"cacheReadInputTokens\":40,\"cacheWriteInputTokens\":0}}}",
+      "id": null
+    }
+  ]
+}

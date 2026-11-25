@@ -1,0 +1,41 @@
+{
+  "id": "chatcmpl-azure-agent-1",
+  "object": "chat.completion",
+  "model": "gpt-4o",
+  "choices": [
+    {
+      "index": 0,
+      "message": {
+        "role": "assistant",
+        "content": "Checking both.",
+        "tool_calls": [
+          {
+            "id": "call_tokyo",
+            "type": "function",
+            "function": {
+              "name": "get_weather",
+              "arguments": "{\"city\":\"Tokyo\"}"
+            }
+          },
+          {
+            "id": "call_osaka",
+            "type": "function",
+            "function": {
+              "name": "get_weather",
+              "arguments": "{\"city\":\"Osaka\"}"
+            }
+          }
+        ]
+      },
+      "finish_reason": "tool_calls"
+    }
+  ],
+  "usage": {
+    "prompt_tokens": 120,
+    "completion_tokens": 30,
+    "total_tokens": 150,
+    "prompt_tokens_details": {
+      "cached_tokens": 40
+    }
+  }
+}

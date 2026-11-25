@@ -1,0 +1,41 @@
+{
+  "id": "cohere-agent-1",
+  "finish_reason": "TOOL_CALL",
+  "message": {
+    "role": "assistant",
+    "content": [
+      {
+        "type": "thinking",
+        "thinking": "I need both readings."
+      },
+      {
+        "type": "text",
+        "text": "Checking both."
+      }
+    ],
+    "tool_calls": [
+      {
+        "id": "call_tokyo",
+        "type": "function",
+        "function": {
+          "name": "get_weather",
+          "arguments": "{\"city\":\"Tokyo\"}"
+        }
+      },
+      {
+        "id": "call_osaka",
+        "type": "function",
+        "function": {
+          "name": "get_weather",
+          "arguments": "{\"city\":\"Osaka\"}"
+        }
+      }
+    ]
+  },
+  "usage": {
+    "tokens": {
+      "input_tokens": 120,
+      "output_tokens": 30
+    }
+  }
+}

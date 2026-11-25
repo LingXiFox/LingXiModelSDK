@@ -1,0 +1,46 @@
+{
+  "output": {
+    "message": {
+      "role": "assistant",
+      "content": [
+        {
+          "reasoningContent": {
+            "reasoningText": {
+              "text": "I need both readings.",
+              "signature": "sig-think-1"
+            }
+          }
+        },
+        {
+          "text": "Checking both."
+        },
+        {
+          "toolUse": {
+            "toolUseId": "call_tokyo",
+            "name": "get_weather",
+            "input": {
+              "city": "Tokyo"
+            }
+          }
+        },
+        {
+          "toolUse": {
+            "toolUseId": "call_osaka",
+            "name": "get_weather",
+            "input": {
+              "city": "Osaka"
+            }
+          }
+        }
+      ]
+    }
+  },
+  "stopReason": "tool_use",
+  "usage": {
+    "inputTokens": 120,
+    "outputTokens": 30,
+    "totalTokens": 150,
+    "cacheReadInputTokens": 40,
+    "cacheWriteInputTokens": 0
+  }
+}

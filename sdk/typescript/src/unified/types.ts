@@ -33,18 +33,33 @@ export interface LmpToolDefinition {
   readonly parameters: Record<string, unknown>;
 }
 
+/** `auto` | `none` | `required` force a call to a specific function. */
+export type LmpToolChoice = "auto" | "none" | "required" | { readonly tool: string };
+
+export interface LmpThinkingConfig {
+  readonly effort?: string;
+  readonly budgetTokens?: number;
+}
+
+export type LmpResponseFormat =
+  | { readonly type: "text" }
+  | { readonly type: "json_object" }
+  | {
+      readonly type: "json_schema";
+      readonly name: string;
+      readonly schema: unknown;
+      readonly strict?: boolean;
+    };
+
 export interface LmpRequest {
   readonly model: string;
   readonly messages: readonly LmpMessage[];
   readonly maxTokens?: number;
   readonly temperature?: number;
   readonly tools?: readonly LmpToolDefinition[];
-  readonly toolChoice?: unknown;
-  readonly thinking?: { readonly effort?: string; readonly budgetTokens?: number };
-  readonly responseFormat?:
-    | { readonly type: "text" }
-    | { readonly type: "json_object" }
-    | { readonly type: "json_schema"; readonly name: string; readonly schema: unknown };
+  readonly toolChoice?: LmpToolChoice;
+  readonly thinking?: LmpThinkingConfig;
+  readonly responseFormat?: LmpResponseFormat;
   readonly providerExtensions?: Readonly<Record<string, unknown>>;
 }
 
@@ -88,23 +103,37 @@ export interface LmpResponse {
   readonly raw: Record<string, unknown>;
 }
 
-export interface LmpStreamEvent {
-  readonly type: "thinking_delta" | "text_delta" | "message_end" | "tool_call_delta" | "usage";
-  readonly delta?: string;
-  readonly finishReason?: string;
-  readonly index?: number;
-  readonly id?: string;
-  readonly name?: string;
-  readonly argumentsDelta?: string;
-  readonly usage?: LmpUsage;
-}
+/**
+ * One normalized LMP stream event.
+ *
+ * `type` is snake_case; every other field is camelCase, matching the Rust core
+ * and `specs/lmp-v1.md`. `message_start` and `message_end` bracket the stream,
+ * `error` terminates it with a stable machine-readable `code`.
+ */
+export type LmpStreamEvent =
+  | { readonly type: "message_start"; readonly id?: string }
+  | { readonly type: "thinking_delta"; readonly delta: string; readonly signature?: string }
+  | { readonly type: "text_delta"; readonly delta: string; readonly signature?: string }
+  | {
+      type: "tool_call_delta";
+      index: number;
+      id?: string;
+      name?: string;
+      argumentsDelta?: string;
+      signature?: string;
+    }
+  | { readonly type: "usage"; readonly usage: LmpUsage }
+  | { readonly type: "message_end"; readonly finishReason?: string }
+  | { readonly type: "error"; readonly code: string; readonly message: string };
 
 export class LmpUnsupportedFeatureError extends Error {
+  /** Stable machine-readable code, matching the Rust core error taxonomy. */
+  readonly code = "unsupported_feature";
   readonly protocol: NativeProtocol;
   readonly feature: string;
 
   constructor(protocol: NativeProtocol, feature: string) {
-    super(`Unsupported feature '${feature}' for protocol '${protocol}'`);
+    super(`unsupported feature '${feature}' for protocol '${protocol}'`);
     this.name = "LmpUnsupportedFeatureError";
     this.protocol = protocol;
     this.feature = feature;

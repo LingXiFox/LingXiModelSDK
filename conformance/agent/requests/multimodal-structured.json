@@ -1,0 +1,46 @@
+{
+  "schemaVersion": "1.0",
+  "id": "multimodal_structured",
+  "description": "Base64 and URL image parts plus a strict JSON schema response format.",
+  "request": {
+    "model": "mock-2",
+    "messages": [
+      {
+        "role": "user",
+        "content": [
+          {
+            "type": "text",
+            "text": "What is on this receipt?"
+          },
+          {
+            "type": "image_base64",
+            "mediaType": "image/png",
+            "data": "AQID"
+          },
+          {
+            "type": "image_url",
+            "url": "https://example.com/receipt.png"
+          }
+        ]
+      }
+    ],
+    "responseFormat": {
+      "type": "json_schema",
+      "name": "receipt",
+      "schema": {
+        "type": "object",
+        "properties": {
+          "total": {
+            "type": "number"
+          }
+        },
+        "required": [
+          "total"
+        ]
+      },
+      "strict": true
+    },
+    "temperature": 0.2,
+    "maxTokens": 256
+  }
+}

@@ -1,0 +1,63 @@
+{
+  "schemaVersion": "1.0",
+  "id": "forced_tool",
+  "description": "Forced single-tool call across protocols; protocols that cannot express it must fail explicitly.",
+  "request": {
+    "model": "mock-1",
+    "messages": [
+      {
+        "role": "user",
+        "content": [
+          {
+            "type": "text",
+            "text": "Tokyo please."
+          }
+        ]
+      },
+      {
+        "role": "assistant",
+        "content": [
+          {
+            "type": "tool_call",
+            "id": "call_tokyo",
+            "name": "get_weather",
+            "arguments": {
+              "city": "Tokyo"
+            }
+          }
+        ]
+      },
+      {
+        "role": "tool",
+        "content": [
+          {
+            "type": "tool_result",
+            "toolCallId": "call_tokyo",
+            "content": "18 C"
+          }
+        ]
+      }
+    ],
+    "tools": [
+      {
+        "name": "get_weather",
+        "description": "Read temperature",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "city": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "city"
+          ]
+        }
+      }
+    ],
+    "toolChoice": {
+      "tool": "get_weather"
+    },
+    "maxTokens": 128
+  }
+}

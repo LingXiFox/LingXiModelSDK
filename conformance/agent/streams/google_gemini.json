@@ -1,0 +1,32 @@
+{
+  "schemaVersion": "1.0",
+  "protocol": "google_gemini",
+  "framing": "sse",
+  "events": [
+    {
+      "event": null,
+      "data": "{\"candidates\":[{\"content\":{\"role\":\"model\",\"parts\":[{\"thought\":true,\"text\":\"I need both readings.\",\"thoughtSignature\":\"sig-think-1\"}]}}]}",
+      "id": null
+    },
+    {
+      "event": null,
+      "data": "{\"candidates\":[{\"content\":{\"role\":\"model\",\"parts\":[{\"text\":\"Checking both.\"}]}}]}",
+      "id": null
+    },
+    {
+      "event": null,
+      "data": "{\"candidates\":[{\"content\":{\"role\":\"model\",\"parts\":[{\"functionCall\":{\"id\":\"call_tokyo\",\"name\":\"get_weather\",\"args\":{\"city\":\"Tokyo\"}}}]}}]}",
+      "id": null
+    },
+    {
+      "event": null,
+      "data": "{\"candidates\":[{\"content\":{\"role\":\"model\",\"parts\":[{\"functionCall\":{\"id\":\"call_osaka\",\"name\":\"get_weather\",\"args\":{\"city\":\"Osaka\"}}}]}}]}",
+      "id": null
+    },
+    {
+      "event": null,
+      "data": "{\"candidates\":[{\"content\":{\"role\":\"model\",\"parts\":[]},\"finishReason\":\"STOP\"}],\"usageMetadata\":{\"promptTokenCount\":120,\"candidatesTokenCount\":30,\"totalTokenCount\":150,\"thoughtsTokenCount\":12,\"cachedContentTokenCount\":40}}",
+      "id": null
+    }
+  ]
+}

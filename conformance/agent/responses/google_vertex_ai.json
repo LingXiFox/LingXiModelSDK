@@ -1,0 +1,47 @@
+{
+  "candidates": [
+    {
+      "content": {
+        "role": "model",
+        "parts": [
+          {
+            "thought": true,
+            "text": "I need both readings.",
+            "thoughtSignature": "sig-think-1"
+          },
+          {
+            "text": "Checking both.",
+            "thoughtSignature": "sig-text-1"
+          },
+          {
+            "functionCall": {
+              "id": "call_tokyo",
+              "name": "get_weather",
+              "args": {
+                "city": "Tokyo"
+              }
+            },
+            "thoughtSignature": "sig-call-1"
+          },
+          {
+            "functionCall": {
+              "id": "call_osaka",
+              "name": "get_weather",
+              "args": {
+                "city": "Osaka"
+              }
+            }
+          }
+        ]
+      },
+      "finishReason": "STOP"
+    }
+  ],
+  "usageMetadata": {
+    "promptTokenCount": 120,
+    "candidatesTokenCount": 30,
+    "totalTokenCount": 150,
+    "thoughtsTokenCount": 12,
+    "cachedContentTokenCount": 40
+  }
+}

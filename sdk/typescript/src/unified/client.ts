@@ -1,7 +1,7 @@
 import { NativeClient } from "../native/client.ts";
 import type { NativeProtocol } from "../native/registry.ts";
 import type { SseEvent } from "../native/sse.ts";
-import { normalizeResponse, normalizeStreamEvents, translateRequest } from "./adapters.ts";
+import { StreamNormalizer, normalizeResponse, translateRequest } from "./adapters.ts";
 import {
   LmpUnsupportedFeatureError,
   type LmpEmbeddingRequest,
@@ -61,20 +61,41 @@ export class UnifiedClient {
     return normalizeResponse(protocol, raw);
   }
 
+  /**
+   * Streams normalized LMP events as they arrive.
+   *
+   * The provider frames are pulled on demand, so the consumer decides the pace:
+   * breaking out of the loop closes the upstream response instead of draining it.
+   * `message_end` is always emitted exactly once, including for protocols whose
+   * upstream stream has no explicit terminal frame.
+   */
+  async *streamEach(
+    protocol: NativeProtocol,
+    baseURL: string,
+    apiKey: string,
+    req: LmpRequest
+  ): AsyncGenerator<LmpStreamEvent> {
+    const payload = translateRequest(protocol, req);
+    const cfg = { baseURL, apiKey };
+    const normalizer = new StreamNormalizer(protocol);
+    for await (const event of this.streamGen(protocol, cfg, req.model, payload)) {
+      for (const normalized of normalizer.push(event)) yield normalized;
+    }
+    for (const trailing of normalizer.finish()) yield trailing;
+  }
+
+  /** Buffers a whole stream; prefer {@link streamEach} for incremental delivery. */
   async stream(
     protocol: NativeProtocol,
     baseURL: string,
     apiKey: string,
     req: LmpRequest
   ): Promise<LmpStreamEvent[]> {
-    const payload = translateRequest(protocol, req);
-    const cfg = { baseURL, apiKey };
-    const collected: SseEvent[] = [];
-    const gen = this.streamGen(protocol, cfg, req.model, payload);
-    for await (const ev of gen) {
-      collected.push(ev);
+    const events: LmpStreamEvent[] = [];
+    for await (const event of this.streamEach(protocol, baseURL, apiKey, req)) {
+      events.push(event);
     }
-    return normalizeStreamEvents(protocol, collected);
+    return events;
   }
 
   private streamGen(

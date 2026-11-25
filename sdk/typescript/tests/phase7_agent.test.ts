@@ -214,7 +214,9 @@ test("Gemini replays signed parts and same-name parallel tool calls", async () =
         })),
       ],
     });
-    assert.deepEqual(final.content, [{ type: "text", text: "Osaka is 3 C warmer.", signature: undefined }]);
+    // An absent signature is omitted, not present as undefined, matching the
+    // Rust core (`skip_serializing_if = "Option::is_none"`).
+    assert.deepEqual(final.content, [{ type: "text", text: "Osaka is 3 C warmer." }]);
     assert.equal(final.usage.cacheReadTokens, 25);
     const [firstWire, lastWire] = seen as any[];
     assert.equal(firstWire.cachedContent, "cachedContents/mock-1");

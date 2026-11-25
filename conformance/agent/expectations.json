@@ -1,0 +1,673 @@
+{
+  "schemaVersion": "1.0",
+  "description": "Shared multi-turn tool-calling conformance set: one request shape, one normalized LMP response shape, and one streamed LMP aggregate per native protocol. Every SDK that implements LMP normalization must reproduce these values from the matching fixture in this directory.",
+  "protocols": [
+    "openai_chat_completions",
+    "openai_responses",
+    "anthropic_messages",
+    "google_gemini",
+    "google_vertex_ai",
+    "aws_bedrock",
+    "azure_openai",
+    "ollama",
+    "cohere"
+  ],
+  "requests": {
+    "multi-turn-tools": "requests/multi-turn-tools.json",
+    "multimodal-structured": "requests/multimodal-structured.json",
+    "forced-tool": "requests/forced-tool.json"
+  },
+  "responses": {
+    "openai_chat_completions": {
+      "id": "chatcmpl-agent-1",
+      "text": "Checking both.",
+      "thinking": "I need both readings.",
+      "thinkingSignature": null,
+      "toolCalls": [
+        {
+          "id": "call_tokyo",
+          "name": "get_weather",
+          "arguments": {
+            "city": "Tokyo"
+          }
+        },
+        {
+          "id": "call_osaka",
+          "name": "get_weather",
+          "arguments": {
+            "city": "Osaka"
+          }
+        }
+      ],
+      "finishReason": "tool_calls",
+      "usage": {
+        "inputTokens": 120,
+        "outputTokens": 30,
+        "totalTokens": 150,
+        "reasoningTokens": 12,
+        "cacheReadTokens": 40,
+        "cacheWriteTokens": null
+      },
+      "contentOrder": [
+        "thinking",
+        "text",
+        "tool_call",
+        "tool_call"
+      ]
+    },
+    "openai_responses": {
+      "id": "resp-agent-1",
+      "text": "Checking both.",
+      "thinking": "I need both readings.",
+      "thinkingSignature": "sig-think-1",
+      "toolCalls": [
+        {
+          "id": "call_tokyo",
+          "name": "get_weather",
+          "arguments": {
+            "city": "Tokyo"
+          }
+        },
+        {
+          "id": "call_osaka",
+          "name": "get_weather",
+          "arguments": {
+            "city": "Osaka"
+          }
+        }
+      ],
+      "finishReason": "completed",
+      "usage": {
+        "inputTokens": 120,
+        "outputTokens": 30,
+        "totalTokens": 150,
+        "reasoningTokens": 12,
+        "cacheReadTokens": 40,
+        "cacheWriteTokens": null
+      },
+      "contentOrder": [
+        "thinking",
+        "text",
+        "tool_call",
+        "tool_call"
+      ]
+    },
+    "anthropic_messages": {
+      "id": "msg_agent_1",
+      "text": "Checking both.",
+      "thinking": "I need both readings.",
+      "thinkingSignature": "sig-think-1",
+      "toolCalls": [
+        {
+          "id": "call_tokyo",
+          "name": "get_weather",
+          "arguments": {
+            "city": "Tokyo"
+          }
+        },
+        {
+          "id": "call_osaka",
+          "name": "get_weather",
+          "arguments": {
+            "city": "Osaka"
+          }
+        }
+      ],
+      "finishReason": "tool_use",
+      "usage": {
+        "inputTokens": 120,
+        "outputTokens": 30,
+        "totalTokens": 150,
+        "reasoningTokens": null,
+        "cacheReadTokens": 40,
+        "cacheWriteTokens": 0
+      },
+      "contentOrder": [
+        "thinking",
+        "text",
+        "tool_call",
+        "tool_call"
+      ]
+    },
+    "google_gemini": {
+      "id": null,
+      "text": "Checking both.",
+      "thinking": "I need both readings.",
+      "thinkingSignature": "sig-think-1",
+      "toolCalls": [
+        {
+          "id": "call_tokyo",
+          "name": "get_weather",
+          "arguments": {
+            "city": "Tokyo"
+          }
+        },
+        {
+          "id": "call_osaka",
+          "name": "get_weather",
+          "arguments": {
+            "city": "Osaka"
+          }
+        }
+      ],
+      "finishReason": "STOP",
+      "usage": {
+        "inputTokens": 120,
+        "outputTokens": 30,
+        "totalTokens": 150,
+        "reasoningTokens": 12,
+        "cacheReadTokens": 40,
+        "cacheWriteTokens": null
+      },
+      "contentOrder": [
+        "thinking",
+        "text",
+        "tool_call",
+        "tool_call"
+      ]
+    },
+    "google_vertex_ai": {
+      "id": null,
+      "text": "Checking both.",
+      "thinking": "I need both readings.",
+      "thinkingSignature": "sig-think-1",
+      "toolCalls": [
+        {
+          "id": "call_tokyo",
+          "name": "get_weather",
+          "arguments": {
+            "city": "Tokyo"
+          }
+        },
+        {
+          "id": "call_osaka",
+          "name": "get_weather",
+          "arguments": {
+            "city": "Osaka"
+          }
+        }
+      ],
+      "finishReason": "STOP",
+      "usage": {
+        "inputTokens": 120,
+        "outputTokens": 30,
+        "totalTokens": 150,
+        "reasoningTokens": 12,
+        "cacheReadTokens": 40,
+        "cacheWriteTokens": null
+      },
+      "contentOrder": [
+        "thinking",
+        "text",
+        "tool_call",
+        "tool_call"
+      ]
+    },
+    "aws_bedrock": {
+      "id": null,
+      "text": "Checking both.",
+      "thinking": "I need both readings.",
+      "thinkingSignature": "sig-think-1",
+      "toolCalls": [
+        {
+          "id": "call_tokyo",
+          "name": "get_weather",
+          "arguments": {
+            "city": "Tokyo"
+          }
+        },
+        {
+          "id": "call_osaka",
+          "name": "get_weather",
+          "arguments": {
+            "city": "Osaka"
+          }
+        }
+      ],
+      "finishReason": "tool_use",
+      "usage": {
+        "inputTokens": 120,
+        "outputTokens": 30,
+        "totalTokens": 150,
+        "reasoningTokens": null,
+        "cacheReadTokens": 40,
+        "cacheWriteTokens": 0
+      },
+      "contentOrder": [
+        "thinking",
+        "text",
+        "tool_call",
+        "tool_call"
+      ]
+    },
+    "azure_openai": {
+      "id": "chatcmpl-azure-agent-1",
+      "text": "Checking both.",
+      "thinking": "",
+      "thinkingSignature": null,
+      "toolCalls": [
+        {
+          "id": "call_tokyo",
+          "name": "get_weather",
+          "arguments": {
+            "city": "Tokyo"
+          }
+        },
+        {
+          "id": "call_osaka",
+          "name": "get_weather",
+          "arguments": {
+            "city": "Osaka"
+          }
+        }
+      ],
+      "finishReason": "tool_calls",
+      "usage": {
+        "inputTokens": 120,
+        "outputTokens": 30,
+        "totalTokens": 150,
+        "reasoningTokens": null,
+        "cacheReadTokens": 40,
+        "cacheWriteTokens": null
+      },
+      "contentOrder": [
+        "text",
+        "tool_call",
+        "tool_call"
+      ]
+    },
+    "ollama": {
+      "id": null,
+      "text": "Checking both.",
+      "thinking": "I need both readings.",
+      "thinkingSignature": null,
+      "toolCalls": [
+        {
+          "id": "ollama-call:0:get_weather",
+          "name": "get_weather",
+          "arguments": {
+            "city": "Tokyo"
+          }
+        },
+        {
+          "id": "ollama-call:1:get_weather",
+          "name": "get_weather",
+          "arguments": {
+            "city": "Osaka"
+          }
+        }
+      ],
+      "finishReason": "tool_calls",
+      "usage": {
+        "inputTokens": 120,
+        "outputTokens": 30,
+        "totalTokens": 150,
+        "reasoningTokens": null,
+        "cacheReadTokens": null,
+        "cacheWriteTokens": null
+      },
+      "contentOrder": [
+        "thinking",
+        "text",
+        "tool_call",
+        "tool_call"
+      ]
+    },
+    "cohere": {
+      "id": "cohere-agent-1",
+      "text": "Checking both.",
+      "thinking": "I need both readings.",
+      "thinkingSignature": null,
+      "toolCalls": [
+        {
+          "id": "call_tokyo",
+          "name": "get_weather",
+          "arguments": {
+            "city": "Tokyo"
+          }
+        },
+        {
+          "id": "call_osaka",
+          "name": "get_weather",
+          "arguments": {
+            "city": "Osaka"
+          }
+        }
+      ],
+      "finishReason": "TOOL_CALL",
+      "usage": {
+        "inputTokens": 120,
+        "outputTokens": 30,
+        "totalTokens": 150,
+        "reasoningTokens": null,
+        "cacheReadTokens": null,
+        "cacheWriteTokens": null
+      },
+      "contentOrder": [
+        "thinking",
+        "text",
+        "tool_call",
+        "tool_call"
+      ]
+    }
+  },
+  "streams": {
+    "openai_chat_completions": {
+      "id": null,
+      "text": "Checking both.",
+      "thinking": "I need both readings.",
+      "toolCalls": [
+        {
+          "index": 0,
+          "id": "call_tokyo",
+          "name": "get_weather",
+          "arguments": {
+            "city": "Tokyo"
+          }
+        },
+        {
+          "index": 1,
+          "id": "call_osaka",
+          "name": "get_weather",
+          "arguments": {
+            "city": "Osaka"
+          }
+        }
+      ],
+      "signatures": [],
+      "finishReason": "tool_calls",
+      "usage": {
+        "inputTokens": 120,
+        "outputTokens": 30,
+        "totalTokens": 150,
+        "reasoningTokens": 12,
+        "cacheReadTokens": 40,
+        "cacheWriteTokens": null
+      }
+    },
+    "openai_responses": {
+      "id": "resp-stream-1",
+      "text": "Checking both.",
+      "thinking": "I need both readings.",
+      "toolCalls": [
+        {
+          "index": 0,
+          "id": "call_tokyo",
+          "name": "get_weather",
+          "arguments": {
+            "city": "Tokyo"
+          }
+        },
+        {
+          "index": 1,
+          "id": "call_osaka",
+          "name": "get_weather",
+          "arguments": {
+            "city": "Osaka"
+          }
+        }
+      ],
+      "signatures": [],
+      "finishReason": "completed",
+      "usage": {
+        "inputTokens": 120,
+        "outputTokens": 30,
+        "totalTokens": 150,
+        "reasoningTokens": 12,
+        "cacheReadTokens": 40,
+        "cacheWriteTokens": null
+      }
+    },
+    "anthropic_messages": {
+      "id": "msg_stream_1",
+      "text": "Checking both.",
+      "thinking": "I need both readings.",
+      "toolCalls": [
+        {
+          "index": 2,
+          "id": "call_tokyo",
+          "name": "get_weather",
+          "arguments": {
+            "city": "Tokyo"
+          }
+        },
+        {
+          "index": 3,
+          "id": "call_osaka",
+          "name": "get_weather",
+          "arguments": {
+            "city": "Osaka"
+          }
+        }
+      ],
+      "signatures": [
+        [
+          "thinking",
+          "sig-think-1"
+        ]
+      ],
+      "finishReason": "tool_use",
+      "usage": {
+        "inputTokens": 120,
+        "outputTokens": 30,
+        "totalTokens": 150,
+        "reasoningTokens": null,
+        "cacheReadTokens": 40,
+        "cacheWriteTokens": null
+      }
+    },
+    "google_gemini": {
+      "id": null,
+      "text": "Checking both.",
+      "thinking": "I need both readings.",
+      "toolCalls": [
+        {
+          "index": 0,
+          "id": "call_tokyo",
+          "name": "get_weather",
+          "arguments": {
+            "city": "Tokyo"
+          }
+        },
+        {
+          "index": 1,
+          "id": "call_osaka",
+          "name": "get_weather",
+          "arguments": {
+            "city": "Osaka"
+          }
+        }
+      ],
+      "signatures": [
+        [
+          "thinking",
+          "sig-think-1"
+        ]
+      ],
+      "finishReason": "STOP",
+      "usage": {
+        "inputTokens": 120,
+        "outputTokens": 30,
+        "totalTokens": 150,
+        "reasoningTokens": 12,
+        "cacheReadTokens": 40,
+        "cacheWriteTokens": null
+      }
+    },
+    "google_vertex_ai": {
+      "id": null,
+      "text": "Checking both.",
+      "thinking": "I need both readings.",
+      "toolCalls": [
+        {
+          "index": 0,
+          "id": "call_tokyo",
+          "name": "get_weather",
+          "arguments": {
+            "city": "Tokyo"
+          }
+        },
+        {
+          "index": 1,
+          "id": "call_osaka",
+          "name": "get_weather",
+          "arguments": {
+            "city": "Osaka"
+          }
+        }
+      ],
+      "signatures": [
+        [
+          "thinking",
+          "sig-think-1"
+        ]
+      ],
+      "finishReason": "STOP",
+      "usage": {
+        "inputTokens": 120,
+        "outputTokens": 30,
+        "totalTokens": 150,
+        "reasoningTokens": 12,
+        "cacheReadTokens": 40,
+        "cacheWriteTokens": null
+      }
+    },
+    "aws_bedrock": {
+      "id": null,
+      "text": "Checking both.",
+      "thinking": "I need both readings.",
+      "toolCalls": [
+        {
+          "index": 2,
+          "id": "call_tokyo",
+          "name": "get_weather",
+          "arguments": {
+            "city": "Tokyo"
+          }
+        },
+        {
+          "index": 3,
+          "id": "call_osaka",
+          "name": "get_weather",
+          "arguments": {
+            "city": "Osaka"
+          }
+        }
+      ],
+      "signatures": [
+        [
+          "thinking",
+          "sig-think-1"
+        ]
+      ],
+      "finishReason": "tool_use",
+      "usage": {
+        "inputTokens": 120,
+        "outputTokens": 30,
+        "totalTokens": 150,
+        "reasoningTokens": null,
+        "cacheReadTokens": 40,
+        "cacheWriteTokens": 0
+      }
+    },
+    "azure_openai": {
+      "id": null,
+      "text": "Checking both.",
+      "thinking": "",
+      "toolCalls": [
+        {
+          "index": 0,
+          "id": "call_tokyo",
+          "name": "get_weather",
+          "arguments": {
+            "city": "Tokyo"
+          }
+        },
+        {
+          "index": 1,
+          "id": "call_osaka",
+          "name": "get_weather",
+          "arguments": {
+            "city": "Osaka"
+          }
+        }
+      ],
+      "signatures": [],
+      "finishReason": "tool_calls",
+      "usage": {
+        "inputTokens": 120,
+        "outputTokens": 30,
+        "totalTokens": 150,
+        "reasoningTokens": null,
+        "cacheReadTokens": 40,
+        "cacheWriteTokens": null
+      }
+    },
+    "ollama": {
+      "id": null,
+      "text": "Checking both.",
+      "thinking": "I need both readings.",
+      "toolCalls": [
+        {
+          "index": 0,
+          "id": "ollama-call:0:get_weather",
+          "name": "get_weather",
+          "arguments": {
+            "city": "Tokyo"
+          }
+        },
+        {
+          "index": 1,
+          "id": "ollama-call:1:get_weather",
+          "name": "get_weather",
+          "arguments": {
+            "city": "Osaka"
+          }
+        }
+      ],
+      "signatures": [],
+      "finishReason": "tool_calls",
+      "usage": {
+        "inputTokens": 120,
+        "outputTokens": 30,
+        "totalTokens": 150,
+        "reasoningTokens": null,
+        "cacheReadTokens": null,
+        "cacheWriteTokens": null
+      }
+    },
+    "cohere": {
+      "id": "cohere-stream-1",
+      "text": "Checking both.",
+      "thinking": "I need both readings.",
+      "toolCalls": [
+        {
+          "index": 0,
+          "id": "call_tokyo",
+          "name": "get_weather",
+          "arguments": {
+            "city": "Tokyo"
+          }
+        },
+        {
+          "index": 1,
+          "id": "call_osaka",
+          "name": "get_weather",
+          "arguments": {
+            "city": "Osaka"
+          }
+        }
+      ],
+      "signatures": [],
+      "finishReason": "TOOL_CALL",
+      "usage": {
+        "inputTokens": 120,
+        "outputTokens": 30,
+        "totalTokens": 150,
+        "reasoningTokens": null,
+        "cacheReadTokens": null,
+        "cacheWriteTokens": null
+      }
+    }
+  }
+}

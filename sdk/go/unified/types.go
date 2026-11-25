@@ -1,6 +1,9 @@
 package unified
 
-import "fmt"
+import (
+	"encoding/json"
+	"fmt"
+)
 
 // UnsupportedFeatureError is returned when a capability has no lossless mapping.
 type UnsupportedFeatureError struct {
@@ -35,6 +38,42 @@ type Message struct {
 	Content []ContentBlock `json:"content"`
 }
 
+// ToolChoice mirrors the LMP toolChoice union: one of the strings auto,
+// none, required, or an object {"tool": "<name>"}.
+type ToolChoice struct {
+	Kind string
+	Name string
+}
+
+// UnmarshalJSON accepts both wire shapes the LMP specification allows.
+func (t *ToolChoice) UnmarshalJSON(data []byte) error {
+	var name string
+	if err := json.Unmarshal(data, &name); err == nil {
+		switch name {
+		case "auto", "none", "required":
+			t.Kind, t.Name = name, ""
+			return nil
+		}
+		return fmt.Errorf("unsupported toolChoice %q", name)
+	}
+	var obj struct {
+		Tool string `json:"tool"`
+	}
+	if err := json.Unmarshal(data, &obj); err != nil || obj.Tool == "" {
+		return fmt.Errorf("invalid toolChoice")
+	}
+	t.Kind, t.Name = "tool", obj.Tool
+	return nil
+}
+
+// MarshalJSON reproduces the same two wire shapes.
+func (t ToolChoice) MarshalJSON() ([]byte, error) {
+	if t.Kind == "tool" {
+		return json.Marshal(map[string]string{"tool": t.Name})
+	}
+	return json.Marshal(t.Kind)
+}
+
 // ThinkingConfig configures reasoning effort or token budget.
 type ThinkingConfig struct {
 	Effort       string `json:"effort,omitempty"`
@@ -63,7 +102,7 @@ type Request struct {
 	MaxTokens          int64            `json:"maxTokens,omitempty"`
 	Temperature        *float64         `json:"temperature,omitempty"`
 	Tools              []ToolDefinition `json:"tools,omitempty"`
-	ToolChoice         any              `json:"toolChoice,omitempty"`
+	ToolChoice         *ToolChoice      `json:"toolChoice,omitempty"`
 	Thinking           *ThinkingConfig  `json:"thinking,omitempty"`
 	ResponseFormat     *ResponseFormat  `json:"responseFormat,omitempty"`
 	ProviderExtensions map[string]any   `json:"providerExtensions,omitempty"`
@@ -137,14 +176,20 @@ func (r *Response) ThinkingText() string {
 	return out
 }
 
-// StreamEvent represents a normalized streaming delta or lifecycle event.
+// StreamEvent represents a normalized LMP streaming delta or lifecycle event.
+//
+// Field names follow the LMP streaming contract: the discriminating field is
+// `type` in snake_case, every other field is camelCase.
 type StreamEvent struct {
-	Type           string
-	ID             string
-	Delta          string
-	FinishReason   string
-	Usage          *Usage
-	Index          *int   `json:",omitempty"`
-	Name           string `json:",omitempty"`
-	ArgumentsDelta string `json:",omitempty"`
+	Type           string `json:"type"`
+	ID             string `json:"id,omitempty"`
+	Delta          string `json:"delta,omitempty"`
+	Signature      string `json:"signature,omitempty"`
+	FinishReason   string `json:"finishReason,omitempty"`
+	Usage          *Usage `json:"usage,omitempty"`
+	Index          *int   `json:"index,omitempty"`
+	Name           string `json:"name,omitempty"`
+	ArgumentsDelta string `json:"argumentsDelta,omitempty"`
+	Code           string `json:"code,omitempty"`
+	Message        string `json:"message,omitempty"`
 }

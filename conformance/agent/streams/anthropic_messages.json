@@ -1,0 +1,92 @@
+{
+  "schemaVersion": "1.0",
+  "protocol": "anthropic_messages",
+  "framing": "sse",
+  "events": [
+    {
+      "event": null,
+      "data": "{\"type\":\"message_start\",\"message\":{\"id\":\"msg_stream_1\",\"model\":\"claude-sonnet-4-5\",\"usage\":{\"input_tokens\":120,\"output_tokens\":0}}}",
+      "id": null
+    },
+    {
+      "event": null,
+      "data": "{\"type\":\"content_block_start\",\"index\":0,\"content_block\":{\"type\":\"thinking\",\"thinking\":\"\",\"signature\":\"\"}}",
+      "id": null
+    },
+    {
+      "event": null,
+      "data": "{\"type\":\"content_block_delta\",\"index\":0,\"delta\":{\"type\":\"thinking_delta\",\"thinking\":\"I need both readings.\"}}",
+      "id": null
+    },
+    {
+      "event": null,
+      "data": "{\"type\":\"content_block_delta\",\"index\":0,\"delta\":{\"type\":\"signature_delta\",\"signature\":\"sig-think-1\"}}",
+      "id": null
+    },
+    {
+      "event": null,
+      "data": "{\"type\":\"content_block_stop\",\"index\":0}",
+      "id": null
+    },
+    {
+      "event": null,
+      "data": "{\"type\":\"content_block_start\",\"index\":1,\"content_block\":{\"type\":\"text\",\"text\":\"\"}}",
+      "id": null
+    },
+    {
+      "event": null,
+      "data": "{\"type\":\"content_block_delta\",\"index\":1,\"delta\":{\"type\":\"text_delta\",\"text\":\"Checking both.\"}}",
+      "id": null
+    },
+    {
+      "event": null,
+      "data": "{\"type\":\"content_block_stop\",\"index\":1}",
+      "id": null
+    },
+    {
+      "event": null,
+      "data": "{\"type\":\"content_block_start\",\"index\":2,\"content_block\":{\"type\":\"tool_use\",\"id\":\"call_tokyo\",\"name\":\"get_weather\",\"input\":{}}}",
+      "id": null
+    },
+    {
+      "event": null,
+      "data": "{\"type\":\"content_block_delta\",\"index\":2,\"delta\":{\"type\":\"input_json_delta\",\"partial_json\":\"{\\\"city\\\":\"}}",
+      "id": null
+    },
+    {
+      "event": null,
+      "data": "{\"type\":\"content_block_delta\",\"index\":2,\"delta\":{\"type\":\"input_json_delta\",\"partial_json\":\"\\\"Tokyo\\\"}\"}}",
+      "id": null
+    },
+    {
+      "event": null,
+      "data": "{\"type\":\"content_block_stop\",\"index\":2}",
+      "id": null
+    },
+    {
+      "event": null,
+      "data": "{\"type\":\"content_block_start\",\"index\":3,\"content_block\":{\"type\":\"tool_use\",\"id\":\"call_osaka\",\"name\":\"get_weather\",\"input\":{}}}",
+      "id": null
+    },
+    {
+      "event": null,
+      "data": "{\"type\":\"content_block_delta\",\"index\":3,\"delta\":{\"type\":\"input_json_delta\",\"partial_json\":\"{\\\"city\\\":\\\"Osaka\\\"}\"}}",
+      "id": null
+    },
+    {
+      "event": null,
+      "data": "{\"type\":\"content_block_stop\",\"index\":3}",
+      "id": null
+    },
+    {
+      "event": null,
+      "data": "{\"type\":\"message_delta\",\"delta\":{\"stop_reason\":\"tool_use\"},\"usage\":{\"output_tokens\":30,\"cache_read_input_tokens\":40}}",
+      "id": null
+    },
+    {
+      "event": null,
+      "data": "{\"type\":\"message_stop\"}",
+      "id": null
+    }
+  ]
+}

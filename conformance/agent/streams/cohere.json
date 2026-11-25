@@ -1,0 +1,67 @@
+{
+  "schemaVersion": "1.0",
+  "protocol": "cohere",
+  "framing": "sse",
+  "events": [
+    {
+      "event": null,
+      "data": "{\"type\":\"message-start\",\"id\":\"cohere-stream-1\",\"delta\":{\"message\":{\"role\":\"assistant\",\"content\":[]}}}",
+      "id": null
+    },
+    {
+      "event": null,
+      "data": "{\"type\":\"content-delta\",\"index\":0,\"delta\":{\"message\":{\"content\":{\"thinking\":\"I need both readings.\"}}}}",
+      "id": null
+    },
+    {
+      "event": null,
+      "data": "{\"type\":\"content-delta\",\"index\":0,\"delta\":{\"message\":{\"content\":{\"text\":\"Checking both.\"}}}}",
+      "id": null
+    },
+    {
+      "event": null,
+      "data": "{\"type\":\"tool-plan-delta\",\"delta\":{\"message\":{\"tool_plan\":\"I will query both cities.\"}}}",
+      "id": null
+    },
+    {
+      "event": null,
+      "data": "{\"type\":\"tool-call-start\",\"index\":0,\"delta\":{\"message\":{\"tool_calls\":{\"id\":\"call_tokyo\",\"type\":\"function\",\"function\":{\"name\":\"get_weather\",\"arguments\":\"\"}}}}}",
+      "id": null
+    },
+    {
+      "event": null,
+      "data": "{\"type\":\"tool-call-delta\",\"index\":0,\"delta\":{\"message\":{\"tool_calls\":{\"function\":{\"arguments\":\"{\\\"city\\\":\"}}}}}",
+      "id": null
+    },
+    {
+      "event": null,
+      "data": "{\"type\":\"tool-call-delta\",\"index\":0,\"delta\":{\"message\":{\"tool_calls\":{\"function\":{\"arguments\":\"\\\"Tokyo\\\"}\"}}}}}",
+      "id": null
+    },
+    {
+      "event": null,
+      "data": "{\"type\":\"tool-call-end\",\"index\":0}",
+      "id": null
+    },
+    {
+      "event": null,
+      "data": "{\"type\":\"tool-call-start\",\"index\":1,\"delta\":{\"message\":{\"tool_calls\":{\"id\":\"call_osaka\",\"type\":\"function\",\"function\":{\"name\":\"get_weather\",\"arguments\":\"\"}}}}}",
+      "id": null
+    },
+    {
+      "event": null,
+      "data": "{\"type\":\"tool-call-delta\",\"index\":1,\"delta\":{\"message\":{\"tool_calls\":{\"function\":{\"arguments\":\"{\\\"city\\\":\\\"Osaka\\\"}\"}}}}}",
+      "id": null
+    },
+    {
+      "event": null,
+      "data": "{\"type\":\"tool-call-end\",\"index\":1}",
+      "id": null
+    },
+    {
+      "event": null,
+      "data": "{\"type\":\"message-end\",\"delta\":{\"finish_reason\":\"TOOL_CALL\",\"usage\":{\"tokens\":{\"input_tokens\":120,\"output_tokens\":30}}}}",
+      "id": null
+    }
+  ]
+}

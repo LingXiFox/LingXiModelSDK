@@ -1,0 +1,100 @@
+{
+  "schemaVersion": "1.0",
+  "id": "multi_turn_tools",
+  "description": "Assistant returns thinking + two parallel tool calls, caller sends both results back, assistant answers.",
+  "request": {
+    "model": "mock-1",
+    "messages": [
+      {
+        "role": "system",
+        "content": [
+          {
+            "type": "text",
+            "text": "You are a weather bot."
+          }
+        ]
+      },
+      {
+        "role": "user",
+        "content": [
+          {
+            "type": "text",
+            "text": "Compare Tokyo and Osaka."
+          }
+        ]
+      },
+      {
+        "role": "assistant",
+        "content": [
+          {
+            "type": "thinking",
+            "thinking": "I need both readings.",
+            "signature": "sig-think-1"
+          },
+          {
+            "type": "text",
+            "text": "Checking both."
+          },
+          {
+            "type": "tool_call",
+            "id": "call_tokyo",
+            "name": "get_weather",
+            "arguments": {
+              "city": "Tokyo"
+            }
+          },
+          {
+            "type": "tool_call",
+            "id": "call_osaka",
+            "name": "get_weather",
+            "arguments": {
+              "city": "Osaka"
+            }
+          }
+        ]
+      },
+      {
+        "role": "tool",
+        "content": [
+          {
+            "type": "tool_result",
+            "toolCallId": "call_tokyo",
+            "content": "18 C"
+          }
+        ]
+      },
+      {
+        "role": "tool",
+        "content": [
+          {
+            "type": "tool_result",
+            "toolCallId": "call_osaka",
+            "content": "21 C"
+          }
+        ]
+      }
+    ],
+    "tools": [
+      {
+        "name": "get_weather",
+        "description": "Read temperature",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "city": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "city"
+          ]
+        }
+      }
+    ],
+    "toolChoice": "auto",
+    "thinking": {
+      "effort": "low"
+    },
+    "maxTokens": 512
+  }
+}

@@ -68,6 +68,9 @@ pub struct StreamNormalizer {
     anthropic_tools: HashMap<usize, (Option<String>, Option<String>)>,
     /// Last finish reason observed, applied to the final message_end event.
     finish_reason: Option<String>,
+    /// Gemini/Vertex send one part per frame, so the part offset is always 0;
+    /// a monotonic counter keeps parallel tool calls distinguishable.
+    gemini_tool_calls: usize,
 }
 
 impl StreamNormalizer {
@@ -79,6 +82,7 @@ impl StreamNormalizer {
             usage: Usage::default(),
             anthropic_tools: HashMap::new(),
             finish_reason: None,
+            gemini_tool_calls: 0,
         }
     }
 
@@ -319,10 +323,12 @@ impl StreamNormalizer {
                     }
                     Some("thinking") => {
                         if let Some(signature) = block["signature"].as_str() {
-                            out.push(LmpStreamEvent::ThinkingDelta {
-                                delta: String::new(),
-                                signature: Some(signature.to_string()),
-                            });
+                            if !signature.is_empty() {
+                                out.push(LmpStreamEvent::ThinkingDelta {
+                                    delta: String::new(),
+                                    signature: Some(signature.to_string()),
+                                });
+                            }
                         }
                     }
                     _ => {}
@@ -366,10 +372,12 @@ impl StreamNormalizer {
                     }
                     Some("signature_delta") => {
                         if let Some(signature) = delta["signature"].as_str() {
-                            out.push(LmpStreamEvent::ThinkingDelta {
-                                delta: String::new(),
-                                signature: Some(signature.to_string()),
-                            });
+                            if !signature.is_empty() {
+                                out.push(LmpStreamEvent::ThinkingDelta {
+                                    delta: String::new(),
+                                    signature: Some(signature.to_string()),
+                                });
+                            }
                         }
                     }
                     _ => {}
@@ -392,7 +400,7 @@ impl StreamNormalizer {
     fn push_gemini(&mut self, value: &Value, out: &mut Vec<LmpStreamEvent>) {
         if let Some(candidate) = value["candidates"].get(0) {
             if let Some(parts) = candidate["content"]["parts"].as_array() {
-                for (index, part) in parts.iter().enumerate() {
+                for part in parts.iter() {
                     let signature = part["thoughtSignature"].as_str().map(ToString::to_string);
                     if let Some(text) = part["text"].as_str() {
                         if part["thought"].as_bool() == Some(true) {
@@ -407,6 +415,8 @@ impl StreamNormalizer {
                             });
                         }
                     } else if let Some(call) = part.get("functionCall") {
+                        let index = self.gemini_tool_calls;
+                        self.gemini_tool_calls += 1;
                         out.push(LmpStreamEvent::ToolCallDelta {
                             index,
                             id: call["id"].as_str().map(ToString::to_string),
@@ -435,6 +445,7 @@ impl StreamNormalizer {
                     total_tokens: usage["totalTokenCount"]
                         .as_u64()
                         .unwrap_or(input_tokens + output_tokens),
+                    reasoning_tokens: usage["thoughtsTokenCount"].as_u64(),
                     cache_read_tokens: usage["cachedContentTokenCount"].as_u64(),
                     ..Default::default()
                 },
@@ -532,6 +543,20 @@ impl StreamNormalizer {
                 });
             }
         }
+        if let Some(calls) = value["message"]["tool_calls"].as_array() {
+            for (position, call) in calls.iter().enumerate() {
+                let function = &call["function"];
+                let name = function["name"].as_str().unwrap_or("");
+                let index = function["index"].as_u64().unwrap_or(position as u64) as usize;
+                out.push(LmpStreamEvent::ToolCallDelta {
+                    index,
+                    id: Some(format!("ollama-call:{index}:{name}")),
+                    name: Some(name.to_string()),
+                    arguments_delta: function["arguments"].to_string(),
+                    signature: None,
+                });
+            }
+        }
         if value["done"].as_bool() == Some(true) {
             let input_tokens = value["prompt_eval_count"].as_u64().unwrap_or(0);
             let output_tokens = value["eval_count"].as_u64().unwrap_or(0);
@@ -563,6 +588,43 @@ impl StreamNormalizer {
             .or_else(|| value["type"].as_str())
             .unwrap_or("");
         match kind {
+            "message-start" => {
+                self.mark_started(value["id"].as_str().map(ToString::to_string), out);
+            }
+            "tool-call-start" => {
+                // Cohere announces each call (id + name) then streams its
+                // arguments in fragments; LMP keeps the same split.
+                let index = value["index"].as_u64().unwrap_or(0) as usize;
+                let call = &value["delta"]["message"]["tool_calls"];
+                let call = match call.as_array().and_then(|a| a.first()) {
+                    Some(call) => call,
+                    None => call,
+                };
+                out.push(LmpStreamEvent::ToolCallDelta {
+                    index,
+                    id: call["id"].as_str().map(ToString::to_string),
+                    name: call["function"]["name"].as_str().map(ToString::to_string),
+                    arguments_delta: String::new(),
+                    signature: None,
+                });
+            }
+            "tool-call-delta" => {
+                let index = value["index"].as_u64().unwrap_or(0) as usize;
+                if let Some(delta) =
+                    value["delta"]["message"]["tool_calls"]["function"]["arguments"].as_str()
+                {
+                    out.push(LmpStreamEvent::ToolCallDelta {
+                        index,
+                        id: None,
+                        name: None,
+                        arguments_delta: delta.to_string(),
+                        signature: None,
+                    });
+                }
+            }
+            // `tool-plan-delta` is Cohere's natural-language plan, not model
+            // reasoning, so it has no LMP event; `tool-call-end` closes a call
+            // whose deltas were already forwarded.
             "content-delta" => {
                 if let Some(text) = value["delta"]["message"]["content"]["text"].as_str() {
                     out.push(LmpStreamEvent::TextDelta {
@@ -650,7 +712,10 @@ fn to_openai_chat(req: &LmpRequest) -> Result<Value, LmpError> {
         let mut multi_parts = Vec::new();
         let mut has_non_text = false;
         let mut tool_calls = Vec::new();
-        let mut tool_call_id = None;
+        // OpenAI Chat carries one tool result per message. Every ToolResult
+        // block therefore becomes its own role=tool message; folding them into
+        // the surrounding message dropped all but the last call id.
+        let mut tool_results = Vec::new();
 
         for block in &msg.content {
             match block {
@@ -681,8 +746,7 @@ fn to_openai_chat(req: &LmpRequest) -> Result<Value, LmpError> {
                     content,
                     ..
                 } => {
-                    tool_call_id = Some(id.clone());
-                    text_parts.push(content.clone());
+                    tool_results.push((id.clone(), content.clone()));
                 }
                 ContentBlock::Audio { .. } => {
                     return Err(LmpError::UnsupportedFeature {
@@ -693,20 +757,22 @@ fn to_openai_chat(req: &LmpRequest) -> Result<Value, LmpError> {
                 ContentBlock::Thinking { .. } => {}
             }
         }
-        let mut m = Map::new();
-        m.insert("role".into(), json!(role));
-        if has_non_text {
-            m.insert("content".into(), Value::Array(multi_parts));
-        } else {
-            m.insert("content".into(), json!(text_parts.join("")));
+        if !text_parts.is_empty() || has_non_text || !tool_calls.is_empty() {
+            let mut m = Map::new();
+            m.insert("role".into(), json!(role));
+            if has_non_text {
+                m.insert("content".into(), Value::Array(multi_parts));
+            } else {
+                m.insert("content".into(), json!(text_parts.join("")));
+            }
+            if !tool_calls.is_empty() {
+                m.insert("tool_calls".into(), Value::Array(tool_calls));
+            }
+            messages.push(Value::Object(m));
         }
-        if !tool_calls.is_empty() {
-            m.insert("tool_calls".into(), Value::Array(tool_calls));
+        for (id, content) in tool_results {
+            messages.push(json!({"role": "tool", "tool_call_id": id, "content": content}));
         }
-        if let Some(id) = tool_call_id {
-            m.insert("tool_call_id".into(), json!(id));
-        }
-        messages.push(Value::Object(m));
     }
 
     let mut body = Map::new();
@@ -790,6 +856,10 @@ fn to_openai_responses(req: &LmpRequest) -> Result<Value, LmpError> {
             Role::Assistant => "assistant",
             Role::Tool => "user",
         };
+        // Responses replays a turn as separate input items instead of one
+        // message. Text/image parts stay inside a role item, while reasoning and
+        // function_call items must be emitted in their original order or the
+        // model loses the reasoning state and the tool call it produced.
         let mut parts = Vec::new();
         for b in &msg.content {
             match b {
@@ -798,6 +868,48 @@ fn to_openai_responses(req: &LmpRequest) -> Result<Value, LmpError> {
                 }
                 ContentBlock::ImageUrl { url } => {
                     parts.push(json!({"type": "input_image", "image_url": url}));
+                }
+                ContentBlock::ImageBase64 { media_type, data } => {
+                    parts.push(json!({
+                        "type": "input_image",
+                        "image_url": format!("data:{media_type};base64,{data}")
+                    }));
+                }
+                ContentBlock::Thinking {
+                    thinking,
+                    signature,
+                } => {
+                    if !parts.is_empty() {
+                        input.push(json!({"role": role, "content": parts}));
+                        parts = Vec::new();
+                    }
+                    // `signature` carries the opaque `encrypted_content` token so a
+                    // stateless replay (store=false) keeps working reasoning state.
+                    let mut item = json!({
+                        "type": "reasoning",
+                        "summary": [{"type": "summary_text", "text": thinking}]
+                    });
+                    if let Some(sig) = signature {
+                        item["encrypted_content"] = json!(sig);
+                    }
+                    input.push(item);
+                }
+                ContentBlock::ToolCall {
+                    id,
+                    name,
+                    arguments,
+                    ..
+                } => {
+                    if !parts.is_empty() {
+                        input.push(json!({"role": role, "content": parts}));
+                        parts = Vec::new();
+                    }
+                    input.push(json!({
+                        "type": "function_call",
+                        "call_id": id,
+                        "name": name,
+                        "arguments": arguments.to_string()
+                    }));
                 }
                 ContentBlock::ToolResult {
                     tool_call_id,
@@ -810,7 +922,12 @@ fn to_openai_responses(req: &LmpRequest) -> Result<Value, LmpError> {
                         "output": content
                     }));
                 }
-                _ => {}
+                ContentBlock::Audio { .. } => {
+                    return Err(LmpError::UnsupportedFeature {
+                        protocol: "openai_responses".into(),
+                        feature: "audio_block".into(),
+                    });
+                }
             }
         }
         if !parts.is_empty() {
@@ -863,8 +980,22 @@ fn to_anthropic_messages(req: &LmpRequest) -> Result<Value, LmpError> {
             feature: "json_schema".into(),
         });
     }
+    // Anthropic rejects forced tool use (`any` / `tool`) together with manual
+    // extended thinking. Report it here instead of forwarding a request the
+    // provider answers with an opaque 400.
+    if req.thinking.as_ref().and_then(|t| t.budget_tokens).is_some()
+        && matches!(
+            req.tool_choice,
+            Some(ToolChoice::Required | ToolChoice::Tool(_))
+        )
+    {
+        return Err(LmpError::UnsupportedFeature {
+            protocol: "anthropic_messages".into(),
+            feature: "forced_tool_choice_with_thinking".into(),
+        });
+    }
     let mut system_parts = Vec::new();
-    let mut messages = Vec::new();
+    let mut messages: Vec<Value> = Vec::new();
     for msg in &req.messages {
         if msg.role == Role::System {
             for b in &msg.content {
@@ -930,6 +1061,17 @@ fn to_anthropic_messages(req: &LmpRequest) -> Result<Value, LmpError> {
                 }
             }
         }
+        // Anthropic expects every tool_result for one assistant turn inside a
+        // single user message; consecutive same-role turns are merged here so a
+        // caller that emits one LMP tool message per result still gets one.
+        if let Some(last) = messages.last_mut() {
+            if last["role"] == json!(role) {
+                if let Some(existing) = last["content"].as_array_mut() {
+                    existing.extend(blocks.into_iter());
+                    continue;
+                }
+            }
+        }
         messages.push(json!({"role": role, "content": blocks}));
     }
 
@@ -949,6 +1091,11 @@ fn to_anthropic_messages(req: &LmpRequest) -> Result<Value, LmpError> {
             json!({"type": "enabled", "budget_tokens": budget}),
         );
     }
+    // Anthropic steers thinking depth through `output_config.effort` on models
+    // that support it; there is no per-request budget equivalent for `effort`.
+    if let Some(effort) = req.thinking.as_ref().and_then(|t| t.effort.as_deref()) {
+        body.insert("output_config".into(), json!({"effort": effort}));
+    }
     if !req.tools.is_empty() {
         let tools: Vec<Value> = req
             .tools
@@ -962,6 +1109,17 @@ fn to_anthropic_messages(req: &LmpRequest) -> Result<Value, LmpError> {
             })
             .collect();
         body.insert("tools".into(), Value::Array(tools));
+    }
+    if let Some(ref tc) = req.tool_choice {
+        body.insert(
+            "tool_choice".into(),
+            match tc {
+                ToolChoice::Auto => json!({"type": "auto"}),
+                ToolChoice::None => json!({"type": "none"}),
+                ToolChoice::Required => json!({"type": "any"}),
+                ToolChoice::Tool(name) => json!({"type": "tool", "name": name}),
+            },
+        );
     }
     Ok(Value::Object(body))
 }
@@ -1083,8 +1241,32 @@ fn to_google_gemini(protocol: NativeProtocol, req: &LmpRequest) -> Result<Value,
             .collect();
         body.insert("tools".into(), json!([{"functionDeclarations": decls}]));
     }
-    if req.tool_choice.is_some() {
-        return Err(unsupported("tool_choice"));
+    if let Some(ref tc) = req.tool_choice {
+        if req.tools.is_empty() {
+            return Err(unsupported("tool_choice_without_tools"));
+        }
+        // Gemini's toolConfig is the only way to force a call; `any` can be
+        // narrowed to a single function via allowedFunctionNames.
+        let mut config = Map::new();
+        match tc {
+            ToolChoice::Auto => {
+                config.insert("mode".into(), json!("AUTO"));
+            }
+            ToolChoice::None => {
+                config.insert("mode".into(), json!("NONE"));
+            }
+            ToolChoice::Required => {
+                config.insert("mode".into(), json!("ANY"));
+            }
+            ToolChoice::Tool(name) => {
+                config.insert("mode".into(), json!("ANY"));
+                config.insert("allowedFunctionNames".into(), json!([name]));
+            }
+        }
+        body.insert(
+            "toolConfig".into(),
+            json!({"functionCallingConfig": Value::Object(config)}),
+        );
     }
     Ok(Value::Object(body))
 }
@@ -1145,10 +1327,15 @@ fn from_openai_responses(raw: &Value) -> Result<LmpResponse, LmpError> {
                             .filter_map(|s| s["text"].as_str())
                             .collect::<Vec<_>>()
                             .join("\n");
-                        if !text.is_empty() {
+                        // Keep the encrypted reasoning token: it is what makes a
+                        // stateless replay of this turn preserve reasoning state.
+                        let signature = item["encrypted_content"]
+                            .as_str()
+                            .map(ToString::to_string);
+                        if !text.is_empty() || signature.is_some() {
                             content.push(ContentBlock::Thinking {
                                 thinking: text,
-                                signature: None,
+                                signature,
                             });
                         }
                     }
@@ -1340,13 +1527,39 @@ fn to_aws_bedrock(req: &LmpRequest) -> Result<Value, LmpError> {
                         }
                     }));
                 }
+                ContentBlock::ImageBase64 { media_type, data } => {
+                    // Bedrock Converse takes inline bytes plus a format enum, not a
+                    // media type; an unknown format must fail loudly.
+                    let format = match media_type.as_str() {
+                        "image/png" => "png",
+                        "image/jpeg" => "jpeg",
+                        "image/gif" => "gif",
+                        "image/webp" => "webp",
+                        other => {
+                            return Err(LmpError::UnsupportedFeature {
+                                protocol: "aws_bedrock".into(),
+                                feature: format!("image_media_type:{other}"),
+                            })
+                        }
+                    };
+                    blocks.push(json!({
+                        "image": {"format": format, "source": {"bytes": data}}
+                    }));
+                }
+                // Bedrock accepts inline bytes or an S3 location only, so an LMP
+                // image URL has no lossless mapping.
+                ContentBlock::ImageUrl { .. } => {
+                    return Err(LmpError::UnsupportedFeature {
+                        protocol: "aws_bedrock".into(),
+                        feature: "image_url".into(),
+                    });
+                }
                 ContentBlock::Audio { .. } => {
                     return Err(LmpError::UnsupportedFeature {
                         protocol: "aws_bedrock".into(),
                         feature: "audio_input".into(),
                     });
                 }
-                _ => {}
             }
         }
         messages.push(json!({"role": role, "content": blocks}));
@@ -1380,7 +1593,24 @@ fn to_aws_bedrock(req: &LmpRequest) -> Result<Value, LmpError> {
                 })
             })
             .collect();
-        body.insert("toolConfig".into(), json!({"tools": tools}));
+        let mut config = Map::new();
+        config.insert("tools".into(), Value::Array(tools));
+        if let Some(ref tc) = req.tool_choice {
+            // Bedrock models decide whether they honour a forced choice; the
+            // wire shape is a one-member union. `none` has no Bedrock
+            // equivalent, so it must fail loudly rather than silently degrade.
+            let choice = match tc {
+                ToolChoice::Auto => json!({"auto": {}}),
+                ToolChoice::Required => json!({"any": {}}),
+                ToolChoice::Tool(name) => json!({"tool": {"name": name}}),
+                ToolChoice::None => return Err(LmpError::UnsupportedFeature {
+                    protocol: "aws_bedrock".into(),
+                    feature: "tool_choice_none".into(),
+                }),
+            };
+            config.insert("toolChoice".into(), choice);
+        }
+        body.insert("toolConfig".into(), Value::Object(config));
     }
     if let Some(ref t) = req.thinking {
         if let Some(budget) = t.budget_tokens {
@@ -1439,6 +1669,23 @@ fn to_ollama_chat(req: &LmpRequest) -> Result<Value, LmpError> {
             feature: "json_schema_strict".into(),
         });
     }
+    // Ollama has no tool_choice field; `auto` is the default behaviour and `none`
+    // is expressed by withholding the declarations. Forcing a specific call is
+    // not representable, so it must fail loudly.
+    let mut declare_tools = !req.tools.is_empty();
+    match req.tool_choice {
+        None | Some(ToolChoice::Auto) => {}
+        Some(ToolChoice::None) => declare_tools = false,
+        Some(ToolChoice::Required | ToolChoice::Tool(_)) => {
+            return Err(LmpError::UnsupportedFeature {
+                protocol: "ollama".into(),
+                feature: "tool_choice".into(),
+            });
+        }
+    }
+    // Ollama correlates a tool result with its call through the function name,
+    // so remember which call produced each id while replaying the turn.
+    let mut call_names = HashMap::new();
     let mut messages = Vec::new();
     for msg in &req.messages {
         let role = match msg.role {
@@ -1448,26 +1695,61 @@ fn to_ollama_chat(req: &LmpRequest) -> Result<Value, LmpError> {
             Role::Tool => "tool",
         };
         let mut text = String::new();
+        let mut thinking = String::new();
         let mut images = Vec::new();
+        let mut tool_calls = Vec::new();
+        let mut tool_results = Vec::new();
         for b in &msg.content {
             match b {
-                ContentBlock::Text { text: t, signature: None } => text.push_str(t),
+                ContentBlock::Text { text: t, .. } => text.push_str(t),
+                ContentBlock::Thinking { thinking: t, .. } => thinking.push_str(t),
                 ContentBlock::ImageBase64 { data, .. } => images.push(json!(data)),
-                ContentBlock::ToolResult { content, .. } => text.push_str(content),
+                // Ollama accepts either raw base64 or a remote URL in `images`.
+                ContentBlock::ImageUrl { url } => images.push(json!(url)),
+                ContentBlock::ToolCall { id, name, arguments, .. } => {
+                    call_names.insert(id.clone(), name.clone());
+                    // Ollama expects the arguments as a JSON object, not a string.
+                    tool_calls.push(json!({
+                        "type": "function",
+                        "function": {
+                            "index": tool_calls.len(),
+                            "name": name,
+                            "arguments": arguments
+                        }
+                    }));
+                }
+                ContentBlock::ToolResult { tool_call_id, content, .. } => {
+                    let name = call_names.get(tool_call_id).cloned().unwrap_or_default();
+                    tool_results.push((name, content.clone()));
+                }
                 ContentBlock::Audio { .. } => {
                     return Err(LmpError::UnsupportedFeature {
                         protocol: "ollama".into(),
                         feature: "audio_input".into(),
                     });
                 }
-                _ => {}
             }
         }
-        let mut m = json!({"role": role, "content": text});
-        if !images.is_empty() {
-            m["images"] = Value::Array(images);
+        if !text.is_empty() || !thinking.is_empty() || !images.is_empty() || !tool_calls.is_empty() {
+            let mut m = json!({"role": role, "content": text});
+            if !thinking.is_empty() {
+                m["thinking"] = json!(thinking);
+            }
+            if !images.is_empty() {
+                m["images"] = Value::Array(images);
+            }
+            if !tool_calls.is_empty() {
+                m["tool_calls"] = Value::Array(tool_calls);
+            }
+            messages.push(m);
         }
-        messages.push(m);
+        for (name, content) in tool_results {
+            let mut m = json!({"role": "tool", "content": content});
+            if !name.is_empty() {
+                m["tool_name"] = json!(name);
+            }
+            messages.push(m);
+        }
     }
     let mut body = Map::new();
     body.insert("model".into(), json!(req.model));
@@ -1478,8 +1760,40 @@ fn to_ollama_chat(req: &LmpRequest) -> Result<Value, LmpError> {
             body.insert("format".into(), json!("json"));
         }
     }
-    if req.thinking.is_some() {
-        body.insert("think".into(), json!(true));
+    if declare_tools {
+        let tools: Vec<Value> = req
+            .tools
+            .iter()
+            .map(|t| {
+                json!({
+                    "type": "function",
+                    "function": {
+                        "name": t.name,
+                        "description": t.description,
+                        "parameters": t.parameters
+                    }
+                })
+            })
+            .collect();
+        body.insert("tools".into(), Value::Array(tools));
+    }
+    // `think` accepts a boolean or one of the model's advertised level names.
+    match req.thinking.as_ref() {
+        None => {}
+        Some(t) => match t.effort.as_deref() {
+            Some(effort @ ("minimal" | "low" | "medium" | "high")) => {
+                body.insert("think".into(), json!(effort));
+            }
+            Some(_) => {
+                return Err(LmpError::UnsupportedFeature {
+                    protocol: "ollama".into(),
+                    feature: "thinking_effort".into(),
+                });
+            }
+            None => {
+                body.insert("think".into(), json!(true));
+            }
+        },
     }
     let mut opts = Map::new();
     if let Some(temp) = req.temperature {
@@ -1509,6 +1823,21 @@ fn from_ollama_chat(raw: &Value) -> Result<LmpResponse, LmpError> {
             content.push(ContentBlock::Text { text: txt.to_string(), signature: None });
         }
     }
+    // Ollama returns `function.arguments` as an object and no call id, so the
+    // positional index doubles as the LMP tool call id (see to_ollama_chat).
+    if let Some(calls) = raw["message"]["tool_calls"].as_array() {
+        for (position, call) in calls.iter().enumerate() {
+            let function = &call["function"];
+            let name = function["name"].as_str().unwrap_or("");
+            let index = function["index"].as_u64().unwrap_or(position as u64);
+            content.push(ContentBlock::ToolCall {
+                id: format!("ollama-call:{index}:{name}"),
+                name: name.to_string(),
+                arguments: function["arguments"].clone(),
+                signature: None,
+            });
+        }
+    }
     let input_tokens = raw["prompt_eval_count"].as_u64().unwrap_or(0);
     let output_tokens = raw["eval_count"].as_u64().unwrap_or(0);
     Ok(LmpResponse {
@@ -1536,20 +1865,77 @@ fn to_cohere_chat(req: &LmpRequest) -> Result<Value, LmpError> {
             Role::Tool => "tool",
         };
         let mut text = String::new();
+        let mut thinking = String::new();
+        let mut images = Vec::new();
+        let mut tool_calls = Vec::new();
+        let mut tool_results = Vec::new();
         for b in &msg.content {
             match b {
-                ContentBlock::Text { text: t, signature: None } => text.push_str(t),
-                ContentBlock::ToolResult { content, .. } => text.push_str(content),
+                ContentBlock::Text { text: t, .. } => text.push_str(t),
+                ContentBlock::Thinking { thinking: t, .. } => thinking.push_str(t),
+                ContentBlock::ImageUrl { url } => {
+                    images.push(json!({"type": "image_url", "image_url": {"url": url}}));
+                }
+                ContentBlock::ToolCall { id, name, arguments, .. } => {
+                    tool_calls.push(json!({
+                        "id": id,
+                        "type": "function",
+                        "function": {"name": name, "arguments": arguments.to_string()}
+                    }));
+                }
+                ContentBlock::ToolResult { tool_call_id, content, .. } => {
+                    tool_results.push((tool_call_id.clone(), content.clone()));
+                }
                 ContentBlock::Audio { .. } => {
                     return Err(LmpError::UnsupportedFeature {
                         protocol: "cohere".into(),
                         feature: "audio_input".into(),
                     });
                 }
-                _ => {}
+                ContentBlock::ImageBase64 { .. } => {
+                    return Err(LmpError::UnsupportedFeature {
+                        protocol: "cohere".into(),
+                        feature: "image_base64".into(),
+                    });
+                }
             }
         }
-        messages.push(json!({"role": role, "content": text}));
+        if role == "assistant" {
+            let mut m = Map::new();
+            m.insert("role".into(), json!("assistant"));
+            let mut blocks = Vec::new();
+            if !thinking.is_empty() {
+                blocks.push(json!({"type": "thinking", "thinking": thinking}));
+            }
+            if !text.is_empty() {
+                blocks.push(json!({"type": "text", "text": text}));
+            }
+            if !blocks.is_empty() {
+                m.insert("content".into(), Value::Array(blocks));
+            }
+            if !tool_calls.is_empty() {
+                m.insert("tool_calls".into(), Value::Array(tool_calls));
+            }
+            messages.push(Value::Object(m));
+        } else if images.is_empty() {
+            if !text.is_empty() {
+                messages.push(json!({"role": role, "content": text}));
+            }
+        } else {
+            let mut blocks = Vec::new();
+            if !text.is_empty() {
+                blocks.push(json!({"type": "text", "text": text}));
+            }
+            blocks.extend(images);
+            messages.push(json!({"role": role, "content": blocks}));
+        }
+        for (id, content) in tool_results {
+            messages.push(json!({
+                "role": "tool",
+                "tool_call_id": id,
+                "content": [{"type": "document", "document": {"data": content}}]
+            }));
+        }
     }
     let mut body = Map::new();
     body.insert("model".into(), json!(req.model));
@@ -1559,6 +1945,63 @@ fn to_cohere_chat(req: &LmpRequest) -> Result<Value, LmpError> {
     }
     if let Some(temp) = req.temperature {
         body.insert("temperature".into(), json!(temp));
+    }
+    if !req.tools.is_empty() {
+        let tools: Vec<Value> = req
+            .tools
+            .iter()
+            .map(|t| {
+                json!({
+                    "type": "function",
+                    "function": {
+                        "name": t.name,
+                        "description": t.description,
+                        "parameters": t.parameters
+                    }
+                })
+            })
+            .collect();
+        body.insert("tools".into(), Value::Array(tools));
+    }
+    if let Some(ref tc) = req.tool_choice {
+        // Cohere only models a binary switch (REQUIRED / NONE). `auto` is
+        // Cohere's default, so it omits the field instead of sending NONE,
+        // which would disable tool calling outright. `tool` has no
+        // representation at all.
+        let choice = match tc {
+            ToolChoice::Required => Some(json!("REQUIRED")),
+            ToolChoice::None => Some(json!("NONE")),
+            ToolChoice::Auto => None,
+            ToolChoice::Tool(_) => {
+                return Err(LmpError::UnsupportedFeature {
+                    protocol: "cohere".into(),
+                    feature: "tool_choice_tool".into(),
+                });
+            }
+        };
+        if let Some(choice) = choice {
+            if req.tools.is_empty() {
+                return Err(LmpError::UnsupportedFeature {
+                    protocol: "cohere".into(),
+                    feature: "tool_choice_without_tools".into(),
+                });
+            }
+            body.insert("tool_choice".into(), choice);
+        }
+    }
+    if let Some(ref rf) = req.response_format {
+        match rf {
+            ResponseFormat::Text => {}
+            ResponseFormat::JsonObject => {
+                body.insert("response_format".into(), json!({"type": "json_object"}));
+            }
+            ResponseFormat::JsonSchema { schema, .. } => {
+                body.insert(
+                    "response_format".into(),
+                    json!({"type": "json_object", "json_schema": schema}),
+                );
+            }
+        }
     }
     if let Some(ref t) = req.thinking {
         let mut th = json!({"type": "enabled"});
@@ -1590,6 +2033,20 @@ fn from_cohere_chat(raw: &Value) -> Result<LmpResponse, LmpError> {
                 }
                 _ => {}
             }
+        }
+    }
+    if let Some(calls) = raw["message"]["tool_calls"].as_array() {
+        for call in calls {
+            let function = &call["function"];
+            content.push(ContentBlock::ToolCall {
+                id: call["id"].as_str().unwrap_or("").to_string(),
+                name: function["name"].as_str().unwrap_or("").to_string(),
+                arguments: function["arguments"]
+                    .as_str()
+                    .and_then(|s| serde_json::from_str(s).ok())
+                    .unwrap_or_else(|| json!({})),
+                signature: None,
+            });
         }
     }
     let tokens = &raw["usage"]["tokens"];

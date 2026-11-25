@@ -1,0 +1,55 @@
+{
+  "id": "resp-agent-1",
+  "object": "response",
+  "status": "completed",
+  "model": "mock-1",
+  "output": [
+    {
+      "type": "reasoning",
+      "id": "rs_agent_1",
+      "summary": [
+        {
+          "type": "summary_text",
+          "text": "I need both readings."
+        }
+      ],
+      "encrypted_content": "sig-think-1"
+    },
+    {
+      "type": "message",
+      "id": "msg_agent_1",
+      "role": "assistant",
+      "content": [
+        {
+          "type": "output_text",
+          "text": "Checking both."
+        }
+      ]
+    },
+    {
+      "type": "function_call",
+      "id": "fc_agent_1",
+      "call_id": "call_tokyo",
+      "name": "get_weather",
+      "arguments": "{\"city\":\"Tokyo\"}"
+    },
+    {
+      "type": "function_call",
+      "id": "fc_agent_2",
+      "call_id": "call_osaka",
+      "name": "get_weather",
+      "arguments": "{\"city\":\"Osaka\"}"
+    }
+  ],
+  "usage": {
+    "input_tokens": 120,
+    "output_tokens": 30,
+    "total_tokens": 150,
+    "input_tokens_details": {
+      "cached_tokens": 40
+    },
+    "output_tokens_details": {
+      "reasoning_tokens": 12
+    }
+  }
+}

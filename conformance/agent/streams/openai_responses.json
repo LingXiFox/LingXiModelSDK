@@ -1,0 +1,57 @@
+{
+  "schemaVersion": "1.0",
+  "protocol": "openai_responses",
+  "framing": "sse",
+  "events": [
+    {
+      "event": null,
+      "data": "{\"type\":\"response.created\",\"response\":{\"id\":\"resp-stream-1\",\"model\":\"mock-1\"}}",
+      "id": null
+    },
+    {
+      "event": null,
+      "data": "{\"type\":\"response.reasoning_summary_text.delta\",\"delta\":\"I need both readings.\"}",
+      "id": null
+    },
+    {
+      "event": null,
+      "data": "{\"type\":\"response.output_text.delta\",\"delta\":\"Checking both.\"}",
+      "id": null
+    },
+    {
+      "event": null,
+      "data": "{\"type\":\"response.output_item.added\",\"output_index\":0,\"item\":{\"type\":\"function_call\",\"id\":\"fc_stream_1\",\"call_id\":\"call_tokyo\",\"name\":\"get_weather\",\"arguments\":\"\"}}",
+      "id": null
+    },
+    {
+      "event": null,
+      "data": "{\"type\":\"response.function_call_arguments.delta\",\"output_index\":0,\"delta\":\"{\\\"city\\\":\"}",
+      "id": null
+    },
+    {
+      "event": null,
+      "data": "{\"type\":\"response.function_call_arguments.delta\",\"output_index\":0,\"delta\":\"\\\"Tokyo\\\"}\"}",
+      "id": null
+    },
+    {
+      "event": null,
+      "data": "{\"type\":\"response.output_item.added\",\"output_index\":1,\"item\":{\"type\":\"function_call\",\"id\":\"fc_stream_2\",\"call_id\":\"call_osaka\",\"name\":\"get_weather\",\"arguments\":\"\"}}",
+      "id": null
+    },
+    {
+      "event": null,
+      "data": "{\"type\":\"response.function_call_arguments.delta\",\"output_index\":1,\"delta\":\"{\\\"city\\\":\\\"Osaka\\\"}\"}",
+      "id": null
+    },
+    {
+      "event": null,
+      "data": "{\"type\":\"response.completed\",\"response\":{\"id\":\"resp-stream-1\",\"status\":\"completed\",\"usage\":{\"input_tokens\":120,\"output_tokens\":30,\"total_tokens\":150,\"input_tokens_details\":{\"cached_tokens\":40},\"output_tokens_details\":{\"reasoning_tokens\":12}}}}",
+      "id": null
+    },
+    {
+      "event": null,
+      "data": "[DONE]",
+      "id": null
+    }
+  ]
+}
